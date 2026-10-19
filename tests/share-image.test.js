@@ -37,7 +37,7 @@ test('Save As writes the exact PNG to the selected Unicode path before confirmin
     assert.equal(result.success, true);
     assert.equal(result.filePath, filePath);
     assert.deepEqual(fs.readFileSync(filePath), png);
-    assert.equal(state.dialogs[0].title, '另存为 ResearchFlow 图片');
+    assert.equal(state.dialogs[0].title, '另存为 Zotero PaperFlow 图片');
     assert.equal(state.dialogs[0].picker.defaultExtension, 'png');
   } finally { fs.rmSync(directory, { recursive: true }); }
 });

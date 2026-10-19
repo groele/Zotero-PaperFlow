@@ -1,20 +1,20 @@
-# ResearchFlow for Zotero
+# Zotero PaperFlow
 
-**科研工作流：从手稿规划到投稿、审稿与发表。**
+**面向科研论文全生命周期的智能投稿与审稿管理工作台。**
 
-**A research workspace for manuscript planning, submission, peer review, and publication.**
+**From Manuscript to Publication.**
 
-[![Version](https://img.shields.io/badge/version-10.0.4-10b981.svg)](https://github.com/groele/ResearchFlow-Zotero/releases/tag/v10.0.4)
-[![Zotero](https://img.shields.io/badge/Zotero-7%2B%20%7C%2010-2563eb.svg)](https://github.com/groele/ResearchFlow-Zotero/releases/latest)
+[![Version](https://img.shields.io/badge/version-11.0.0-10b981.svg)](https://github.com/groele/Zotero-PaperFlow/releases/tag/v11.0.0)
+[![Zotero](https://img.shields.io/badge/Zotero-7%2B%20%7C%2010-2563eb.svg)](https://github.com/groele/Zotero-PaperFlow/releases/latest)
 [![Languages](https://img.shields.io/badge/UI-简体中文%20%7C%20English-6366f1.svg)](#settings)
 
-ResearchFlow 将手稿看板、投稿记录、审稿意见、科研时间线与 Zotero 文献条目连接在一起。数据优先保存在本机，可按需配置 WebDAV 或 GitHub 同步。
+Zotero PaperFlow 将手稿看板、投稿记录、审稿意见、科研时间线与 Zotero 文献条目连接在一起。数据优先保存在本机，可按需配置 WebDAV 或 GitHub 同步。
 
-ResearchFlow connects manuscript boards, submission records, reviewer comments, research timelines, and Zotero items. Data is saved locally first, with optional WebDAV or GitHub synchronization.
+Zotero PaperFlow connects manuscript boards, submission records, reviewer comments, research timelines, and Zotero items. Data is saved locally first, with optional WebDAV or GitHub synchronization.
 
-**当前版本 / Current version:** `10.0.4` · **插件 ID / Add-on ID:** `researchflow@groele.org`
+**当前版本 / Current version:** `11.0.0` · **插件 ID / Add-on ID:** `zotero-paperflow@groele.org`
 
-[下载最新版本 / Download the latest release](https://github.com/groele/ResearchFlow-Zotero/releases/latest) · [V10.0.4 安装包 / Installer](https://github.com/groele/ResearchFlow-Zotero/releases/download/v10.0.4/researchflow-zotero-10.0.4.xpi) · [报告问题 / Report an issue](https://github.com/groele/ResearchFlow-Zotero/issues)
+[下载最新版本 / Download the latest release](https://github.com/groele/Zotero-PaperFlow/releases/latest) · [V11.0.0 安装包 / Installer](https://github.com/groele/Zotero-PaperFlow/releases/download/v11.0.0/zotero-paperflow-11.0.0.xpi) · [报告问题 / Report an issue](https://github.com/groele/Zotero-PaperFlow/issues)
 
 ## 目录 / Contents
 
@@ -38,9 +38,9 @@ ResearchFlow connects manuscript boards, submission records, reviewer comments, 
 <a id="overview"></a>
 ## 1. 项目定位与兼容性 / Overview and compatibility
 
-ResearchFlow 用于管理研究进展与论文处理过程：记录手稿当前阶段、每次投稿、审稿反馈、回复内容和关键日期，并将这些记录与 Zotero 文献库关联。它不替代 Zotero 的文献库管理、PDF 阅读或文字处理软件中的引文功能。
+Zotero PaperFlow 用于管理研究进展与论文处理过程：记录手稿当前阶段、每次投稿、审稿反馈、回复内容和关键日期，并将这些记录与 Zotero 文献库关联。它不替代 Zotero 的文献库管理、PDF 阅读或文字处理软件中的引文功能。
 
-ResearchFlow tracks research progress and the manuscript lifecycle: manuscript stages, individual submissions, reviewer feedback, responses, and key dates, linked to the Zotero library. Zotero continues to manage references, PDF reading, and citations in word processors.
+Zotero PaperFlow tracks research progress and the manuscript lifecycle: manuscript stages, individual submissions, reviewer feedback, responses, and key dates, linked to the Zotero library. Zotero continues to manage references, PDF reading, and citations in word processors.
 
 - **目标环境：** Zotero 桌面端，面向 Zotero 7+ 与 Zotero 10；不是浏览器扩展，也不安装到 Zotero Connector。
 - **Target environment:** Zotero Desktop, targeting Zotero 7+ and Zotero 10. Install it in Zotero, rather than in the browser or Zotero Connector.
@@ -56,19 +56,19 @@ ResearchFlow tracks research progress and the manuscript lifecycle: manuscript s
 
 **中文**
 
-1. 从 [GitHub Releases](https://github.com/groele/ResearchFlow-Zotero/releases/latest) 下载最新的 `.xpi` 安装包。当前文件名为 `researchflow-zotero-10.0.4.xpi`。
+1. 从 [GitHub Releases](https://github.com/groele/Zotero-PaperFlow/releases/latest) 下载最新的 `.xpi` 安装包。当前文件名为 `zotero-paperflow-11.0.0.xpi`。
 2. 打开 Zotero，进入 **工具 → 插件**。不同 Zotero 版本可能显示为“附加组件”。
 3. 点击齿轮菜单，选择 **从文件安装附加组件…**。
 4. 选择下载的 XPI，按提示确认安装。
-5. 如提示需要重启，重启 Zotero；随后使用工具栏 ResearchFlow 图标或“工具”菜单打开工作区。
+5. 如提示需要重启，重启 Zotero；随后使用工具栏 Zotero PaperFlow 图标或“工具”菜单打开工作区。
 
 **English**
 
-1. Download the latest `.xpi` from [GitHub Releases](https://github.com/groele/ResearchFlow-Zotero/releases/latest). The current file is `researchflow-zotero-10.0.4.xpi`.
+1. Download the latest `.xpi` from [GitHub Releases](https://github.com/groele/Zotero-PaperFlow/releases/latest). The current file is `zotero-paperflow-11.0.0.xpi`.
 2. In Zotero, open **Tools → Plugins**. Some versions use “Add-ons.”
 3. Open the gear menu and select **Install Add-on From File…**.
 4. Choose the XPI and confirm installation.
-5. Restart Zotero if prompted, then open ResearchFlow through its toolbar icon or the Tools menu.
+5. Restart Zotero if prompted, then open Zotero PaperFlow through its toolbar icon or the Tools menu.
 
 Zotero 也支持在插件管理窗口中拖入 XPI；安装方式见 [Zotero 官方插件说明](https://www.zotero.org/support/plugins)。
 
@@ -76,9 +76,9 @@ Zotero also supports dragging an XPI into the plugin manager; see the [official 
 
 ### 升级 / Upgrades
 
-升级前，建议通过 ResearchFlow 设置导出一份 JSON 备份。安装新版 XPI 可更新现有插件；无需先删除手稿数据。自动更新清单位于仓库根目录的 `update.json`。
+升级前，建议通过 Zotero PaperFlow 设置导出一份 JSON 备份。安装新版 XPI 可更新现有插件；无需先删除手稿数据。自动更新清单位于仓库根目录的 `update.json`。
 
-Before upgrading, export a JSON backup through ResearchFlow settings. Installing a newer XPI updates the add-on without requiring manuscript data to be deleted. The automatic update manifest is the repository-root `update.json`.
+Before upgrading, export a JSON backup through Zotero PaperFlow settings. Installing a newer XPI updates the add-on without requiring manuscript data to be deleted. The automatic update manifest is the repository-root `update.json`.
 
 如果旧版无法自动更新，先手动安装最新 XPI，再重启 Zotero。插件代码更新与数据备份是两件不同的事；保留 XPI 并不能替代备份个人记录。
 
@@ -89,7 +89,7 @@ If an older version cannot update automatically, install the latest XPI manually
 
 **中文**
 
-1. 点击 ResearchFlow 工具栏图标，进入工作区。
+1. 点击 Zotero PaperFlow 工具栏图标，进入工作区。
 2. 在设置中选择语言、主题和默认窗口模式。
 3. 在“手稿看板”中新建手稿，或在 Zotero 条目侧边栏中创建并关联手稿（右键菜单快捷项默认隐藏，可在偏好设置中开启）。
 4. 补充标题、作者、研究阶段等信息。
@@ -98,7 +98,7 @@ If an older version cannot update automatically, install the latest XPI manually
 
 **English**
 
-1. Click the ResearchFlow toolbar icon to open the workspace.
+1. Click the Zotero PaperFlow toolbar icon to open the workspace.
 2. Choose a language, theme, and default window mode in settings.
 3. Create a manuscript in the manuscript board, or create and link one from the Zotero item pane (context menu shortcuts are disabled by default and can be enabled in preferences).
 4. Complete its title, authors, research stage, and other details.
@@ -175,22 +175,22 @@ If a text export does not produce a file in your Zotero environment, copy the pr
 
 | 入口 / Entry point | 中文说明 | English |
 | --- | --- | --- |
-| 主工具栏 / Main toolbar | 点击 ResearchFlow 图标打开工作区。 | Click the ResearchFlow icon to open the workspace. |
+| 主工具栏 / Main toolbar | 点击 Zotero PaperFlow 图标打开工作区。 | Click the Zotero PaperFlow icon to open the workspace. |
 | 工具菜单 / Tools menu | 打开工作区或插件偏好设置。 | Open the workspace or add-on preferences. |
 | 条目右键菜单 / Item context menu | 可选快捷入口：根据选中文献创建手稿或关联已有手稿（默认关闭，可在偏好设置中按需开启）。 | Optional shortcuts: Create a manuscript from a selected item or link it to an existing manuscript (disabled by default, configurable in preferences). |
 | PDF 阅读器 / PDF reader | 将可用的选中文本、页码与来源链接捕获到关联记录。 | Capture available selected text, page information, and source links into linked records. |
 | 条目侧栏 / Item pane | 查看关联手稿信息，打开记录、同步笔记或使用相关文献操作。 | Inspect linked manuscript information, open records, synchronize notes, and access related item actions. |
 | 引文辅助 / Citation helpers | 使用 APA / BibTeX 等内容辅助写作，投稿前核对输出格式。 | Use APA / BibTeX helpers and check the output against journal requirements. |
 
-### ResearchFlow 数据与 Zotero 笔记 / ResearchFlow data and Zotero notes
+### Zotero PaperFlow 数据与 Zotero 笔记 / Zotero PaperFlow data and Zotero notes
 
-“同步笔记”将手稿状态、时间线和审稿回复等摘要写入关联条目的 ResearchFlow 子笔记。更新同步笔记会更新插件维护的笔记内容；不要把这类自动生成笔记当作独立手写稿保存。
+“同步笔记”将手稿状态、时间线和审稿回复等摘要写入关联条目的 Zotero PaperFlow 子笔记。更新同步笔记会更新插件维护的笔记内容；不要把这类自动生成笔记当作独立手写稿保存。
 
-Note synchronization writes summaries of manuscript status, timelines, and reviewer responses into ResearchFlow child notes attached to linked Zotero items. Updating a synchronized note refreshes its managed content; keep independent writing in separate notes.
+Note synchronization writes summaries of manuscript status, timelines, and reviewer responses into Zotero PaperFlow child notes attached to linked Zotero items. Updating a synchronized note refreshes its managed content; keep independent writing in separate notes.
 
-在 Zotero 笔记中修改文字，不会反向修改 ResearchFlow 数据库。Zotero 自身的同步可以同步这些笔记，但不会自动同步整个 ResearchFlow JSON 数据库；完整工作区数据需使用插件的云同步或 JSON 备份。
+在 Zotero 笔记中修改文字，不会反向修改 Zotero PaperFlow 数据库。Zotero 自身的同步可以同步这些笔记，但不会自动同步整个 Zotero PaperFlow JSON 数据库；完整工作区数据需使用插件的云同步或 JSON 备份。
 
-Editing a Zotero note does not update the ResearchFlow database. Zotero's own synchronization can synchronize these notes, but it does not synchronize the complete ResearchFlow JSON database. Use the add-on's cloud synchronization or JSON backups for workspace data.
+Editing a Zotero note does not update the Zotero PaperFlow database. Zotero's own synchronization can synchronize these notes, but it does not synchronize the complete Zotero PaperFlow JSON database. Use the add-on's cloud synchronization or JSON backups for workspace data.
 
 <a id="share-studio"></a>
 ## 7. 分享图与图片保存 / Share Studio and image saving
@@ -245,9 +245,9 @@ Copy Image depends on image clipboard support in the Zotero environment. The but
 
 ### 数据文件 / Data files
 
-插件文件位于 **Zotero 当前数据目录**下。ResearchFlow 偏好设置显示数据库的实际完整路径；若更改过 Zotero 数据目录，文件位置也随之变化。查看数据目录的方法见 [Zotero 官方数据目录说明](https://www.zotero.org/support/zotero_data)。
+插件文件位于 **Zotero 当前数据目录**下。Zotero PaperFlow 偏好设置显示数据库的实际完整路径；若更改过 Zotero 数据目录，文件位置也随之变化。查看数据目录的方法见 [Zotero 官方数据目录说明](https://www.zotero.org/support/zotero_data)。
 
-The add-on stores files in the **current Zotero data directory**. ResearchFlow preferences show the database's full path. A custom Zotero data directory changes this location; see [Zotero's data directory documentation](https://www.zotero.org/support/zotero_data).
+The add-on stores files in the **current Zotero data directory**. Zotero PaperFlow preferences show the database's full path. A custom Zotero data directory changes this location; see [Zotero's data directory documentation](https://www.zotero.org/support/zotero_data).
 
 | 文件 / File | 中文用途 | English purpose |
 | --- | --- | --- |
@@ -255,9 +255,9 @@ The add-on stores files in the **current Zotero data directory**. ResearchFlow p
 | `researchflow-ui-state.json` | 工作区界面状态与偏好。 | Workspace interface state and preferences. |
 | `researchflow-pre-import-backup.json` | 导入前的数据快照，用于恢复。 | A pre-import snapshot used for recovery. |
 
-导出 JSON 备份，并保留带日期的多个副本。ResearchFlow JSON 不包含完整 Zotero 文献库和 PDF 附件；文献库本身需要另行备份。
+导出 JSON 备份，并保留带日期的多个副本。Zotero PaperFlow JSON 不包含完整 Zotero 文献库和 PDF 附件；文献库本身需要另行备份。
 
-Export JSON backups and retain multiple dated copies. A ResearchFlow JSON backup does not contain the complete Zotero library or PDF attachments; back up the library separately.
+Export JSON backups and retain multiple dated copies. A Zotero PaperFlow JSON backup does not contain the complete Zotero library or PDF attachments; back up the library separately.
 
 ### 导入模式与恢复 / Import modes and recovery
 
@@ -325,9 +325,9 @@ Local storage is the default. Cloud synchronization requires selecting a provide
 4. The add-on reads and writes `researchflow_db.json` in that repository.
 5. Test the connection and synchronize manually before relying on automatic synchronization.
 
-个人同步仓库与本项目的公开代码仓库 `groele/ResearchFlow-Zotero` 用途不同。令牌的配置与管理可参考 [GitHub 官方访问令牌说明](https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/managing-your-personal-access-tokens)。
+个人同步仓库与本项目的公开代码仓库 `groele/Zotero-PaperFlow` 用途不同。令牌的配置与管理可参考 [GitHub 官方访问令牌说明](https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/managing-your-personal-access-tokens)。
 
-Use a personal data repository separately from the public software repository `groele/ResearchFlow-Zotero`. See [GitHub's access token documentation](https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/managing-your-personal-access-tokens) for token management.
+Use a personal data repository separately from the public software repository `groele/Zotero-PaperFlow`. See [GitHub's access token documentation](https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/managing-your-personal-access-tokens) for token management.
 
 ### 多设备使用 / Multiple devices
 
@@ -382,12 +382,12 @@ The code includes macOS modifier mappings (`⌘ + Option + R`, `⌘ + Shift + R`
 | 首次打开出现已有记录 / Existing records at first launch | 无本地数据库时会使用预置数据，按实际项目整理。 | Bundled data initializes a missing database; organize it for your projects. |
 | 云同步失败 / Cloud synchronization fails | 检查 URL、仓库、分支、权限与凭据；先测试连接，再手动同步。 | Check the URL, repository, branch, permissions, and credentials; test and synchronize manually. |
 | 导入后数据不符合预期 / Unexpected imported data | 使用导入前快照或独立备份恢复；再次导入前确认合并与覆盖模式。 | Restore a pre-import snapshot or a separate backup; check merge versus overwrite mode before importing again. |
-| JSON 备份没有 PDF / No PDFs in JSON backup | ResearchFlow JSON 只备份工作区数据；另行备份 Zotero 文献库与附件。 | ResearchFlow JSON backs up workspace data; back up the Zotero library and attachments separately. |
-| 改了 Zotero 笔记但工作区未改变 / Note edits do not change workspace | 笔记同步从 ResearchFlow 写入 Zotero，不反向更新数据库。 | Note synchronization writes from ResearchFlow to Zotero and does not update the database in reverse. |
+| JSON 备份没有 PDF / No PDFs in JSON backup | Zotero PaperFlow JSON 只备份工作区数据；另行备份 Zotero 文献库与附件。 | Zotero PaperFlow JSON backs up workspace data; back up the Zotero library and attachments separately. |
+| 改了 Zotero 笔记但工作区未改变 / Note edits do not change workspace | 笔记同步从 Zotero PaperFlow 写入 Zotero，不反向更新数据库。 | Note synchronization writes from Zotero PaperFlow to Zotero and does not update the database in reverse. |
 
-提交问题时，请提供：ResearchFlow 版本、Zotero 版本、操作系统、复现步骤、预期与实际结果、完整错误信息；必要时附截图或诊断信息。公开前检查是否包含个人数据、令牌或密码。
+提交问题时，请提供：Zotero PaperFlow 版本、Zotero 版本、操作系统、复现步骤、预期与实际结果、完整错误信息；必要时附截图或诊断信息。公开前检查是否包含个人数据、令牌或密码。
 
-When reporting an issue, include the ResearchFlow version, Zotero version, operating system, reproduction steps, expected and actual behavior, and full errors. Add screenshots or diagnostics when useful, after checking for personal data, tokens, and passwords.
+When reporting an issue, include the Zotero PaperFlow version, Zotero version, operating system, reproduction steps, expected and actual behavior, and full errors. Add screenshots or diagnostics when useful, after checking for personal data, tokens, and passwords.
 
 <a id="development"></a>
 ## 13. 开发、测试与打包 / Development, testing, and packaging
@@ -403,8 +403,8 @@ Development requires Git, Node.js, and Python 3. The add-on uses JavaScript, HTM
 Use the following commands in PowerShell; run checks from the repository root.
 
 ```powershell
-git clone https://github.com/groele/ResearchFlow-Zotero.git
-Set-Location ResearchFlow-Zotero
+git clone https://github.com/groele/Zotero-PaperFlow.git
+Set-Location Zotero-PaperFlow
 
 node --test tests/share-image.test.js
 node --check bootstrap.js
@@ -434,7 +434,7 @@ For interface or host changes, test the actual workflow in an isolated Zotero pr
 ## 14. 项目结构 / Project structure
 
 ```text
-ResearchFlow-Zotero/
+Zotero-PaperFlow/
 ├── bootstrap.js                       # Zotero lifecycle / Zotero 生命周期
 ├── chrome.manifest                    # Gecko resource mapping / 资源映射
 ├── manifest.json                      # Add-on metadata / 插件元数据
@@ -460,7 +460,8 @@ ResearchFlow-Zotero/
 ├── RELEASE_NOTES_v10.0.2.md            # Sidebar icon notes / 侧边栏图标说明
 ├── RELEASE_NOTES_v10.0.3.md            # Context menu notes / 右键菜单优化说明
 ├── RELEASE_NOTES_v10.0.4.md            # Plugin Market fix / 插件市场修复说明
-├── researchflow-zotero-10.0.4.xpi      # Current installer / 当前安装包
+├── RELEASE_NOTES_v11.0.0.md            # V11 major brand rebirth / V11 品牌重构发布说明
+├── zotero-paperflow-11.0.0.xpi         # Current installer / 当前安装包
 └── README.md                          # Bilingual guide / 双语说明
 ```
 
@@ -473,20 +474,21 @@ Historical installers may remain in the repository; use assets from the latest R
 
 | 版本 / Version | 中文变更 | English changes |
 | --- | --- | --- |
-| [10.0.4](https://github.com/groele/ResearchFlow-Zotero/releases/tag/v10.0.4) | 将工具栏图标限制在 Zotero 主文献窗口，移除“插件市场”窗口中误插入的图标。 | Restrict the toolbar icon to the Zotero library window and remove unintended placement in Plugin Market. |
-| [10.0.3](https://github.com/groele/ResearchFlow-Zotero/releases/tag/v10.0.3) | 默认隐藏文献条目右键菜单以避免菜单冗长，解决 Zotero 7+ 中空白无字图标的渲染异常，提供偏好设置切换项并自动清理残留节点。 | Hide item context menu shortcuts by default to keep menus tidy, resolve blank icon rendering glitches in Zotero 7+, add a preference toggle, and purge legacy DOM nodes. |
-| [10.0.2](https://github.com/groele/ResearchFlow-Zotero/releases/tag/v10.0.2) | 文献条目侧边栏入口改为仅显示图标；完整标题保留在内容区，图标悬停仍显示提示。 | Make the item-pane navigation icon-only while retaining the full section title and hover tooltip. |
-| [10.0.1](https://github.com/groele/ResearchFlow-Zotero/releases/tag/v10.0.1) | 统一 Zotero 主工具栏图标尺寸、按钮尺寸与垂直对齐。 | Align the main toolbar icon's size, button dimensions, and vertical position with native controls. |
-| [10.0.0](https://github.com/groele/ResearchFlow-Zotero/releases/tag/v10.0.0) | 移除系统分享按钮；PNG 使用原生另存为，成功后显示完整路径，处理取消与错误。 | Remove system sharing; use native Save As for PNGs, show the full path after success, and handle cancellation and errors. |
+| [11.0.0](https://github.com/groele/Zotero-PaperFlow/releases/tag/v11.0.0) | 重大版本里程碑：品牌全面重构为 Zotero PaperFlow（新标语、中文定位与三柱递进图标系统）；轻量化“工具”菜单（移除重复的偏好设置项，由工作台内聚管理）；插件 ID 升级为 `zotero-paperflow@groele.org` 并保持平滑升级兼容。 | Milestone release: major brand rebirth as Zotero PaperFlow (new slogan, Chinese positioning & three-pillar progression icon system); streamlined Tools menu by removing redundant Preferences entry; updated plugin ID to `zotero-paperflow@groele.org` with seamless upgrade compatibility. |
+| [10.0.4](https://github.com/groele/Zotero-PaperFlow/releases/tag/v10.0.4) | 将工具栏图标限制在 Zotero 主文献窗口，移除“插件市场”窗口中误插入的图标。 | Restrict the toolbar icon to the Zotero library window and remove unintended placement in Plugin Market. |
+| [10.0.3](https://github.com/groele/Zotero-PaperFlow/releases/tag/v10.0.3) | 默认隐藏文献条目右键菜单以避免菜单冗长，解决 Zotero 7+ 中空白无字图标的渲染异常，提供偏好设置切换项并自动清理残留节点。 | Hide item context menu shortcuts by default to keep menus tidy, resolve blank icon rendering glitches in Zotero 7+, add a preference toggle, and purge legacy DOM nodes. |
+| [10.0.2](https://github.com/groele/Zotero-PaperFlow/releases/tag/v10.0.2) | 文献条目侧边栏入口改为仅显示图标；完整标题保留在内容区，图标悬停仍显示提示。 | Make the item-pane navigation icon-only while retaining the full section title and hover tooltip. |
+| [10.0.1](https://github.com/groele/Zotero-PaperFlow/releases/tag/v10.0.1) | 统一 Zotero 主工具栏图标尺寸、按钮尺寸与垂直对齐。 | Align the main toolbar icon's size, button dimensions, and vertical position with native controls. |
+| [10.0.0](https://github.com/groele/Zotero-PaperFlow/releases/tag/v10.0.0) | 移除系统分享按钮；PNG 使用原生另存为，成功后显示完整路径，处理取消与错误。 | Remove system sharing; use native Save As for PNGs, show the full path after success, and handle cancellation and errors. |
 | 9.1.6 | 此仓库的早期版本基线。 | Earlier version baseline in this repository. |
 
-详细说明见 [V10.0.0 发布说明](RELEASE_NOTES_v10.0.0.md)、[V10.0.1 发布说明](RELEASE_NOTES_v10.0.1.md)、[V10.0.2 发布说明](RELEASE_NOTES_v10.0.2.md)、[V10.0.3 发布说明](RELEASE_NOTES_v10.0.3.md) 和 [V10.0.4 发布说明](RELEASE_NOTES_v10.0.4.md)。
+详细说明见 [V10.0.0 发布说明](RELEASE_NOTES_v10.0.0.md)、[V10.0.1 发布说明](RELEASE_NOTES_v10.0.1.md)、[V10.0.2 发布说明](RELEASE_NOTES_v10.0.2.md)、[V10.0.3 发布说明](RELEASE_NOTES_v10.0.3.md)、[V10.0.4 发布说明](RELEASE_NOTES_v10.0.4.md) 和 [V11.0.0 发布说明](RELEASE_NOTES_v11.0.0.md)。
 
-See the [V10.0.0 release notes](RELEASE_NOTES_v10.0.0.md), [V10.0.1 release notes](RELEASE_NOTES_v10.0.1.md), [V10.0.2 release notes](RELEASE_NOTES_v10.0.2.md), [V10.0.3 release notes](RELEASE_NOTES_v10.0.3.md), and [V10.0.4 release notes](RELEASE_NOTES_v10.0.4.md).
+See the [V10.0.0 release notes](RELEASE_NOTES_v10.0.0.md), [V10.0.1 release notes](RELEASE_NOTES_v10.0.1.md), [V10.0.2 release notes](RELEASE_NOTES_v10.0.2.md), [V10.0.3 release notes](RELEASE_NOTES_v10.0.3.md), [V10.0.4 release notes](RELEASE_NOTES_v10.0.4.md), and [V11.0.0 release notes](RELEASE_NOTES_v11.0.0.md).
 
 ### 工具栏效果 / Toolbar appearance
 
-![ResearchFlow V10.0.1 toolbar aligned with Zotero native icons / ResearchFlow 工具栏图标与 Zotero 原生图标对齐](docs/images/toolbar-v10.0.1.png)
+![Zotero PaperFlow V10.0.1 toolbar aligned with Zotero native icons / Zotero PaperFlow 工具栏图标与 Zotero 原生图标对齐](docs/images/toolbar-v10.0.1.png)
 
 上图来自隔离 Zotero 测试配置。10.0.1 已核对原生工具栏与插件的 20 × 20 图标、28 × 28 按钮及垂直中心位置。
 
@@ -504,9 +506,9 @@ The screenshot comes from an isolated Zotero test profile. Version 10.0.1 was ch
 <a id="contributing"></a>
 ## 16. 反馈、贡献与许可说明 / Feedback, contributions, and licensing
 
-欢迎通过 [GitHub Issues](https://github.com/groele/ResearchFlow-Zotero/issues) 报告问题或提出建议。提交代码时，请说明解决的问题、最终行为与验证方式，并保持变更范围清晰；界面变更应同时考虑中文与英文。
+欢迎通过 [GitHub Issues](https://github.com/groele/Zotero-PaperFlow/issues) 报告问题或提出建议。提交代码时，请说明解决的问题、最终行为与验证方式，并保持变更范围清晰；界面变更应同时考虑中文与英文。
 
-Report problems and suggestions through [GitHub Issues](https://github.com/groele/ResearchFlow-Zotero/issues). For code contributions, describe the problem, resulting behavior, and validation, and keep the change focused. Consider both Chinese and English for interface changes.
+Report problems and suggestions through [GitHub Issues](https://github.com/groele/Zotero-PaperFlow/issues). For code contributions, describe the problem, resulting behavior, and validation, and keep the change focused. Consider both Chinese and English for interface changes.
 
 公开提交前检查变更内容，避免加入个人数据库、真实审稿内容、密码、访问令牌或本机私有路径。
 

@@ -8,7 +8,7 @@ manifest = json.loads((ROOT / 'manifest.json').read_text(encoding='utf-8'))
 version = manifest['version']
 addon_id = manifest['applications']['zotero']['id']
 update = json.loads((ROOT / 'update.json').read_text(encoding='utf-8'))['addons'][addon_id]['updates'][0]
-name = f'researchflow-zotero-{version}.xpi'
+name = f'zotero-paperflow-{version}.xpi'
 assert update['version'] == version
 assert update['update_link'].endswith(f'/v{version}/{name}')
 for section in ('applications', 'browser_specific_settings'):

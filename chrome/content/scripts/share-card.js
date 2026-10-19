@@ -89,7 +89,7 @@
         blocks.push({kind: 'text', role, text: value, x: center - width / 2, y: top, width, height: Math.ceil(size * 1.4), font, color});
       };
       const wordmarkY = 86 + 36 * brand.scale + 10;
-      brandText('brand-wordmark', 'ResearchFlow', wordmarkY, brand.name, 600, palette.ink);
+      brandText('brand-wordmark', 'Zotero PaperFlow', wordmarkY, brand.name, 600, palette.ink);
       brandText('brand-motto', zh ? '探索 · 求证 · 记录' : 'Explore · Verify · Record', wordmarkY + Math.ceil(brand.name * 1.4) + 5, zh ? brand.motto : brand.motto - .5, 400, palette.muted);
     }
     const allEvents = Array.isArray(model.events) ? model.events : [];
@@ -206,7 +206,7 @@
     // Very short stories use deliberate whitespace below the timeline, never stretched rows.
     if (v.footer) {
       rule(height - 84);
-      text('footer-brand', 'RESEARCHFLOW', left, height - 61, 260, 13, 700, palette.ink);
+      text('footer-brand', 'ZOTERO PAPERFLOW', left, height - 61, 260, 13, 700, palette.ink);
       text('footer-note', zh ? '每一步，都值得记录。' : 'Every step is worth recording.', 355, height - 61, 317, 13, 400, palette.muted);
     }
     return { width, height, palette, appearance: v.appearance, blocks, headerBottom, timelineStart, timelineBottom, omitted, eventCount: events.length };

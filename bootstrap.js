@@ -1,5 +1,5 @@
 /**
- * ResearchFlow for Zotero - Bootstrap Entry
+ * Zotero PaperFlow - Bootstrap Entry
  * Supports Zotero 7+ & Zotero 10 (Gecko 102/115/128+ bootstrap architecture)
  */
 
@@ -135,12 +135,12 @@ async function startup({ id, version, resourceURI, rootURI }, reason) {
 
     Services.scriptloader.loadSubScript(`${rootURI}chrome/content/scripts/index.js`, ctx);
   } catch (error) {
-    Zotero?.logError?.('Failed to startup ResearchFlow addon: ' + error);
+    Zotero?.logError?.('Failed to startup Zotero PaperFlow addon: ' + error);
     if (generation === startupGeneration && chromeHandle) {
       try {
         chromeHandle.destruct();
       } catch (cleanupError) {
-        Zotero?.logError?.('Failed to release ResearchFlow chrome handle: ' + cleanupError);
+        Zotero?.logError?.('Failed to release Zotero PaperFlow chrome handle: ' + cleanupError);
       } finally {
         chromeHandle = null;
       }
@@ -165,13 +165,13 @@ async function shutdown({ id, version, resourceURI, rootURI }, reason) {
     }
     await Zotero?.ResearchFlow?.shutdown?.();
   } catch (error) {
-    Zotero?.logError?.('Error during ResearchFlow shutdown: ' + error);
+    Zotero?.logError?.('Error during Zotero PaperFlow shutdown: ' + error);
   }
   if (chromeHandle) {
     try {
       chromeHandle.destruct();
     } catch (error) {
-      Zotero?.logError?.('Failed to release ResearchFlow chrome: ' + error);
+      Zotero?.logError?.('Failed to release Zotero PaperFlow chrome: ' + error);
     } finally {
       chromeHandle = null;
     }

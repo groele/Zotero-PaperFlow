@@ -19,7 +19,7 @@
   const Ci = typeof Components !== 'undefined' ? Components.interfaces : null;
   const Cu = typeof Components !== 'undefined' ? Components.utils : null;
 
-  const ADDON_ID = 'researchflow@groele.org';
+  const ADDON_ID = (typeof addonId !== 'undefined' && addonId) ? addonId : 'zotero-paperflow@groele.org';
   const CHROME_ROOT = 'chrome://researchflow/content/';
   const PREF_PREFIX = 'extensions.researchflow.';
 
@@ -731,6 +731,7 @@
 
     purgeStaleContextMenus(targetWindow) {
       const staleMenuIds = [
+        'researchflow-tools-preferences',
         'researchflow-itemmenu-separator',
         'researchflow-itemmenu-create',
         'researchflow-itemmenu-link',
@@ -936,7 +937,7 @@
         const fp = new FilePicker();
         const win = window || Zotero.getMainWindow?.() || Services.wm?.getMostRecentWindow('navigator:browser');
         if (!win?.browsingContext) throw new Error('Zotero window is unavailable.');
-        fp.init(win, language === 'zh' ? '另存为 ResearchFlow 图片' : 'Save ResearchFlow image as', fp.modeSave);
+        fp.init(win, language === 'zh' ? '另存为 Zotero PaperFlow 图片' : 'Save Zotero PaperFlow image as', fp.modeSave);
         fp.defaultExtension = 'png';
         fp.appendFilter('PNG (*.png)', '*.png');
         const safeName = String(fileName || 'researchflow-journey.png').replace(/[<>:"/\\|?*\x00-\x1f]/g, '-').slice(0, 140).replace(/[. ]+$/g, '');
@@ -1283,7 +1284,7 @@
       if (toolsPopup) {
         const toolsItem = this.createXULElement(doc, 'menuitem');
         toolsItem.id = 'researchflow-tools-menu';
-        toolsItem.setAttribute('label', 'ResearchFlow 科研工作台');
+        toolsItem.setAttribute('label', 'Zotero PaperFlow 工作台');
         toolsItem.setAttribute('image', `${CHROME_ROOT}icons/researchflow.svg`);
         toolsItem.setAttribute('class', 'menuitem-iconic');
         toolsItem.addEventListener('command', () => {
@@ -1291,17 +1292,6 @@
         });
         toolsPopup.appendChild(toolsItem);
         windowElements.push(toolsItem);
-
-        const prefItem = this.createXULElement(doc, 'menuitem');
-        prefItem.id = 'researchflow-tools-preferences';
-        prefItem.setAttribute('label', 'ResearchFlow 偏好设置...');
-        prefItem.setAttribute('image', `${CHROME_ROOT}icons/researchflow.svg`);
-        prefItem.setAttribute('class', 'menuitem-iconic');
-        prefItem.addEventListener('command', () => {
-          this.openPreferencesPane(window);
-        });
-        toolsPopup.appendChild(prefItem);
-        windowElements.push(prefItem);
       }
 
       // 2. Inject Tab & Toolbar Icon Style
@@ -1350,7 +1340,6 @@
             }
 
             menuitem#researchflow-tools-menu .menu-iconic-icon,
-            menuitem#researchflow-tools-preferences .menu-iconic-icon,
             menuitem#researchflow-itemmenu-create .menu-iconic-icon,
             menuitem#researchflow-itemmenu-link .menu-iconic-icon,
             menuitem#researchflow-collectionmenu-create .menu-iconic-icon {
@@ -1659,7 +1648,8 @@
 
       const isResearchFlowButton = (b) =>
         b.id === 'researchflow-toolbar-button' ||
-        (b.getAttribute('label') === 'ResearchFlow' && String(b.getAttribute('image') || '').includes('researchflow.svg'));
+        ((b.getAttribute('label') === 'Zotero PaperFlow' || b.getAttribute('label') === 'ResearchFlow') &&
+          String(b.getAttribute('image') || '').includes('researchflow.svg'));
 
       const existing = Array.from(doc.querySelectorAll('toolbarbutton')).filter(isResearchFlowButton);
       let btn = existing[0] || null;
@@ -1672,7 +1662,7 @@
       if (!btn) {
         btn = this.createXULElement(doc, 'toolbarbutton');
         btn.id = 'researchflow-toolbar-button';
-        btn.setAttribute('tooltiptext', '打开 ResearchFlow 科研全流程工作台 (Ctrl+Alt+R)');
+        btn.setAttribute('tooltiptext', '打开 Zotero PaperFlow 工作台 (Ctrl+Alt+R)');
         btn.setAttribute('image', `${CHROME_ROOT}icons/researchflow.svg`);
         btn.setAttribute('class', 'zotero-tb-button toolbarbutton-1 chromeclass-toolbar-additional');
         btn.setAttribute(
@@ -1690,7 +1680,7 @@
 
       // XUL toolbars may display a clipped label beside the icon.
       btn.setAttribute('label', '');
-      btn.setAttribute('aria-label', 'ResearchFlow');
+      btn.setAttribute('aria-label', 'Zotero PaperFlow');
 
       const constrainIcon = () => {
         try {
@@ -1980,7 +1970,7 @@
           const tabs = mainWin.Zotero_Tabs;
           // Check if tab already exists
           const existingTab = tabs._tabs?.find?.((t) => t.type === 'researchflow') ||
-            tabs._tabs?.find?.((t) => t.title && t.title.includes('ResearchFlow'));
+            tabs._tabs?.find?.((t) => t.title && (t.title.includes('Zotero PaperFlow') || t.title.includes('ResearchFlow')));
 
           if (existingTab) {
             tabs.select(existingTab.id);
@@ -2002,7 +1992,7 @@
           // Open new internal tab
           const tabResult = tabs.add({
             type: 'researchflow',
-            title: 'ResearchFlow',
+            title: 'Zotero PaperFlow',
             select: true,
             data: options,
             onClose: () => {
@@ -2217,7 +2207,7 @@
                 const btnView = document.createElement('button');
                 btnView.style.cssText = 'font-size:11px; padding:3px 8px; border-radius:4px; border:1px solid #cc292b; background:transparent; color:#cc292b; cursor:pointer; font-weight:500;';
                 btnView.textContent = '🔍 查看';
-                btnView.title = '在 ResearchFlow 工作台中打开该稿件';
+                btnView.title = '在 Zotero PaperFlow 工作台中打开该稿件';
                 btnView.addEventListener('click', () => {
                   Zotero.ResearchFlow.triggerResearchFlowOpen(document.defaultView, {
                     view: 'view-manuscripts',
@@ -2387,6 +2377,8 @@
       Zotero.log('[ResearchFlow] Shutdown complete');
     }
   };
+
+  Zotero.PaperFlow = Zotero.ResearchFlow;
 
   // Kickstart initialization
   Zotero.ResearchFlow.init().catch((err) => {

@@ -35,7 +35,7 @@ function createTestRuntime(prefs = {}) {
 
   const context = vm.createContext({
     PREF_PREFIX: 'extensions.researchflow.',
-    ADDON_ID: 'researchflow@groele.org',
+    ADDON_ID: 'zotero-paperflow@groele.org',
     CHROME_ROOT: 'chrome://researchflow/content/',
     Zotero: {
       Prefs: {

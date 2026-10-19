@@ -38,7 +38,7 @@ let activeSharePreviewUrl = null;
 let activeSharePreviewCleanup = null;
 let sharePreferenceWrites = Promise.resolve();
 
-const RF_OPTIONS_RENDER_VERSION = '10.0.4';
+const RF_OPTIONS_RENDER_VERSION = '11.0.0';
 const PRE_IMPORT_BACKUP_KEY = 'researchflow_pre_import_backup';
 const SHARE_PREFS_STORAGE_KEY = 'researchflow_share_visibility';
 const MAX_IMPORT_BYTES = 25 * 1024 * 1024;
@@ -120,13 +120,13 @@ const I18N = {
     shareJourneyCopyFailed: 'Could not copy the image. Use Save PNG as… instead.',
     shareJourneyReady: 'Share image is ready.',
     shareJourneyFailed: 'Could not generate the share image.',
-    shareJourneyEyebrow: 'RESEARCHFLOW · SUBMISSION JOURNEY',
+    shareJourneyEyebrow: 'ZOTERO PAPERFLOW · SUBMISSION JOURNEY',
     shareJourneyStatus: 'CURRENT STATUS',
     shareJourneyDuration: 'DAYS IN THIS JOURNEY',
     shareJourneyTimeline: 'JOURNEY MILESTONES',
     shareJournalLabel: 'TARGET JOURNAL',
     shareJourneyNoEvents: 'No dated milestones yet',
-    shareJourneyFooter: 'Built locally from your ResearchFlow timeline',
+    shareJourneyFooter: 'Built locally from your Zotero PaperFlow timeline',
     shareVisibilityTitle: 'Visible information',
     shareVisibilityHelp: 'Your choices are remembered for the next image.',
     shareTimelineStart: 'Timeline starts at',
@@ -138,7 +138,7 @@ const I18N = {
     shareFieldStatus: 'Status',
     shareFieldDuration: 'Journey days',
     shareFieldDates: 'Milestone dates',
-    shareFieldFooter: 'ResearchFlow branding',
+    shareFieldFooter: 'Zotero PaperFlow branding',
     shareSizeTitle: 'Image size',
     shareSizePortrait: 'Portrait · expands to fit',
     shareSizeStory: 'Story · taller composition',
@@ -227,7 +227,7 @@ const I18N = {
     noImportBackup: 'No pre-import backup is available on this device.',
     restoreImportConfirm: 'Restore the database state saved immediately before the last import? Current unsaved changes will be replaced.',
     importFileTooLarge: 'The selected backup is larger than 25 MB and was not opened.',
-    invalidBackup: 'This file is not a recognized ResearchFlow database backup.',
+    invalidBackup: 'This file is not a recognized Zotero PaperFlow database backup.',
     noUrgentEvents: 'No urgent review or timeline events.',
     noRecentRecords: 'No research records captured yet.',
     noPipelines: 'No manuscript submission pipelines in progress.',
@@ -481,7 +481,7 @@ const I18N = {
     fillAllFields: 'Please fill out all fields.',
     validUrlRequired: 'Please enter a valid URL (e.g. https://example.com)',
     portalAddedToast: 'Journal portal "{name}" added.',
-    storageRoutingHelp: 'Choose where the ResearchFlow metadata database is synchronized.',
+    storageRoutingHelp: 'Choose where the Zotero PaperFlow metadata database is synchronized.',
     routeDbLabel: 'Sync destination',
     optionLocalCache: 'None (Local Cache Only)',
     optionWebDavDrive: 'WebDAV Drive (Jianguoyun, Nextcloud)',
@@ -497,7 +497,7 @@ const I18N = {
     githubRepoLabel: 'Repository Name (owner/repo)',
     githubBranchLabel: 'Branch Name',
     testGithub: 'Test GitHub Repository',
-    backupHelp: 'Export your research database to JSON, or import/migrate existing ResearchFlow JSON backups.',
+    backupHelp: 'Export your research database to JSON, or import/migrate existing Zotero PaperFlow JSON backups.',
     noReviewerCommentsExport: 'No reviewer comments to export.',
     latexDownloaded: 'LaTeX template downloaded.',
     currentJournalLabel: 'Current journal',
@@ -605,13 +605,13 @@ const I18N = {
     shareJourneyCopyFailed: '复制图片失败，请使用“另存为 PNG”。',
     shareJourneyReady: '分享图已生成。',
     shareJourneyFailed: '分享图生成失败。',
-    shareJourneyEyebrow: 'RESEARCHFLOW · 投稿历程',
+    shareJourneyEyebrow: 'ZOTERO PAPERFLOW · 投稿历程',
     shareJourneyStatus: '当前状态',
     shareJourneyDuration: '历程天数',
     shareJourneyTimeline: '关键节点',
     shareJournalLabel: '目标期刊',
     shareJourneyNoEvents: '暂无已记录日期的节点',
-    shareJourneyFooter: '由 ResearchFlow 在本地根据你的时间线生成',
+    shareJourneyFooter: '由 Zotero PaperFlow 在本地根据你的时间线生成',
     shareVisibilityTitle: '显示内容',
     shareVisibilityHelp: '隐藏选择会自动保存，并沿用到下一张分享图。',
     shareTimelineStart: '时间线起点',
@@ -623,7 +623,7 @@ const I18N = {
     shareFieldStatus: '当前状态',
     shareFieldDuration: '历程天数',
     shareFieldDates: '节点日期',
-    shareFieldFooter: 'ResearchFlow 品牌标识',
+    shareFieldFooter: 'Zotero PaperFlow 品牌标识',
     shareSizeTitle: '图片尺寸',
     shareSizePortrait: '竖版海报 · 随内容延展',
     shareSizeStory: '故事长幅 · 更高的构图',
@@ -712,7 +712,7 @@ const I18N = {
     noImportBackup: '当前设备上没有可恢复的导入前备份。',
     restoreImportConfirm: '确定恢复上一次导入前保存的数据库吗？当前未保存的更改将被替换。',
     importFileTooLarge: '所选备份超过 25 MB，未执行读取。',
-    invalidBackup: '该文件不是可识别的 ResearchFlow 数据库备份。',
+    invalidBackup: '该文件不是可识别的 Zotero PaperFlow 数据库备份。',
     noUrgentEvents: '暂无紧急审稿或时间线事件。',
     noRecentRecords: '暂无研究动态。',
     noPipelines: '暂无进行中的手稿投稿流水线。',
@@ -973,7 +973,7 @@ const I18N = {
     academicDuplicateConfirm: '检测到相同手稿。是否用当前核对后的信息更新已有记录，避免重复创建？',
     academicDuplicateUpdated: '已更新现有手稿，未创建重复条目。',
     academicCaptureSaved: 'Zotero 手稿已核对并保存。',
-    storageRoutingHelp: '选择 ResearchFlow 元数据数据库的存储与同步位置。',
+    storageRoutingHelp: '选择 Zotero PaperFlow 元数据数据库的存储与同步位置。',
     routeDbLabel: '同步位置',
     optionLocalCache: '无（仅使用本地缓存）',
     optionWebDavDrive: 'WebDAV 网盘（坚果云、Nextcloud）',
@@ -989,7 +989,7 @@ const I18N = {
     githubRepoLabel: '仓库名称（所有者/仓库）',
     githubBranchLabel: '分支名称',
     testGithub: '测试 GitHub 仓库',
-    backupHelp: '将研究数据库导出为 JSON，或导入并迁移现有的 ResearchFlow JSON 备份。'
+    backupHelp: '将研究数据库导出为 JSON，或导入并迁移现有的 Zotero PaperFlow JSON 备份。'
   }
 };
 
@@ -1610,7 +1610,7 @@ function safeShareFileName(title) {
 
 async function downloadShareBlob(blob, fileName) {
   if (typeof ZoteroBridge === 'undefined' || !ZoteroBridge.isZotero || !ZoteroBridge.saveShareImage) {
-    throw new Error(currentLanguage === 'zh' ? '请在 Zotero 中打开 ResearchFlow 后保存图片。' : 'Open ResearchFlow in Zotero to save the image.');
+    throw new Error(currentLanguage === 'zh' ? '请在 Zotero 中打开 Zotero PaperFlow 后保存图片。' : 'Open Zotero PaperFlow in Zotero to save the image.');
   }
   const result = await ZoteroBridge.saveShareImage(blob, fileName, currentLanguage);
   if (result?.cancelled) return result;
@@ -1662,7 +1662,7 @@ async function openSubmissionSharePreview(submissionId, triggerButton) {
       <div class="share-preview-shell">
         <div class="share-preview-header">
           <div>
-            <span class="share-preview-kicker">ResearchFlow / Share Studio</span>
+            <span class="share-preview-kicker">Zotero PaperFlow / Share Studio</span>
             <h2>${escapeHTML(t('shareJourneyTitle'))}</h2>
             <p>${escapeHTML(t('shareJourneyHelp'))}</p>
           </div>
@@ -7079,7 +7079,7 @@ function setupSettingsListeners() {
     const diagnosticReport = {
       generatedAt: new Date().toISOString(),
       extension: {
-        name: RFPlatform?.runtime?.getManifest?.()?.name || 'ResearchFlow Zotero',
+        name: RFPlatform?.runtime?.getManifest?.()?.name || 'Zotero PaperFlow',
         version: RFPlatform?.runtime?.getManifest?.()?.version || RF_OPTIONS_RENDER_VERSION,
         schemaVersion: Number(db.schemaVersion) || null,
         revision: Number(db.revision) || 0
@@ -7848,7 +7848,7 @@ function setupZoteroIntegrations() {
       const p = zSettingsCard.querySelector('.text-muted');
       if (p) p.textContent = 'Manage Zotero database storage and bi-directional child note synchronization';
       const desc = zSettingsCard.querySelector('div[style*="font-size:12px"]');
-      if (desc) window.RFUI.setHTML(desc, 'ResearchFlow is running directly inside Zotero 10. Data is persisted to <code>researchflow-data.json</code> in your Zotero data directory.');
+      if (desc) window.RFUI.setHTML(desc, 'Zotero PaperFlow is running directly inside Zotero 10. Data is persisted to <code>researchflow-data.json</code> in your Zotero data directory.');
       const syncBtnText = zSettingsCard.querySelector('#btn-zotero-sync-all-notes span');
       if (syncBtnText) syncBtnText.textContent = '📝 Batch sync all manuscript pipelines to Zotero child notes';
       const prefsBtnText = zSettingsCard.querySelector('#btn-zotero-open-prefs span');
