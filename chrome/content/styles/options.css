@@ -591,16 +591,19 @@
   text-align: center;
 }
 
-.kanban-col[data-status="idea"] {
-  --kanban-accent: #2563eb;
-  --kanban-soft: rgba(37, 99, 235, 0.08);
-  --kanban-border: rgba(37, 99, 235, 0.24);
+.kanban-col[data-status="idea"],
+.kanban-col[data-status="planning"] {
+  --kanban-accent: #0284c7;
+  --kanban-soft: rgba(2, 132, 199, 0.08);
+  --kanban-border: rgba(2, 132, 199, 0.24);
 }
 
-.kanban-col[data-status="drafting"] {
-  --kanban-accent: #7c3aed;
-  --kanban-soft: rgba(124, 58, 237, 0.08);
-  --kanban-border: rgba(124, 58, 237, 0.24);
+.kanban-col[data-status="drafting"],
+.kanban-col[data-status="in_progress"],
+.kanban-col[data-status="in-progress"] {
+  --kanban-accent: #6366f1;
+  --kanban-soft: rgba(99, 102, 241, 0.08);
+  --kanban-border: rgba(99, 102, 241, 0.24);
 }
 
 .kanban-col[data-status="submitted"] {
@@ -615,15 +618,58 @@
   --kanban-border: rgba(5, 150, 105, 0.24);
 }
 
+.kanban-empty-placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 32px 14px;
+  min-height: 140px;
+  border: 1.5px dashed var(--kanban-border, rgba(148, 163, 184, 0.3));
+  border-radius: 10px;
+  background: var(--kanban-soft, rgba(148, 163, 184, 0.04));
+  color: hsl(var(--text-muted));
+  pointer-events: none;
+  transition: all 0.2s ease;
+  user-select: none;
+}
+
+.kanban-empty-placeholder .empty-icon {
+  font-size: 24px;
+  margin-bottom: 8px;
+  opacity: 0.8;
+}
+
+.kanban-empty-placeholder .empty-text {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--kanban-accent, hsl(var(--text-secondary)));
+  margin-bottom: 4px;
+}
+
+.kanban-empty-placeholder .empty-subtext {
+  font-size: 11px;
+  color: hsl(var(--text-muted));
+  opacity: 0.85;
+}
+
+.col-cards.drag-over .kanban-empty-placeholder {
+  border-color: var(--kanban-accent, #6366f1);
+  background: var(--kanban-soft, rgba(99, 102, 241, 0.12));
+}
+
+.kanban-status-planning,
 .kanban-status-idea,
 .kanban-status-outline,
 .kanban-status-data-collection {
-  --card-accent: #2563eb;
-  --card-soft: rgba(37, 99, 235, 0.08);
-  --card-border: rgba(37, 99, 235, 0.22);
-  --card-shadow: rgba(37, 99, 235, 0.14);
+  --card-accent: #0284c7;
+  --card-soft: rgba(2, 132, 199, 0.08);
+  --card-border: rgba(2, 132, 199, 0.22);
+  --card-shadow: rgba(2, 132, 199, 0.14);
 }
 
+.kanban-status-in-progress,
 .kanban-status-figure-preparation {
   --card-accent: #0891b2;
   --card-soft: rgba(8, 145, 178, 0.09);
@@ -632,10 +678,10 @@
 }
 
 .kanban-status-drafting {
-  --card-accent: #7c3aed;
-  --card-soft: rgba(124, 58, 237, 0.09);
-  --card-border: rgba(124, 58, 237, 0.24);
-  --card-shadow: rgba(124, 58, 237, 0.14);
+  --card-accent: #6366f1;
+  --card-soft: rgba(99, 102, 241, 0.09);
+  --card-border: rgba(99, 102, 241, 0.24);
+  --card-shadow: rgba(99, 102, 241, 0.14);
 }
 
 .kanban-status-internal-review {

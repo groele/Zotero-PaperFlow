@@ -2181,7 +2181,9 @@
                 titleEl.textContent = m.title || '未命名稿件';
 
                 const statusStyles = {
+                  planning: { bg: 'rgba(6,182,212,0.12)', color: '#0891b2', label: '规划中', pct: 15 },
                   idea: { bg: 'rgba(6,182,212,0.12)', color: '#0891b2', label: '选题中', pct: 15 },
+                  in_progress: { bg: 'rgba(99,102,241,0.12)', color: '#6366f1', label: '正在进行', pct: 40 },
                   drafting: { bg: 'rgba(99,102,241,0.12)', color: '#6366f1', label: '初稿撰写', pct: 40 },
                   under_review: { bg: 'rgba(99,102,241,0.18)', color: '#4f46e5', label: '同行审稿', pct: 65 },
                   revision: { bg: 'rgba(217,119,6,0.12)', color: '#d97706', label: '修回修订', pct: 80 },

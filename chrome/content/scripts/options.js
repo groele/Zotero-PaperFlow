@@ -29,7 +29,7 @@ let selectedSubmissionId = null;
 let currentDashboardFilter = 'all'; // 'all', 'accepted', 'active'
 let currentLanguage = 'en';
 let isPipelineExpanded = false;
-let showEmptyKanbanColumns = false;
+let showEmptyKanbanColumns = true;
 let submissionAutoSaveCleanup = null;
 let pendingSubmissionSaves = 0;
 let acceptanceCelebrationCleanup = null;
@@ -382,8 +382,8 @@ const I18N = {
     manuscriptsTitle: 'Manuscripts Kanban',
     manuscriptsSubtitle: 'Track your writing process from outline/drafting to final peer-review.',
     addManuscript: '+ Add Manuscript',
-    kanbanIdea: 'Idea & Outline',
-    kanbanDrafting: 'Drafting & Figures',
+    kanbanIdea: 'Planning',
+    kanbanDrafting: 'In Progress',
     kanbanSubmitted: 'Submitted',
     kanbanAccepted: 'Accepted / Published',
     kanbanShowEmpty: 'Show empty stages',
@@ -510,8 +510,10 @@ const I18N = {
     editManuscriptMetadata: 'Edit Manuscript Metadata',
     addNewManuscriptTitle: 'Add New Manuscript',
     writingStatus: 'Writing Status',
+    statusPlanning: 'Planning',
     statusIdea: 'Idea',
     statusOutline: 'Outline',
+    statusInProgress: 'In Progress',
     statusFiguresPrep: 'Figures Prep',
     statusDrafting: 'Drafting',
     statusInternalReview: 'Internal Review',
@@ -867,8 +869,8 @@ const I18N = {
     manuscriptsTitle: '手稿看板',
     manuscriptsSubtitle: '跟踪从提纲、写作到投稿和同行评审的全过程。',
     addManuscript: '+ 新建手稿',
-    kanbanIdea: '想法与提纲',
-    kanbanDrafting: '写作与图件',
+    kanbanIdea: '规划',
+    kanbanDrafting: '正在进行',
     kanbanSubmitted: '已投稿',
     kanbanAccepted: '已接收 / 已发表',
     kanbanShowEmpty: '显示空阶段',
@@ -954,8 +956,10 @@ const I18N = {
     editManuscriptMetadata: '编辑手稿元数据',
     addNewManuscriptTitle: '添加新手稿',
     writingStatus: '写作状态',
+    statusPlanning: '规划',
     statusIdea: '想法',
     statusOutline: '提纲',
+    statusInProgress: '正在进行',
     statusFiguresPrep: '图件准备',
     statusDrafting: '写作中',
     statusInternalReview: '内部评审',
@@ -1179,8 +1183,8 @@ function applyLanguage() {
   setText('#view-manuscripts .view-header h1', t('manuscriptsTitle'));
   setText('#view-manuscripts .view-header .text-muted', t('manuscriptsSubtitle'));
   setButtonText('#btn-add-manuscript', t('addManuscript'));
-  setText('.kanban-col[data-status="idea"] .col-header h3', `💡 ${t('kanbanIdea')}`);
-  setText('.kanban-col[data-status="drafting"] .col-header h3', `📝 ${t('kanbanDrafting')}`);
+  setText('.kanban-col[data-status="idea"] .col-header h3', `🎯 ${t('kanbanIdea')}`);
+  setText('.kanban-col[data-status="drafting"] .col-header h3', `⏳ ${t('kanbanDrafting')}`);
   setText('.kanban-col[data-status="submitted"] .col-header h3', `🚀 ${t('kanbanSubmitted')}`);
   setText('.kanban-col[data-status="accepted"] .col-header h3', `🎉 ${t('kanbanAccepted')}`);
   updateKanbanEmptyColumns();
@@ -1448,7 +1452,7 @@ function initializeKanbanEmptyColumnsMode() {
     RFPlatform.storage.local.set({ researchflow_kanban_show_empty: showEmptyKanbanColumns });
   });
   RFPlatform.storage.local.get(['researchflow_kanban_show_empty'], result => {
-    showEmptyKanbanColumns = result?.researchflow_kanban_show_empty === true;
+    showEmptyKanbanColumns = result?.researchflow_kanban_show_empty !== false;
     updateKanbanEmptyColumns();
   });
 }
@@ -3879,8 +3883,8 @@ function renderKanban() {
   visibleManuscripts.forEach(m => {
     // Map granular status to simple column headers
     let col = 'idea';
-    if (m.status === 'outline' || m.status === 'idea' || m.status === 'data_collection') col = 'idea';
-    else if (m.status === 'drafting' || m.status === 'figure_preparation' || m.status === 'internal_review' || m.status === 'rejected') col = 'drafting';
+    if (m.status === 'planning' || m.status === 'outline' || m.status === 'idea' || m.status === 'data_collection') col = 'idea';
+    else if (m.status === 'in_progress' || m.status === 'drafting' || m.status === 'figure_preparation' || m.status === 'internal_review' || m.status === 'rejected') col = 'drafting';
     else if (m.status === 'submitted' || m.status === 'under_review' || m.status === 'revision') col = 'submitted';
     else if (m.status === 'accepted' || m.status === 'published') col = 'accepted';
 
@@ -3939,8 +3943,10 @@ function renderKanban() {
       ${zoteroRowHtml}
       <div class="kanban-card-controls">
         <select class="kanban-card-select" id="sel-man-status-${m.id}" aria-label="${escapeHTML(t('status'))}: ${escapeHTML(m.title)}">
+          <option value="planning" ${m.status === 'planning' ? 'selected' : ''}>${escapeHTML(t('statusPlanning'))}</option>
           <option value="idea" ${m.status === 'idea' ? 'selected' : ''}>${escapeHTML(t('statusIdea'))}</option>
           <option value="outline" ${m.status === 'outline' ? 'selected' : ''}>${escapeHTML(t('statusOutline'))}</option>
+          <option value="in_progress" ${m.status === 'in_progress' ? 'selected' : ''}>${escapeHTML(t('statusInProgress'))}</option>
           <option value="figure_preparation" ${m.status === 'figure_preparation' ? 'selected' : ''}>${escapeHTML(t('statusFiguresPrep'))}</option>
           <option value="drafting" ${m.status === 'drafting' ? 'selected' : ''}>${escapeHTML(t('statusDrafting'))}</option>
           <option value="internal_review" ${m.status === 'internal_review' ? 'selected' : ''}>${escapeHTML(t('statusInternalReview'))}</option>
@@ -4082,6 +4088,39 @@ function renderKanban() {
 
     // HTML5 Column Drop Event Listeners
     const colCardsContainer = document.getElementById(`cards-${col}`);
+    if (mCount[col] === 0) {
+      const emptyHints = {
+        idea: {
+          icon: '🎯',
+          text: currentLanguage === 'zh' ? '暂无规划手稿' : 'No planned manuscripts',
+          sub: currentLanguage === 'zh' ? '可拖拽手稿至此阶段' : 'Drag manuscripts here'
+        },
+        drafting: {
+          icon: '⏳',
+          text: currentLanguage === 'zh' ? '暂无进行中手稿' : 'No active drafts',
+          sub: currentLanguage === 'zh' ? '可拖拽手稿至此阶段' : 'Drag manuscripts here'
+        },
+        submitted: {
+          icon: '🚀',
+          text: currentLanguage === 'zh' ? '暂无已投稿件' : 'No submissions',
+          sub: currentLanguage === 'zh' ? '可拖拽手稿至此阶段' : 'Drag manuscripts here'
+        },
+        accepted: {
+          icon: '🎉',
+          text: currentLanguage === 'zh' ? '暂无已接收手稿' : 'No accepted papers',
+          sub: currentLanguage === 'zh' ? '可拖拽手稿至此阶段' : 'Drag manuscripts here'
+        }
+      };
+      const hint = emptyHints[col] || { icon: '📥', text: currentLanguage === 'zh' ? '暂无条目' : 'No items', sub: '' };
+      window.RFUI.setHTML(colCardsContainer, `
+        <div class="kanban-empty-placeholder">
+          <span class="empty-icon">${hint.icon}</span>
+          <span class="empty-text">${escapeHTML(hint.text)}</span>
+          <span class="empty-subtext">${escapeHTML(hint.sub)}</span>
+        </div>
+      `);
+    }
+
     if (!colCardsContainer.dataset.dragBound) {
       colCardsContainer.dataset.dragBound = 'true';
 
@@ -4103,8 +4142,8 @@ function renderKanban() {
         if (man) {
           // Move status to the category column
           let newStatus = col;
-          if (col === 'idea') newStatus = 'idea';
-          else if (col === 'drafting') newStatus = 'drafting';
+          if (col === 'idea') newStatus = 'planning';
+          else if (col === 'drafting') newStatus = 'in_progress';
           else if (col === 'submitted') newStatus = 'submitted';
           else if (col === 'accepted') newStatus = 'accepted';
 
@@ -4132,19 +4171,21 @@ function renderKanban() {
 }
 
 function normalizeKanbanStatusClass(status) {
-  const normalized = normalizeText(status || 'idea').replace(/_/g, '-');
-  if (['idea', 'outline', 'data-collection'].includes(normalized)) return normalized;
-  if (['figure-preparation', 'drafting', 'internal-review'].includes(normalized)) return normalized;
-  if (['submitted', 'under-review', 'revision'].includes(normalized)) return normalized;
-  if (['accepted', 'published'].includes(normalized)) return normalized;
-  return 'idea';
+  const normalized = normalizeText(status || 'planning').replace(/_/g, '-');
+  if (['planning', 'idea', 'outline', 'data-collection'].includes(normalized)) return 'planning';
+  if (['in-progress', 'figure-preparation', 'drafting', 'internal-review'].includes(normalized)) return 'drafting';
+  if (['submitted', 'under-review', 'revision'].includes(normalized)) return 'submitted';
+  if (['accepted', 'published'].includes(normalized)) return 'accepted';
+  return 'planning';
 }
 
 function getManuscriptStatusLabel(status) {
   const labels = {
+    planning: t('statusPlanning'),
     idea: t('statusIdea'),
     outline: t('statusOutline'),
     data_collection: currentLanguage === 'zh' ? '数据整理' : 'Data Collection',
+    in_progress: t('statusInProgress'),
     figure_preparation: t('statusFiguresPrep'),
     drafting: t('statusDrafting'),
     internal_review: t('statusInternalReview'),
@@ -4155,7 +4196,7 @@ function getManuscriptStatusLabel(status) {
     published: getSubmissionStatusLabel('published'),
     rejected: getSubmissionStatusLabel('rejected')
   };
-  return labels[status] || String(status || 'idea').replace(/_/g, ' ');
+  return labels[status] || String(status || 'planning').replace(/_/g, ' ');
 }
 
 function getSubmissionStatusLabel(status) {
@@ -4373,8 +4414,10 @@ function openManuscriptModal(man = null, prefill = null) {
       <div class="form-group">
         <label>${escapeHTML(t('writingStatus'))}</label>
         <select id="man-status">
+          <option value="planning" ${initialStatus === 'planning' ? 'selected' : ''}>${escapeHTML(t('statusPlanning'))}</option>
           <option value="idea" ${initialStatus === 'idea' ? 'selected' : ''}>${escapeHTML(t('statusIdea'))}</option>
           <option value="outline" ${initialStatus === 'outline' ? 'selected' : ''}>${escapeHTML(t('statusOutline'))}</option>
+          <option value="in_progress" ${initialStatus === 'in_progress' ? 'selected' : ''}>${escapeHTML(t('statusInProgress'))}</option>
           <option value="figure_preparation" ${initialStatus === 'figure_preparation' ? 'selected' : ''}>${escapeHTML(t('statusFiguresPrep'))}</option>
           <option value="drafting" ${initialStatus === 'drafting' ? 'selected' : ''}>${escapeHTML(t('statusDrafting'))}</option>
           <option value="internal_review" ${initialStatus === 'internal_review' ? 'selected' : ''}>${escapeHTML(t('statusInternalReview'))}</option>

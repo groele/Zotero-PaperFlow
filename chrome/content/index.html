@@ -137,13 +137,13 @@
         <!-- Kanban Columns -->
         <div class="kanban-view-options">
           <span id="kanban-stage-summary" role="status" aria-live="polite"></span>
-          <button type="button" class="btn-secondary" id="btn-toggle-empty-kanban" aria-pressed="false">Show empty stages</button>
+          <button type="button" class="btn-secondary" id="btn-toggle-empty-kanban" aria-pressed="true">Hide empty stages</button>
         </div>
-        <div class="kanban-board">
+        <div class="kanban-board show-empty-columns">
 
           <div class="kanban-col glass-panel" data-status="idea">
             <div class="col-header">
-              <h3>💡 Idea & Outline</h3>
+              <h3>🎯 Planning</h3>
               <span class="count" id="count-idea">0</span>
             </div>
             <div class="col-cards" id="cards-idea"></div>
@@ -151,7 +151,7 @@
 
           <div class="kanban-col glass-panel" data-status="drafting">
             <div class="col-header">
-              <h3>📝 Drafting & Figures</h3>
+              <h3>⏳ In Progress</h3>
               <span class="count" id="count-drafting">0</span>
             </div>
             <div class="col-cards" id="cards-drafting"></div>
