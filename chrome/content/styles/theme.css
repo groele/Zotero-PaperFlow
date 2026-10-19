@@ -198,9 +198,9 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 .logo-orb {
-  background: url('../assets/icons/icon-32.png') center / contain no-repeat;
-  border-radius: 7px;
-  box-shadow: 0 2px 8px rgba(204, 41, 43, 0.28);
+  background: url('../assets/icons/icon.svg') center / contain no-repeat;
+  border-radius: 6px;
+  box-shadow: none;
 }
 
 /* Interactive Components */

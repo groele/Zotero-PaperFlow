@@ -759,6 +759,9 @@
             doc.getElementById(id)?.remove();
           } catch (_) {}
         });
+        doc.querySelectorAll?.('[pane-id="researchflow-item-pane"], [data-pane-id="researchflow-item-pane"], #researchflow-item-pane').forEach((el) => {
+          try { el.remove(); } catch (_) {}
+        });
       });
     },
 
@@ -1227,8 +1230,12 @@
         }
       }
 
-      // Register ItemPane Section (Literature details inspector panel)
-      this.registerItemPaneSection();
+      // Ensure ItemPane Section is unregistered (user requested not to display in the right-hand sidebar)
+      if (typeof Zotero.ItemPaneManager?.unregisterSection === 'function') {
+        try {
+          Zotero.ItemPaneManager.unregisterSection('researchflow-item-pane');
+        } catch (_) {}
+      }
 
       Zotero.log('[ResearchFlow] Initialized successfully in Zotero');
     },

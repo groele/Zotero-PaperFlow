@@ -27,7 +27,16 @@ Zotero PaperFlow reaches milestone version 11.0.0, introducing a comprehensive r
 
 ---
 
-### 3. 平滑升级与数据兼容 / Seamless Upgrade & Data Continuity
+### 3. 工作台侧边栏重构与配色协调 / Streamlined Sidebar & Color Harmony
+- **标识板块置底**：将工作台侧边栏顶部的品牌/版本卡片移至侧边栏最底部，导航按钮直接置顶，结构更舒朗通透。
+- **重构色彩体系，完美协调 Zotero 原生设计**：
+  - 彻底移除了原顶部沉重的深蓝色外框，改为贴合 Zotero 浅色原生桌面的半透明轻质卡片，并支持自适应深色模式。
+  - 导航激活项（Active Item）与主视觉焦点深度对齐新版品牌图标的主色 `#e11d48`（Rose 600 / Zotero Crimson），字体、边框、左侧强调条与高精矢量图标浑然一体。
+- **移除 Zotero 右侧文献条目栏图标**：完全移除 Zotero 文献条目右侧导航栏（ItemPane Sidebar）中的独立图标与面板注册，避免右侧工具栏拥挤；同时自动清理历史残留 DOM 节点。
+
+---
+
+### 4. 平滑升级与数据兼容 / Seamless Upgrade & Data Continuity
 - **新插件唯一标识**：升级为 `zotero-paperflow@groele.org`。
 - **无缝平滑升级**：保留旧版 ID `researchflow@groele.org` 的更新通道与本地数据结构，现有用户的所有论文管线、审稿意见矩阵与项目记录 100% 自动继承，无需额外迁移操作。
 - **系统与宿主兼容**：持续保持对 Zotero 7+ 与 Zotero 10 的全面深度兼容。

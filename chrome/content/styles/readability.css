@@ -208,17 +208,90 @@
   .journal-portals-dock .btn-portal-add { flex: 0 0 34px; }
 }
 
-/* Consistent hierarchy without condensed faces, tracking or heavy display numerals. */
-.brand h2 { font-size: 14px; font-weight: 600; }
-.brand { padding: 18px 12px; border-radius: 12px; background: linear-gradient(130deg, #233c59, #172b42); border: 1px solid #314e6e; box-shadow: 0 5px 16px hsl(214 44% 20% / 0.12); }
-.brand h2 { color: #f3f7fc; }
-.brand .version { color: #c7d8ea; background: #ffffff12; font-weight: 400; padding: 2px 6px; }
-.logo-orb { box-shadow: 0 2px 7px #00000020; }
-.sidebar { background: linear-gradient(180deg, hsl(var(--ui-navy) / 0.035), transparent 360px), hsl(var(--card-bg)); }
-.nav-item { font-weight: 400; gap: 10px; min-height: 42px; border-radius: 8px; }
-.nav-item > .svg-icon { color: hsl(var(--ui-navy) / 0.7); }
-.nav-item.active { font-weight: 500; color: hsl(var(--ui-navy)); background: hsl(var(--ui-navy) / 0.11); border-color: hsl(var(--ui-navy) / 0.14); border-left-color: hsl(var(--ui-rose)); box-shadow: 0 2px 5px hsl(var(--ui-navy) / 0.04); }
-.nav-item.active > .svg-icon { color: hsl(var(--ui-rose)); }
+/* Consistent hierarchy & coordinated Zotero PaperFlow sidebar branding */
+.sidebar {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  background: hsl(var(--card-bg));
+  border-right: 1px solid hsl(var(--card-border));
+}
+.sidebar-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  flex: 1;
+}
+.nav-item {
+  font-weight: 500;
+  gap: 10px;
+  min-height: 40px;
+  border-radius: 8px;
+  border: 1px solid transparent;
+  border-left: 3px solid transparent;
+  color: hsl(var(--text-muted));
+  background: transparent;
+  transition: all 0.15s ease;
+}
+.nav-item > .svg-icon {
+  color: hsl(var(--text-muted));
+  transition: color 0.15s ease;
+}
+.nav-item:hover {
+  background: rgba(0, 0, 0, 0.035);
+  color: hsl(var(--text-primary));
+}
+.nav-item.active {
+  font-weight: 600;
+  color: #e11d48;
+  background: rgba(225, 29, 72, 0.07);
+  border: 1px solid rgba(225, 29, 72, 0.14);
+  border-left: 3px solid #e11d48;
+  box-shadow: 0 1px 3px rgba(225, 29, 72, 0.04);
+}
+.nav-item.active > .svg-icon {
+  color: #e11d48;
+}
+
+/* Bottom brand block coordinated with Zotero and the 3-pillar icon */
+.brand {
+  margin-top: auto;
+  margin-bottom: 0;
+  padding: 12px 10px;
+  border-radius: 10px;
+  background: rgba(248, 250, 252, 0.95);
+  border: 1px solid rgba(226, 232, 240, 0.9);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.brand h2 {
+  font-size: 13.5px;
+  font-weight: 600;
+  line-height: 1.25;
+  color: hsl(var(--text-primary));
+  margin: 0;
+}
+.brand .version {
+  font-size: 10px;
+  font-weight: 500;
+  color: #e11d48;
+  background: rgba(225, 29, 72, 0.08);
+  border: 1px solid rgba(225, 29, 72, 0.16);
+  border-radius: 4px;
+  padding: 1px 6px;
+  display: inline-block;
+  margin-top: 3px;
+}
+.logo-orb {
+  width: 32px;
+  height: 32px;
+  flex: 0 0 32px;
+  background: url('../assets/icons/icon.svg') center / contain no-repeat;
+  border-radius: 6px;
+  box-shadow: none;
+}
 .view-header h1 { font-size: 21px; line-height: 1.45; font-weight: 600; }
 .view-header > p, .view-header > div > p { margin-top: 4px; font-size: 13px; color: hsl(var(--text-muted)); line-height: 1.65; }
 .pipeline-module-header h3, .submission-list-head h3, .workflow-context-head h3 { font-size: 15px; font-weight: 500; line-height: 1.5; }
