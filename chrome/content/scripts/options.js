@@ -1486,16 +1486,21 @@ function updatePipelineViewToggle() {
 
 function buildDefaultSubmissionTimeline(submission) {
   const stamp = Date.now();
+  const linkedMan = db?.manuscripts?.find(m => m.id === submission?.manuscriptId);
+  const isAcceptedOrPublished = hasPublicationStatus(submission) ||
+    Boolean(linkedMan && (hasPublicationStatus(linkedMan) || linkedMan.status === 'accepted' || linkedMan.status === 'published'));
+  const isPublished = submission?.status === 'published' || Boolean(linkedMan && linkedMan.status === 'published');
+
   const definitions = [
     ['Experiments Started', 'research', 'completed'],
     ['Experiments Completed', 'research', 'completed'],
     ['Data Organization', 'research', 'completed'],
     ['Draft Completed', 'writing', 'completed'],
-    ['Manuscript Submitted', 'submission', 'active'],
-    ['Review Comments R1', 'review', 'pending'],
-    ['R1 Revision Submitted', 'revision', 'pending'],
-    ['Accepted', 'publication', 'pending'],
-    ['Online Publication', 'publication', 'pending']
+    ['Manuscript Submitted', 'submission', isAcceptedOrPublished ? 'completed' : 'active'],
+    ['Review Comments R1', 'review', isAcceptedOrPublished ? 'completed' : 'pending'],
+    ['R1 Revision Submitted', 'revision', isAcceptedOrPublished ? 'completed' : 'pending'],
+    ['Accepted', 'publication', isAcceptedOrPublished ? 'completed' : 'pending'],
+    ['Online Publication', 'publication', isPublished ? 'completed' : 'pending']
   ];
   return definitions.map(([name, type, status], index) => ({
     id: `node_${index + 1}_${submission.id}_${stamp}`,
@@ -2455,40 +2460,44 @@ function initializeSubmissionTimelineNodes(sub) {
   const firstDecisionDate = normalizeDateString(sub.firstDecisionDate);
   const revisionDueDate = normalizeDateString(sub.revisionDueDate);
   const decisionDate = normalizeDateString(sub.decisionDate);
+  const linkedMan = db?.manuscripts?.find(m => m.id === sub?.manuscriptId);
+  const isAcceptedOrPublished = hasPublicationStatus(sub) ||
+    Boolean(linkedMan && (hasPublicationStatus(linkedMan) || linkedMan.status === 'accepted' || linkedMan.status === 'published'));
+  const isPublished = sub?.status === 'published' || Boolean(linkedMan && linkedMan.status === 'published');
 
   sub.timelineNodes = [
     createTimelineNode(sub.id, { key: 'experiment_start', name: 'Experiments Started', type: 'research', status: 'completed' }),
     createTimelineNode(sub.id, { key: 'experiment_done', name: 'Experiments Completed', type: 'research', status: 'completed' }),
-    createTimelineNode(sub.id, { key: 'draft_done', name: 'Draft Completed', type: 'writing', status: submitDate ? 'completed' : 'pending' }),
+    createTimelineNode(sub.id, { key: 'draft_done', name: 'Draft Completed', type: 'writing', status: (submitDate || isAcceptedOrPublished) ? 'completed' : 'pending' }),
     createTimelineNode(sub.id, {
       key: 'submit',
       name: 'Manuscript Submitted',
       type: 'submission',
-      status: submitDate ? 'completed' : 'pending',
+      status: (submitDate || isAcceptedOrPublished) ? 'completed' : 'pending',
       completeDate: submitDate
     }),
     createTimelineNode(sub.id, {
       key: 'r1_comments',
       name: 'Review Comments R1',
       type: 'review',
-      status: firstDecisionDate ? 'completed' : (revisionDueDate ? 'active' : 'pending'),
+      status: (firstDecisionDate || isAcceptedOrPublished) ? 'completed' : (revisionDueDate ? 'active' : 'pending'),
       completeDate: firstDecisionDate,
-      dueDate: firstDecisionDate ? '' : revisionDueDate
+      dueDate: (firstDecisionDate || isAcceptedOrPublished) ? '' : revisionDueDate
     }),
-    createTimelineNode(sub.id, { key: 'r1_revised', name: 'R1 Revision Submitted', type: 'revision', status: 'pending' }),
+    createTimelineNode(sub.id, { key: 'r1_revised', name: 'R1 Revision Submitted', type: 'revision', status: isAcceptedOrPublished ? 'completed' : 'pending' }),
     createTimelineNode(sub.id, {
       key: 'accept',
       name: 'Accepted',
       type: 'publication',
-      status: decisionDate && hasPublicationStatus(sub) ? 'completed' : 'pending',
-      completeDate: decisionDate && hasPublicationStatus(sub) ? decisionDate : ''
+      status: isAcceptedOrPublished ? 'completed' : 'pending',
+      completeDate: decisionDate && isAcceptedOrPublished ? decisionDate : (isAcceptedOrPublished ? (sub.acceptedAt || '') : '')
     }),
     createTimelineNode(sub.id, {
       key: 'online',
       name: 'Online Publication',
       type: 'publication',
-      status: decisionDate && sub.status === 'published' ? 'completed' : 'pending',
-      completeDate: decisionDate && sub.status === 'published' ? decisionDate : ''
+      status: isPublished ? 'completed' : 'pending',
+      completeDate: isPublished ? (sub.publishedAt || decisionDate || '') : ''
     })
   ];
 }
@@ -2528,6 +2537,22 @@ function normalizeSubmissionTimeline(sub) {
     changed = true;
   }
 
+  const linkedMan = db?.manuscripts?.find(m => m.id === sub.manuscriptId);
+  const isAcceptedOrPublished = hasPublicationStatus(sub) ||
+    Boolean(normalizeDateString(sub.decisionDate || sub.acceptedAt)) ||
+    Boolean(getTimelineNodeByKey(sub, 'accept')?.completeDate) ||
+    Boolean(linkedMan && (hasPublicationStatus(linkedMan) || linkedMan.status === 'accepted' || linkedMan.status === 'published'));
+  const isPublished = sub.status === 'published' || Boolean(linkedMan && linkedMan.status === 'published');
+
+  // If the linked manuscript is accepted or published, keep current submission status in sync
+  if (linkedMan && (linkedMan.status === 'accepted' || linkedMan.status === 'published') && sub.status !== linkedMan.status) {
+    const currentForMan = window.RFCore?.getCurrentSubmission(db, linkedMan.id);
+    if (!currentForMan || currentForMan.id === sub.id) {
+      sub.status = linkedMan.status;
+      changed = true;
+    }
+  }
+
   const submitDate = normalizeDateString(sub.submissionDate);
   if (submitDate) {
     const result = ensureTimelineNode(sub, 'submit', 'Manuscript Submitted', 'submission', 'completed');
@@ -2553,7 +2578,7 @@ function normalizeSubmissionTimeline(sub) {
   }
 
   const revisionDueDate = normalizeDateString(sub.revisionDueDate);
-  if (revisionDueDate && !firstDecisionDate) {
+  if (revisionDueDate && !firstDecisionDate && !isAcceptedOrPublished) {
     const result = ensureTimelineNode(sub, 'r1_comments', 'Review Comments R1', 'review', 'active');
     changed = result.changed || changed;
     if ((result.node.dueDate || '') !== revisionDueDate) {
@@ -2566,23 +2591,53 @@ function normalizeSubmissionTimeline(sub) {
     }
   }
 
-  const decisionDate = normalizeDateString(sub.decisionDate);
-  if (decisionDate && hasPublicationStatus(sub)) {
+  const decisionDate = normalizeDateString(sub.decisionDate || sub.acceptedAt);
+  if (isAcceptedOrPublished) {
+    // 1. Ensure accept node exists and is completed
     const result = ensureTimelineNode(sub, 'accept', 'Accepted', 'publication', 'completed');
     changed = result.changed || changed;
-    changed = setTimelineNodeDate(result.node, decisionDate, 'completeDate') || changed;
+    if (decisionDate) {
+      changed = setTimelineNodeDate(result.node, decisionDate, 'completeDate') || changed;
+    }
     if (result.node.status !== 'completed') {
       result.node.status = 'completed';
       changed = true;
     }
+
+    // 2. Mark ALL pre-acceptance timeline nodes as completed
+    (sub.timelineNodes || []).forEach(node => {
+      const key = node.key || inferKey(node);
+      const isPreAcceptance = node.type === 'research' ||
+        node.type === 'writing' ||
+        node.type === 'submission' ||
+        node.type === 'review' ||
+        node.type === 'revision' ||
+        key === 'submit' ||
+        key === 'r1_comments' ||
+        key === 'r1_revised' ||
+        key === 'r2_comments' ||
+        key === 'r2_revised' ||
+        key === 'draft_done' ||
+        key === 'experiment_done' ||
+        key === 'experiment_start';
+
+      if (isPreAcceptance && node.status !== 'completed') {
+        node.status = 'completed';
+        changed = true;
+      }
+    });
   }
-  if (sub.status === 'published') {
+
+  if (isPublished) {
     const onlineDate = normalizeDateString(sub.publishedAt || getTimelineNodeByKey(sub, 'online')?.completeDate || sub.decisionDate);
+    const result = ensureTimelineNode(sub, 'online', 'Online Publication', 'publication', 'completed');
+    changed = result.changed || changed;
     if (onlineDate) {
-      const result = ensureTimelineNode(sub, 'online', 'Online Publication', 'publication', 'completed');
-      changed = result.changed || changed;
       changed = setTimelineNodeDate(result.node, onlineDate, 'completeDate') || changed;
-      if (result.node.status !== 'completed') { result.node.status = 'completed'; changed = true; }
+    }
+    if (result.node.status !== 'completed') {
+      result.node.status = 'completed';
+      changed = true;
     }
   }
 
@@ -2950,9 +3005,9 @@ function syncLinkedSubmissionsFromManuscript(manuscript, database = db) {
         clearPublicationTimelineCompletion(sub);
       }
       if (previousStatus === 'published' && nextStatus === 'accepted') clearOnlinePublicationCompletion(sub);
-      normalizeSubmissionTimeline(sub);
       changed = true;
     }
+    changed = normalizeSubmissionTimeline(sub) || changed;
     changed = syncWorkflowAliases(sub, manuscript) || changed;
   });
 
@@ -3565,21 +3620,47 @@ function renderDashboard() {
     .filter(s => s.status !== 'rejected')
     .forEach(sub => {
       const man = db.manuscripts.find(m => m.id === sub.manuscriptId);
+      if (man) {
+        const currentSub = window.RFCore?.getCurrentSubmission(db, man.id);
+        if (currentSub && currentSub.id !== sub.id) return;
+      }
+
+      const isAcceptedOrPublished = hasPublicationStatus(sub) ||
+        isAcceptedSubmission(sub) ||
+        Boolean(man && (hasPublicationStatus(man) || man.status === 'accepted' || man.status === 'published'));
+      const isPublished = sub.status === 'published' || (man && man.status === 'published');
+
+      // If the paper is published, all publication milestones are complete. Skip.
+      if (isPublished) return;
+
       (sub.timelineNodes || []).forEach(node => {
         const computedStatus = computeNodeStatus(node);
+        const nodeKey = node.key || inferKey(node);
+
+        // For accepted submissions: NEVER alert on pre-acceptance milestones or the acceptance node
+        if (isAcceptedOrPublished) {
+          if (node.type !== 'publication' || nodeKey === 'accept') return;
+        }
+
+        if (computedStatus === 'completed') return;
+
         const importantType = node.type === 'review' || node.type === 'revision' || node.type === 'publication';
-        const actionable = computedStatus === 'overdue' || computedStatus === 'due_soon' || computedStatus === 'blocked' || node.status === 'active';
         const hasTimelineDate = Boolean(node.dueDate || node.planDate || node.completeDate);
+        const actionable = computedStatus === 'overdue' || computedStatus === 'due_soon' || computedStatus === 'blocked' || node.status === 'active';
+
         if (!actionable && !hasTimelineDate) return;
         if (!importantType && !actionable) return;
-        if (computedStatus === 'completed') return;
+
+        // Timeline alerts must have an explicit date or be blocked; do not spam alerts with "无日期"
+        const alertDate = node.dueDate || node.planDate || (node.type === 'review' ? sub.revisionDueDate : '') || node.completeDate || '';
+        if (!alertDate && computedStatus !== 'blocked') return;
 
         timelineAlerts.push({
           sub,
           node,
           computedStatus,
           title: `${getSubmissionJournalName(sub)}: ${getTimelineNodeDisplayName(node)}`,
-          date: node.dueDate || node.planDate || node.completeDate || sub.revisionDueDate || '',
+          date: alertDate,
           manTitle: man ? man.title : t('untitledManuscript')
         });
       });
