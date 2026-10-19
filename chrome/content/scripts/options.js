@@ -96,8 +96,8 @@ const I18N = {
     activePipelines: 'Active in review',
     acceptedPipelines: 'Accepted / published',
     metricExpSubmit: 'Avg. experiment → submit',
-    metricSubmitToday: 'Avg. unaccepted: submit → today',
-    metricR1Today: 'Avg. unaccepted: R1 → today',
+    metricSubmitToday: 'Avg. in review: submit → today',
+    metricR1Today: 'Avg. in review: R1 → today',
     metricSubmitAccept: 'Avg. accepted: submit → accept',
     recentLogs: '⚡ Recent Research Logs',
     timelineAlerts: '🔔 Timeline Alerts',
@@ -273,7 +273,7 @@ const I18N = {
     displayR1Label: 'R1 Comments → Today',
     displayR1Caption: 'R1 returned; the active window now starts from the first decision.',
     displayReviewLabel: 'Submission → Today',
-    displayReviewCaption: 'Not accepted yet; keep counting the waiting time after submission.',
+    displayReviewCaption: 'In review; track the turnaround duration since submission.',
     milestoneExperimentStart: 'Experiments started',
     milestoneExperimentDone: 'Experiments done',
     milestoneSubmission: 'Submission',
@@ -583,8 +583,8 @@ const I18N = {
     activePipelines: '进行中的审稿',
     acceptedPipelines: '已接收 / 已发表',
     metricExpSubmit: '平均 实验 → 投稿',
-    metricSubmitToday: '平均 未接收：投稿 → 今天',
-    metricR1Today: '平均 未接收：R1 → 今天',
+    metricSubmitToday: '平均 在审：投稿 → 今天',
+    metricR1Today: '平均 在审：R1 → 今天',
     metricSubmitAccept: '平均 已接收：投稿 → 接收',
     recentLogs: '⚡ 最近研究动态',
     timelineAlerts: '🔔 时间线提醒',
@@ -760,7 +760,7 @@ const I18N = {
     displayR1Label: 'R1 审稿意见 → 今天',
     displayR1Caption: 'R1 意见已返回；活动窗口现在从第一次决定开始算起。',
     displayReviewLabel: '投稿 → 今天',
-    displayReviewCaption: '尚未接收；继续计算投稿后的等待时长。',
+    displayReviewCaption: '审稿进行中；持续追踪投稿后的流转时长。',
     milestoneExperimentStart: '实验开始',
     milestoneExperimentDone: '实验完成',
     milestoneSubmission: '投稿',
@@ -3252,8 +3252,8 @@ function renderDashboard() {
   if (elSubmitNow) {
     elSubmitNow.textContent = avgText(submitNow);
     elSubmitNow.parentElement?.setAttribute('title', currentLanguage === 'zh'
-      ? `各个稿件平均值：基于 ${submitNow.length} 篇在审（未接收）稿件`
-      : `Average across manuscripts: based on ${submitNow.length} unaccepted manuscripts`);
+      ? `各个稿件平均值：基于 ${submitNow.length} 篇在审稿件`
+      : `Average across manuscripts: based on ${submitNow.length} manuscripts in review`);
   }
   const elR1Now = document.getElementById("mR1Now");
   if (elR1Now) {
