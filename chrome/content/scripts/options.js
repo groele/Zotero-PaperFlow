@@ -96,9 +96,9 @@ const I18N = {
     activePipelines: 'Active in review',
     acceptedPipelines: 'Accepted / published',
     metricExpSubmit: 'Avg. experiment → submit',
-    metricSubmitToday: 'Unaccepted: submit → today',
-    metricR1Today: 'Unaccepted: R1 → today',
-    metricSubmitAccept: 'Accepted: submit → accept',
+    metricSubmitToday: 'Avg. unaccepted: submit → today',
+    metricR1Today: 'Avg. unaccepted: R1 → today',
+    metricSubmitAccept: 'Avg. accepted: submit → accept',
     recentLogs: '⚡ Recent Research Logs',
     timelineAlerts: '🔔 Timeline Alerts',
     addEvent: '+ Event',
@@ -583,9 +583,9 @@ const I18N = {
     activePipelines: '进行中的审稿',
     acceptedPipelines: '已接收 / 已发表',
     metricExpSubmit: '平均 实验 → 投稿',
-    metricSubmitToday: '未接收：投稿 → 今天',
-    metricR1Today: '未接收：R1 → 今天',
-    metricSubmitAccept: '已接收：投稿 → 接收',
+    metricSubmitToday: '平均 未接收：投稿 → 今天',
+    metricR1Today: '平均 未接收：R1 → 今天',
+    metricSubmitAccept: '平均 已接收：投稿 → 接收',
     recentLogs: '⚡ 最近研究动态',
     timelineAlerts: '🔔 时间线提醒',
     addEvent: '+ 事件',
@@ -3211,8 +3211,28 @@ function renderDashboard() {
   const filterLabel = document.getElementById('dashboard-filter-label');
   if (filterLabel) filterLabel.textContent = getDashboardFilterLabel();
 
-  // Calculate top summary metrics using analyzeSubmission
-  const analyses = db.submissions.filter(s => s.status !== 'rejected').map(analyzeSubmission);
+  // Calculate top summary metrics per manuscript (各个稿件的平均值)
+  const manuscriptPipelines = [];
+  const processedSubIds = new Set();
+
+  (db.manuscripts || []).forEach(man => {
+    const sub = window.RFCore.getCurrentSubmission(db, man.id);
+    if (sub && sub.status !== 'rejected') {
+      manuscriptPipelines.push({ manuscript: man, submission: sub });
+      processedSubIds.add(sub.id);
+    }
+  });
+
+  (db.submissions || []).forEach(sub => {
+    if (sub.status !== 'rejected' && !processedSubIds.has(sub.id)) {
+      if (!sub.manuscriptId || !manuscriptsById.has(sub.manuscriptId)) {
+        manuscriptPipelines.push({ manuscript: null, submission: sub });
+        processedSubIds.add(sub.id);
+      }
+    }
+  });
+
+  const analyses = manuscriptPipelines.map(p => analyzeSubmission(p.submission));
   const expSubmit = analyses.map(a => a.expToSubmit).filter(v => v !== null && !isNaN(v) && v >= 0);
   const submitNow = analyses.filter(a => !a.accepted).map(a => a.submitToNow).filter(v => v !== null && !isNaN(v) && v >= 0);
   const r1Now = analyses.filter(a => !a.accepted).map(a => a.r1ToNow).filter(v => v !== null && !isNaN(v) && v >= 0);
@@ -3221,10 +3241,34 @@ function renderDashboard() {
   applyLanguage();
   const avgText = (arr) => arr.length ? `${Math.round(arr.reduce((s, n) => s + n, 0) / arr.length)}${t('dayUnitShort')}` : "—";
 
-  if (document.getElementById("mExpSubmit")) document.getElementById("mExpSubmit").textContent = avgText(expSubmit);
-  if (document.getElementById("mSubmitNow")) document.getElementById("mSubmitNow").textContent = avgText(submitNow);
-  if (document.getElementById("mR1Now")) document.getElementById("mR1Now").textContent = avgText(r1Now);
-  if (document.getElementById("mSubmitAccept")) document.getElementById("mSubmitAccept").textContent = avgText(submitAccept);
+  const elExpSubmit = document.getElementById("mExpSubmit");
+  if (elExpSubmit) {
+    elExpSubmit.textContent = avgText(expSubmit);
+    elExpSubmit.parentElement?.setAttribute('title', currentLanguage === 'zh'
+      ? `各个稿件平均值：基于 ${expSubmit.length} 篇有实验记录的稿件`
+      : `Average across manuscripts: based on ${expSubmit.length} manuscripts with experiment records`);
+  }
+  const elSubmitNow = document.getElementById("mSubmitNow");
+  if (elSubmitNow) {
+    elSubmitNow.textContent = avgText(submitNow);
+    elSubmitNow.parentElement?.setAttribute('title', currentLanguage === 'zh'
+      ? `各个稿件平均值：基于 ${submitNow.length} 篇在审（未接收）稿件`
+      : `Average across manuscripts: based on ${submitNow.length} unaccepted manuscripts`);
+  }
+  const elR1Now = document.getElementById("mR1Now");
+  if (elR1Now) {
+    elR1Now.textContent = avgText(r1Now);
+    elR1Now.parentElement?.setAttribute('title', currentLanguage === 'zh'
+      ? `各个稿件平均值：基于 ${r1Now.length} 篇一审修回中的稿件`
+      : `Average across manuscripts: based on ${r1Now.length} manuscripts awaiting post-R1 decisions`);
+  }
+  const elSubmitAccept = document.getElementById("mSubmitAccept");
+  if (elSubmitAccept) {
+    elSubmitAccept.textContent = avgText(submitAccept);
+    elSubmitAccept.parentElement?.setAttribute('title', currentLanguage === 'zh'
+      ? `各个稿件平均值：基于 ${submitAccept.length} 篇已接收/发表的稿件`
+      : `Average across manuscripts: based on ${submitAccept.length} accepted manuscripts`);
+  }
 
   // 1. Pipeline Timeline Cards
   const ganttBox = document.getElementById('dashboard-gantt');
