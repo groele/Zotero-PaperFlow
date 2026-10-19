@@ -1088,9 +1088,9 @@
         const linkedSubmissions = (db.submissions || []).filter((s) => s.manuscriptId === targetMan.id);
         const sub = linkedSubmissions[0] || null;
 
-        let noteHtml = `<h1>🚀 [ResearchFlow] 论文稿件与审稿跟踪快报</h1>`;
+        let noteHtml = `<h1>🚀 [Zotero PaperFlow] 论文稿件与审稿跟踪快报</h1>`;
         noteHtml += `<p><strong>稿件标题：</strong>${escapeHtml(targetMan.title)}</p>`;
-        noteHtml += `<p><strong>目标期刊：</strong>${escapeHtml(targetMan.targetJournal || targetMan.targetJournals?.[0] || '待定')} | <strong>当前状态：</strong><span style="color:#cc292b; font-weight:700;">${escapeHtml(statusText)}</span></p>`;
+        noteHtml += `<p><strong>目标期刊：</strong>${escapeHtml(targetMan.targetJournal || targetMan.targetJournals?.[0] || '待定')} | <strong>当前状态：</strong><span style="color:#e11d48; font-weight:700;">${escapeHtml(statusText)}</span></p>`;
         if (targetMan.citekey || meta.citekey) {
           noteHtml += `<p><strong>Citation Key:</strong> <code>[@${escapeHtml(targetMan.citekey || meta.citekey)}]</code></p>`;
         }
@@ -1220,7 +1220,7 @@
             pluginID: ADDON_ID,
             id: 'researchflow-preferences-pane',
             src: prefSrc,
-            label: 'ResearchFlow',
+            label: 'Zotero PaperFlow',
             image: prefIcon,
             scripts: [prefScript],
             stylesheets: [prefCss],
@@ -2177,18 +2177,18 @@
                 header.style.cssText = 'display:flex; align-items:center; justify-content:space-between; gap:6px;';
 
                 const titleEl = document.createElement('div');
-                titleEl.style.cssText = 'font-weight:600; font-size:12px; color:#cc292b; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; flex:1;';
+                titleEl.style.cssText = 'font-weight:600; font-size:12px; color:#e11d48; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; flex:1;';
                 titleEl.textContent = m.title || '未命名稿件';
 
                 const statusStyles = {
-                  idea: { bg: 'rgba(100,116,139,0.12)', color: '#475569', label: '选题中', pct: 15 },
-                  drafting: { bg: 'rgba(204,41,43,0.12)', color: '#cc292b', label: '初稿撰写', pct: 40 },
-                  under_review: { bg: 'rgba(37,99,235,0.12)', color: '#2563eb', label: '同行审稿', pct: 65 },
+                  idea: { bg: 'rgba(6,182,212,0.12)', color: '#0891b2', label: '选题中', pct: 15 },
+                  drafting: { bg: 'rgba(99,102,241,0.12)', color: '#6366f1', label: '初稿撰写', pct: 40 },
+                  under_review: { bg: 'rgba(99,102,241,0.18)', color: '#4f46e5', label: '同行审稿', pct: 65 },
                   revision: { bg: 'rgba(217,119,6,0.12)', color: '#d97706', label: '修回修订', pct: 80 },
                   accepted: { bg: 'rgba(5,150,105,0.12)', color: '#059669', label: '已录用', pct: 95 },
-                  published: { bg: 'rgba(5,150,105,0.22)', color: '#047857', label: '已发表', pct: 100 }
+                  published: { bg: 'rgba(225,29,72,0.12)', color: '#e11d48', label: '已发表', pct: 100 }
                 };
-                const st = statusStyles[m.status] || { bg: 'rgba(204,41,43,0.12)', color: '#cc292b', label: m.status || '撰写中', pct: 50 };
+                const st = statusStyles[m.status] || { bg: 'rgba(99,102,241,0.12)', color: '#6366f1', label: m.status || '撰写中', pct: 50 };
 
                 const badge = document.createElement('span');
                 badge.style.cssText = `font-size:10px; padding:2px 7px; border-radius:4px; background:${st.bg}; color:${st.color}; font-weight:600; white-space:nowrap;`;
@@ -2212,7 +2212,7 @@
                 actionRow.style.cssText = 'display:flex; gap:6px; justify-content:flex-end; margin-top:4px; flex-wrap:wrap;';
 
                 const btnView = document.createElement('button');
-                btnView.style.cssText = 'font-size:11px; padding:3px 8px; border-radius:4px; border:1px solid #cc292b; background:transparent; color:#cc292b; cursor:pointer; font-weight:500;';
+                btnView.style.cssText = 'font-size:11px; padding:3px 8px; border-radius:4px; border:1px solid #e11d48; background:transparent; color:#e11d48; cursor:pointer; font-weight:500;';
                 btnView.textContent = '🔍 查看';
                 btnView.title = '在 Zotero PaperFlow 工作台中打开该稿件';
                 btnView.addEventListener('click', () => {
@@ -2324,7 +2324,7 @@
               btnRow.style.cssText = 'display:flex; gap:8px;';
 
               const createBtn = document.createElement('button');
-              createBtn.style.cssText = 'font-size:11px; padding:5px 12px; border-radius:5px; background:#cc292b; color:#fff; border:1px solid #b71c1c; cursor:pointer; font-weight:500;';
+              createBtn.style.cssText = 'font-size:11px; padding:5px 12px; border-radius:5px; background:linear-gradient(135deg, #e11d48, #be123c); color:#fff; border:1px solid #be123c; cursor:pointer; font-weight:500;';
               createBtn.textContent = '➕ 新建稿件管线';
               createBtn.addEventListener('click', () => {
                 const serialized = serializeLiteratureItem(target);

@@ -21,9 +21,9 @@
 }
 #view-settings .settings-card, #view-settings .settings-security-assurance { position: relative; overflow: hidden; }
 #view-settings .settings-card::before, #view-settings .settings-security-assurance::before { content: ""; position: absolute; inset: 0 0 auto; height: 3px; background: hsl(var(--workspace-accent)); }
-#view-settings #settings-cloud-card::before { background: #2563eb; }
+#view-settings #settings-cloud-card::before { background: #6366f1; }
 #view-settings .settings-security-assurance::before { background: #059669; }
-#view-settings #settings-language-card::before { background: #cc292b; }
+#view-settings #settings-language-card::before { background: #e11d48; }
 #view-settings #settings-submission-assist-card::before { background: #0891b2; }
 #view-settings #settings-backup-card::before { background: #059669; }
 #view-settings #settings-cloud-card { background: hsl(var(--card-bg)); }
@@ -51,8 +51,8 @@
   color: hsl(var(--workspace-accent));
   background: hsl(var(--workspace-accent) / 0.08);
 }
-#view-settings #settings-cloud-card .settings-panel-mark { color: #2563eb; background: rgba(37, 99, 235, 0.1); }
-#view-settings #settings-language-card .settings-panel-mark { color: #cc292b; background: rgba(204, 41, 43, 0.1); }
+#view-settings #settings-cloud-card .settings-panel-mark { color: #6366f1; background: rgba(99, 102, 241, 0.1); }
+#view-settings #settings-language-card .settings-panel-mark { color: #e11d48; background: rgba(225, 29, 72, 0.1); }
 #view-settings #settings-submission-assist-card .settings-assist-mark { color: #0891b2; background: rgba(8, 145, 178, 0.1); }
 #view-settings #settings-backup-card .settings-panel-mark { color: #059669; background: rgba(5, 150, 105, 0.1); }
 .settings-security-assurance {
@@ -92,8 +92,8 @@
   transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
 }
 #view-settings input:not([type="checkbox"]):not([type="file"]):focus, #view-settings select:focus {
-  border-color: #cc292b;
-  box-shadow: 0 0 0 2px rgba(204, 41, 43, 0.18);
+  border-color: #e11d48;
+  box-shadow: 0 0 0 2px rgba(225, 29, 72, 0.18);
   outline: none;
 }
 .settings-route-flow { display: grid; gap: 16px; }
@@ -114,9 +114,9 @@
 .settings-switch input { position: absolute; inset: 0; opacity: 0; width: 100%; height: 100%; cursor: pointer; }
 .settings-switch-track { width: 38px; height: 22px; padding: 3px; border-radius: 20px; background: hsl(var(--text-muted) / 0.35); pointer-events: none; transition: background 150ms ease; }
 .settings-switch-thumb { display: block; width: 16px; height: 16px; border-radius: 50%; background: #fff; transition: transform 150ms ease; }
-.settings-switch input:checked + .settings-switch-track { background: #cc292b; }
+.settings-switch input:checked + .settings-switch-track { background: #e11d48; }
 .settings-switch input:checked + .settings-switch-track .settings-switch-thumb { transform: translateX(16px); }
-.settings-switch input:focus-visible + .settings-switch-track { outline: 2px solid #cc292b; outline-offset: 2px; }
+.settings-switch input:focus-visible + .settings-switch-track { outline: 2px solid #e11d48; outline-offset: 2px; }
 .settings-switch input:disabled { cursor: not-allowed; }
 .settings-provider-stage { margin-top: 8px; }
 #view-settings .settings-provider-stage > .settings-card {

@@ -15,17 +15,21 @@
   --text-muted: 216 12% 43%;               /* Secondary text retains contrast */
   --text-placeholder: 215 16% 65%;          /* #94a3b8 */
 
-  /* Zotero 10 Iconic Accents */
-  --accent-purple: 358 75% 48%;            /* #cc292b - Zotero Brand Crimson */
-  --accent-purple-glow: 358 75% 48% / 0.12;
-  --accent-cyan: 221 83% 53%;              /* #2563eb - Zotero Academic Blue */
-  --accent-cyan-glow: 221 83% 53% / 0.10;
+  /* Zotero PaperFlow Brand & System Accents */
+  --accent-rose: 350 78% 50%;              /* #e11d48 - Publication / Brand Rose */
+  --accent-rose-glow: 350 78% 50% / 0.12;
+  --accent-indigo: 239 84% 67%;            /* #6366f1 - Submission Review Indigo */
+  --accent-indigo-glow: 239 84% 67% / 0.12;
+  --accent-cyan: 189 94% 43%;              /* #06b6d4 - Manuscript Drafting Cyan */
+  --accent-cyan-glow: 189 94% 43% / 0.10;
   --accent-emerald: 160 84% 33%;           /* #059669 - Peer-reviewed accepted green */
   --accent-emerald-glow: 160 84% 33% / 0.10;
-  --accent-rose: 350 80% 50%;              /* #e11d48 - Rejection / warning alert */
-  --accent-rose-glow: 350 80% 50% / 0.10;
-  --accent-amber: 38 92% 43%;              /* #d97706 - Revision / Due milestone */
-  --accent-amber-glow: 38 92% 43% / 0.10;
+  --accent-amber: 38 92% 50%;              /* #f59e0b - Milestone & Due Star Amber */
+  --accent-amber-glow: 38 92% 50% / 0.10;
+
+  /* Aliases for backwards-compatibility */
+  --accent-purple: var(--accent-rose);
+  --accent-purple-glow: var(--accent-rose-glow);
 
   /* Zotero 10 Clean Desktop Surfaces */
   --blur-radius: 0px;
@@ -36,7 +40,7 @@
   /* Form Elements */
   --input-bg: #ffffff;
   --input-border: #cbd5e1;
-  --input-focus-glow: 358 75% 48% / 0.18;
+  --input-focus-glow: 350 78% 50% / 0.18;
 
   /* Scrollbars */
   --scrollbar-thumb: rgba(0, 0, 0, 0.18);
@@ -75,17 +79,21 @@
     --text-muted: 215 14% 65%;             /* #94a3b8 */
     --text-placeholder: 215 14% 45%;       /* #64748b */
 
-    /* Zotero 10 Dark Accents */
-    --accent-purple: 358 72% 60%;          /* #f87171 - Accessible Zotero Red */
-    --accent-purple-glow: 358 72% 60% / 0.16;
-    --accent-cyan: 217 91% 60%;            /* #3b82f6 - Accessible Academic Blue */
-    --accent-cyan-glow: 217 91% 60% / 0.16;
+    /* Zotero PaperFlow Dark Accents */
+    --accent-rose: 350 89% 65%;            /* #f43f5e */
+    --accent-rose-glow: 350 89% 65% / 0.16;
+    --accent-indigo: 239 84% 75%;          /* #818cf8 */
+    --accent-indigo-glow: 239 84% 75% / 0.16;
+    --accent-cyan: 189 94% 55%;            /* #22d3ee */
+    --accent-cyan-glow: 189 94% 55% / 0.16;
     --accent-emerald: 160 84% 39%;         /* #10b981 */
     --accent-emerald-glow: 160 84% 39% / 0.16;
-    --accent-rose: 350 80% 60%;            /* #fb7185 */
-    --accent-rose-glow: 350 80% 60% / 0.16;
-    --accent-amber: 38 92% 50%;            /* #fbbf24 */
-    --accent-amber-glow: 38 92% 50% / 0.16;
+    --accent-amber: 38 92% 60%;            /* #fbbf24 */
+    --accent-amber-glow: 38 92% 60% / 0.16;
+
+    /* Aliases */
+    --accent-purple: var(--accent-rose);
+    --accent-purple-glow: var(--accent-rose-glow);
 
     /* Dark Surfaces */
     --glass-bg: #1d1e24;
@@ -95,7 +103,7 @@
     /* Inputs */
     --input-bg: rgba(255, 255, 255, 0.04);
     --input-border: #3b3d47;
-    --input-focus-glow: 358 72% 60% / 0.22;
+    --input-focus-glow: 350 89% 65% / 0.22;
 
     /* Scrollbars */
     --scrollbar-thumb: rgba(255, 255, 255, 0.16);
@@ -164,15 +172,27 @@ body {
 
 .glass-card:hover {
   background: var(--card-fill-hover);
-  border-color: hsl(var(--accent-purple) / 0.35);
+  border-color: rgba(225, 29, 72, 0.35);
   transform: translateY(-1px);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
 }
 
-/* Gradients */
-.gradient-text-purple {
+/* Gradients & Semantic Highlights */
+.gradient-text-rose {
   background: none;
-  color: #cc292b;
+  color: #e11d48;
+  -webkit-text-fill-color: currentColor;
+}
+
+.gradient-text-indigo {
+  background: none;
+  color: #6366f1;
+  -webkit-text-fill-color: currentColor;
+}
+
+.gradient-text-cyan {
+  background: none;
+  color: #0891b2;
   -webkit-text-fill-color: currentColor;
 }
 
@@ -182,12 +202,38 @@ body {
   -webkit-text-fill-color: currentColor;
 }
 
+.gradient-text-amber {
+  background: none;
+  color: #d97706;
+  -webkit-text-fill-color: currentColor;
+}
+
+/* Backward compatibility */
+.gradient-text-purple {
+  background: none;
+  color: #6366f1;
+  -webkit-text-fill-color: currentColor;
+}
+
 .gradient-bg-purple {
-  background: #cc292b;
+  background: #6366f1;
 }
 
 .gradient-bg-emerald {
   background: #059669;
+}
+
+.gradient-bg-rose {
+  background: #e11d48;
+}
+
+@media (prefers-color-scheme: dark) {
+  .gradient-text-rose { color: #fb7185; }
+  .gradient-text-indigo { color: #818cf8; }
+  .gradient-text-cyan { color: #22d3ee; }
+  .gradient-text-emerald { color: #34d399; }
+  .gradient-text-amber { color: #fbbf24; }
+  .gradient-text-purple { color: #818cf8; }
 }
 
 /* Typography & Titles */
@@ -222,25 +268,25 @@ button, .btn {
 }
 
 button:focus-visible, .btn:focus-visible {
-  outline: 2px solid hsl(var(--accent-purple));
+  outline: 2px solid #e11d48;
   outline-offset: 2px;
 }
 
 .btn-primary {
-  background: #cc292b;
-  border-color: #b71c1c;
-  color: white;
-  box-shadow: 0 1px 2px rgba(204, 41, 43, 0.2);
+  background: linear-gradient(135deg, #e11d48 0%, #be123c 100%);
+  border: 1px solid #be123c;
+  color: #ffffff;
+  box-shadow: 0 1px 3px rgba(225, 29, 72, 0.25), 0 1px 2px rgba(0, 0, 0, 0.04);
 }
 .btn-primary:hover {
-  background: #b91c1c;
-  border-color: #991b1b;
-  box-shadow: 0 2px 6px rgba(204, 41, 43, 0.3);
-  transform: none;
+  background: linear-gradient(135deg, #be123c 0%, #9f1239 100%);
+  border-color: #9f1239;
+  box-shadow: 0 2px 6px rgba(225, 29, 72, 0.35);
+  transform: translateY(-0.5px);
 }
 .btn-primary:active {
-  background: #991b1b;
-  transform: none;
+  background: #9f1239;
+  transform: translateY(0);
 }
 
 .btn-secondary {
@@ -301,7 +347,7 @@ select option {
 }
 
 input:focus, textarea:focus, select:focus {
-  border-color: #cc292b;
+  border-color: #e11d48;
   background: hsl(var(--card-bg));
   box-shadow: 0 0 0 2px hsl(var(--input-focus-glow));
 }
@@ -489,11 +535,12 @@ label {
    existing system palettes so manual selection never feels like a new theme. */
 :root[data-theme="light"] {
   color-scheme: light;
-  --accent-purple: 358 75% 48%;
-  --accent-cyan: 221 83% 53%;
+  --accent-rose: 350 78% 50%;
+  --accent-indigo: 239 84% 67%;
+  --accent-cyan: 189 94% 43%;
   --accent-emerald: 160 84% 33%;
-  --accent-rose: 350 80% 50%;
-  --accent-amber: 38 92% 43%;
+  --accent-amber: 38 92% 50%;
+  --accent-purple: var(--accent-rose);
   --bg-color: 210 20% 98%;
   --sidebar-bg: #ffffff;
   --card-bg: 0 0% 100%;
@@ -515,11 +562,12 @@ label {
 
 :root[data-theme="dark"] {
   color-scheme: dark;
-  --accent-purple: 358 72% 60%;
-  --accent-cyan: 217 91% 60%;
+  --accent-rose: 350 89% 65%;
+  --accent-indigo: 239 84% 75%;
+  --accent-cyan: 189 94% 55%;
   --accent-emerald: 160 84% 39%;
-  --accent-rose: 350 80% 60%;
-  --accent-amber: 38 92% 50%;
+  --accent-amber: 38 92% 60%;
+  --accent-purple: var(--accent-rose);
   --bg-color: 220 14% 8%;
   --sidebar-bg: #18191e;
   --card-bg: 220 13% 13%;

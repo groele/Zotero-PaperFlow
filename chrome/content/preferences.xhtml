@@ -2,61 +2,130 @@
       xmlns:html="http://www.w3.org/1999/xhtml"
       id="researchflow-preferences-pane" class="rf-prefs-container"
       onshowing="ResearchFlow_Preferences.init(window)">
-  <html:header class="rf-pref-header">
-    <html:div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px;">
-      <html:h1>Zotero PaperFlow 论文管线与投稿管理</html:h1>
-      <html:div style="display: flex; gap: 8px; flex-wrap: wrap;">
-        <html:button id="rf-btn-open-workspace" class="rf-pref-btn" type="button" title="在 Zotero 内部选项卡中打开工作台">📑 内部选项卡</html:button>
-        <html:button id="rf-btn-open-subwindow" class="rf-pref-btn" type="button" title="打开 480×780 紧凑伴读子窗口，适合边看文献边跟踪稿件">🗗 伴读子窗口</html:button>
-        <html:button id="rf-btn-open-window" class="rf-pref-btn" type="button" title="打开 1240×820 独立桌面全功能大窗口">⬚ 独立大窗口</html:button>
-      </html:div>
-    </html:div>
-  </html:header>
-  <html:p id="rf-pref-status" class="rf-pref-status" role="status" aria-live="polite">正在加载设置项…</html:p>
   
-  <groupbox id="rf-group-window" class="rf-pref-group">
-    <html:h2 class="rf-group-title">1. 工作台窗口与菜单设置</html:h2>
-    <html:div id="rf-pref-window" class="rf-pref-content" />
-  </groupbox>
+  <html:div class="rf-pref-brand-header">
+    <html:div class="rf-pref-brand-row">
+      <html:div class="rf-pref-brand-title">Zotero PaperFlow</html:div>
+      <html:div class="rf-pref-brand-tag">v12.0.0</html:div>
+    </html:div>
+    <html:div class="rf-pref-brand-slogan">From Manuscript to Publication. 面向科研论文全生命周期的智能投稿与审稿管理工作台。</html:div>
+    <html:div id="rf-pref-status" class="rf-pref-status" role="status" aria-live="polite">首选项已就绪。所有更改将实时生效并保存。</html:div>
+  </html:div>
 
-  <groupbox id="rf-group-sync" class="rf-pref-group">
-    <html:h2 class="rf-group-title">2. 多云设置与本地数据</html:h2>
-    <html:div id="rf-pref-sync" class="rf-pref-content">
-      <html:p class="rf-pref-desc">Zotero PaperFlow 遵循本地优先原则，所有科研数据均安全保存于 Zotero 专属数据目录，可随时配合 WebDAV 或 GitHub 进行私有云同步：</html:p>
-      <html:div style="display: flex; gap: 8px; align-items: center; margin-top: 6px;">
-        <html:span style="font-size: 12px; font-weight: 600; color: #0284c7;">📁 数据存储位置：</html:span>
-        <html:code id="rf-data-path-label" style="font-size: 11px; background: rgba(0,0,0,0.05); padding: 3px 6px; border-radius: 4px; font-family: monospace;">Zotero/researchflow-data.json</html:code>
+  <!-- Accordion 1: 工作台窗口与交互模式 (默认展开) -->
+  <html:details class="rf-accordion" open="open" id="rf-acc-window">
+    <html:summary class="rf-accordion-header">
+      <html:span class="rf-accordion-title">工作台窗口与交互模式</html:span>
+      <html:span class="rf-chevron-indicator">›</html:span>
+    </html:summary>
+    <html:div class="rf-accordion-body">
+      <html:p class="rf-card-desc">配置 Zotero PaperFlow 工作台默认打开模式、伴读交互以及系统集成行为。隐藏菜单只影响快捷入口，所有工作台数据与逻辑保持完整独立。</html:p>
+      
+      <html:div id="rf-pref-window" class="rf-pref-content" />
+
+      <html:div class="rf-sub-action-group">
+        <html:button id="rf-btn-open-workspace" class="rf-sub-action-btn" type="button">
+          <html:span>📑 在 Zotero 内部主标签页打开工作台</html:span>
+          <html:span class="rf-sub-chevron">›</html:span>
+        </html:button>
+        <html:button id="rf-btn-open-subwindow" class="rf-sub-action-btn" type="button">
+          <html:span>🗗 打开 480×780 紧凑伴读子窗口 (边读文献边跟踪进展)</html:span>
+          <html:span class="rf-sub-chevron">›</html:span>
+        </html:button>
+        <html:button id="rf-btn-open-window" class="rf-sub-action-btn" type="button">
+          <html:span>⬚ 打开 1240×820 独立桌面全功能大窗口</html:span>
+          <html:span class="rf-sub-chevron">›</html:span>
+        </html:button>
       </html:div>
     </html:div>
-    <html:iframe id="rf-cloud-settings-frame" class="rf-cloud-settings-frame"
-                 src="chrome://researchflow/content/index.html?settingsOnly=1"
-                 title="Zotero PaperFlow 多云设置" />
-  </groupbox>
+  </html:details>
 
-  <groupbox id="rf-group-export" class="rf-pref-group">
-    <html:h2 class="rf-group-title">3. 数据库全量备份与跨格式导出</html:h2>
-    <html:div class="rf-pref-content">
-      <html:p class="rf-pref-desc">支持一键将全部论文管线、审稿意见矩阵、日程任务与期刊记录导出为 JSON 标准数据包：</html:p>
-      <html:div style="display: flex; gap: 8px; flex-wrap: wrap; margin-top: 6px;">
-        <html:button id="rf-btn-export-db" type="button" class="rf-pref-btn rf-pref-btn-primary">📑 导出 JSON 全量备份</html:button>
-        <html:button id="rf-btn-export-diag" type="button" class="rf-pref-btn">🔍 导出运行诊断报告</html:button>
+  <!-- Accordion 2: 多云同步与本地数据存储 -->
+  <html:details class="rf-accordion" id="rf-acc-sync">
+    <html:summary class="rf-accordion-header">
+      <html:span class="rf-accordion-title">多云同步与本地数据存储</html:span>
+      <html:span class="rf-chevron-indicator">›</html:span>
+    </html:summary>
+    <html:div class="rf-accordion-body">
+      <html:p class="rf-card-desc">PaperFlow 遵循本地优先原则，所有科研数据均安全保存于 Zotero 专属数据目录，可随时配合 WebDAV 或 GitHub 进行私有云端加密同步：</html:p>
+      <html:div class="rf-storage-path-box">
+        <html:span class="rf-storage-icon">📁 本地存储位置：</html:span>
+        <html:code id="rf-data-path-label" class="rf-storage-code">Zotero/researchflow-data.json</html:code>
+      </html:div>
+      <html:div class="rf-sub-action-group" style="margin-top: 12px;">
+        <html:button id="rf-btn-open-cloud-settings" class="rf-sub-action-btn" type="button">
+          <html:span>🌐 在工作台中配置 WebDAV 与 GitHub 私有云同步</html:span>
+          <html:span class="rf-sub-chevron">›</html:span>
+        </html:button>
       </html:div>
     </html:div>
-  </groupbox>
+  </html:details>
 
-  <groupbox id="rf-group-import" class="rf-pref-group">
-    <html:h2 class="rf-group-title">4. 数据导入与灾备恢复</html:h2>
-    <html:div class="rf-pref-content">
-      <html:p class="rf-pref-desc">从 Zotero PaperFlow JSON 备份中恢复科研管线数据（导入前会自动生成安全快照）：</html:p>
-      <html:div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 6px;">
-        <html:select id="rf-import-mode" class="rf-control" style="max-width: 240px;">
-          <html:option value="merge">智能合并 (保留现有并补充导入)</html:option>
-          <html:option value="overwrite">完全替换 (清空当前库并以备份为准)</html:option>
+  <!-- Accordion 3: 数据库全量备份与跨格式导出 -->
+  <html:details class="rf-accordion" id="rf-acc-export">
+    <html:summary class="rf-accordion-header">
+      <html:span class="rf-accordion-title">数据库全量备份与跨格式导出</html:span>
+      <html:span class="rf-chevron-indicator">›</html:span>
+    </html:summary>
+    <html:div class="rf-accordion-body">
+      <html:p class="rf-card-desc">支持一键将全部论文管线、审稿意见回复矩阵、日程里程碑与期刊记录导出为 JSON 标准数据包或运行诊断报告：</html:p>
+      <html:div class="rf-sub-action-group">
+        <html:button id="rf-btn-export-db" class="rf-sub-action-btn" type="button">
+          <html:span>📑 导出 JSON 全量备份数据文件</html:span>
+          <html:span class="rf-sub-chevron">›</html:span>
+        </html:button>
+        <html:button id="rf-btn-export-diag" class="rf-sub-action-btn" type="button">
+          <html:span>🔍 导出运行诊断报告 (用于跨设备排查与技术支持)</html:span>
+          <html:span class="rf-sub-chevron">›</html:span>
+        </html:button>
+      </html:div>
+    </html:div>
+  </html:details>
+
+  <!-- Accordion 4: 数据导入与灾备恢复 -->
+  <html:details class="rf-accordion" id="rf-acc-import">
+    <html:summary class="rf-accordion-header">
+      <html:span class="rf-accordion-title">数据导入与灾备恢复</html:span>
+      <html:span class="rf-chevron-indicator">›</html:span>
+    </html:summary>
+    <html:div class="rf-accordion-body">
+      <html:p class="rf-card-desc">从 Zotero PaperFlow JSON 备份中恢复科研管线数据（导入前系统将自动生成安全灾备快照）：</html:p>
+      <html:div class="rf-control-row" style="margin-bottom: 10px;">
+        <html:label for="rf-import-mode" class="rf-control-label">数据冲突处理策略：</html:label>
+        <html:select id="rf-import-mode" class="rf-control" style="max-width: 280px;">
+          <html:option value="merge">智能合并 (保留现有并补充导入增量)</html:option>
+          <html:option value="overwrite">完全替换 (以导入备份为准完全覆写)</html:option>
         </html:select>
-        <html:button id="rf-btn-import-file" type="button" class="rf-pref-btn rf-pref-btn-primary">📂 选择 JSON 文件导入</html:button>
-        <html:button id="rf-btn-restore-backup" type="button" class="rf-pref-btn">⏮️ 恢复上次导入前备份</html:button>
       </html:div>
-      <html:p id="rf-import-status" class="rf-pref-desc" style="margin-top: 6px; font-size: 12px; color: #0284c7; font-weight: 500;"></html:p>
+      <html:div class="rf-sub-action-group">
+        <html:button id="rf-btn-import-file" class="rf-sub-action-btn" type="button">
+          <html:span>📂 选择本地 JSON 备份文件导入并执行恢复</html:span>
+          <html:span class="rf-sub-chevron">›</html:span>
+        </html:button>
+        <html:button id="rf-btn-restore-backup" class="rf-sub-action-btn" type="button">
+          <html:span>⏮️ 恢复上次导入前的紧急安全备份快照</html:span>
+          <html:span class="rf-sub-chevron">›</html:span>
+        </html:button>
+      </html:div>
+      <html:p id="rf-import-status" class="rf-import-status-text"></html:p>
     </html:div>
-  </groupbox>
+  </html:details>
+
+  <!-- Accordion 5: 关于 Zotero PaperFlow -->
+  <html:details class="rf-accordion" id="rf-acc-about">
+    <html:summary class="rf-accordion-header">
+      <html:span class="rf-accordion-title">关于 Zotero PaperFlow 与生态</html:span>
+      <html:span class="rf-chevron-indicator">›</html:span>
+    </html:summary>
+    <html:div class="rf-accordion-body">
+      <html:p class="rf-card-desc">Zotero PaperFlow 是面向科研学者的高性能论文全生命周期投稿与审稿管理套件。原生适配 Zotero 7+ 与 Zotero 10。</html:p>
+      <html:div class="rf-about-info-grid">
+        <html:div class="rf-about-item"><html:strong>插件名称：</html:strong> Zotero PaperFlow</html:div>
+        <html:div class="rf-about-item"><html:strong>当前版本：</html:strong> v12.0.0 (Release)</html:div>
+        <html:div class="rf-about-item"><html:strong>英文标语：</html:strong> From Manuscript to Publication.</html:div>
+        <html:div class="rf-about-item"><html:strong>开源仓库：</html:strong> <html:a href="https://github.com/groele/Zotero-PaperFlow" target="_blank" style="color: #e11d48; text-decoration: none;">github.com/groele/Zotero-PaperFlow</html:a></html:div>
+      </html:div>
+    </html:div>
+  </html:details>
+
 </vbox>

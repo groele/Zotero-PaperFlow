@@ -3922,7 +3922,7 @@ function renderKanban() {
     }
 
     const pendingLinkBtnHtml = window._pendingZoteroLinkItem ? `
-      <button class="btn-primary" style="padding: 2px 8px; font-size:10px; height: 24px; background:#cc292b; border-color:#cc292b;" id="btn-link-this-${m.id}">🔗 ${currentLanguage === 'zh' ? '关联此文献' : 'Link Item'}</button>
+      <button class="btn-primary" style="padding: 2px 8px; font-size:10px; height: 24px; background:#e11d48; border-color:#be123c;" id="btn-link-this-${m.id}">🔗 ${currentLanguage === 'zh' ? '关联此文献' : 'Link Item'}</button>
     ` : '';
 
     const targetJournalLabel = currentLanguage === 'zh' ? '目标期刊' : 'Target';
@@ -4323,7 +4323,7 @@ function openManuscriptModal(man = null, prefill = null) {
           <button type="button" class="btn-secondary" id="btn-zotero-open-pdf" style="padding:4px 8px; font-size:11px; color:#059669; ${currentZoteroItemKey ? '' : 'display:none;'}" title="在 Zotero 阅读器中打开 PDF">
             📖 原文 PDF
           </button>
-          <button type="button" class="btn-secondary" id="btn-zotero-sync-note" style="padding:4px 8px; font-size:11px; color:#cc292b; border-color:rgba(204,41,43,0.3); font-weight:500; ${currentZoteroItemKey ? '' : 'display:none;'}" title="同步稿件进展至 Zotero 云笔记">
+          <button type="button" class="btn-secondary" id="btn-zotero-sync-note" style="padding:4px 8px; font-size:11px; color:#e11d48; border-color:rgba(225,29,72,0.3); font-weight:500; ${currentZoteroItemKey ? '' : 'display:none;'}" title="同步稿件进展至 Zotero 云笔记">
             📝 同步笔记
           </button>
           <button type="button" class="btn-secondary" id="btn-zotero-locate" style="padding:4px 8px; font-size:11px; ${currentZoteroItemKey ? '' : 'display:none;'}" title="${escapeHTML(currentLanguage === 'zh' ? '在 Zotero 文献库中定位该条目' : 'Locate item in Zotero library')}">
@@ -4653,7 +4653,7 @@ function openManuscriptModal(man = null, prefill = null) {
           batchBar.className = 'zotero-batch-toolbar';
           window.RFUI.setHTML(batchBar, `
             <span>共检测到 <strong>${annos.length}</strong> 条 PDF 批注划线</span>
-            <button type="button" class="btn-secondary" id="btn-batch-insert-annos" style="font-size:10px; padding:2px 8px; color:var(--text-accent, #cc292b); font-weight:600; cursor:pointer;">
+            <button type="button" class="btn-secondary" id="btn-batch-insert-annos" style="font-size:10px; padding:2px 8px; color:var(--text-accent, #e11d48); font-weight:600; cursor:pointer;">
               ➕ 全部汇入研读草稿
             </button>
           `);
@@ -4676,7 +4676,7 @@ function openManuscriptModal(man = null, prefill = null) {
           itemEl.className = 'zotero-annotation-item';
           window.RFUI.setHTML(itemEl, `
             <div class="zotero-annotation-head">
-              <span style="font-weight:600; color:${a.color || '#cc292b'};">● 第 ${a.page} 页 ${a.type === 'note' ? '独立批注' : '高亮划线'}</span>
+              <span style="font-weight:600; color:${a.color || '#e11d48'};">● 第 ${a.page} 页 ${a.type === 'note' ? '独立批注' : '高亮划线'}</span>
               <span>${a.date ? new Date(a.date).toLocaleDateString() : ''}</span>
             </div>
             ${a.text ? `<div class="zotero-annotation-body" style="border-left-color:${a.color || '#ffd400'};">${escapeHTML(a.text)}</div>` : ''}
@@ -6376,7 +6376,7 @@ function renderSubmissionDetails(sub) {
         ${escapeHTML(currentLanguage === 'zh' ? `共检测到 ${savedReviewRows.length} 条审稿意见与回复，可直接复制或下载对应格式文件。` : `Detected ${savedReviewRows.length} comments and responses. Copy or download below.`)}
       </div>
       <div style="display:flex; gap:8px; margin-bottom:12px;">
-        <button type="button" class="btn-secondary" id="modal-tab-md" style="font-size:12px; font-weight:600; padding:4px 12px; border-color:#cc292b; color:#cc292b;">Markdown 表格</button>
+        <button type="button" class="btn-secondary" id="modal-tab-md" style="font-size:12px; font-weight:600; padding:4px 12px; border-color:#e11d48; color:#e11d48;">Markdown 表格</button>
         <button type="button" class="btn-secondary" id="modal-tab-latex" style="font-size:12px; font-weight:600; padding:4px 12px;">LaTeX 表格</button>
       </div>
       <div class="form-group">
@@ -6408,11 +6408,11 @@ function renderSubmissionDetails(sub) {
       if (!previewArea) return;
       if (currentFormat === 'md') {
         previewArea.value = mdCode;
-        if (tabMd) { tabMd.style.borderColor = '#cc292b'; tabMd.style.color = '#cc292b'; }
+        if (tabMd) { tabMd.style.borderColor = '#e11d48'; tabMd.style.color = '#e11d48'; }
         if (tabLatex) { tabLatex.style.borderColor = 'var(--input-border)'; tabLatex.style.color = 'hsl(var(--text-primary))'; }
       } else {
         previewArea.value = latexCode;
-        if (tabLatex) { tabLatex.style.borderColor = '#cc292b'; tabLatex.style.color = '#cc292b'; }
+        if (tabLatex) { tabLatex.style.borderColor = '#e11d48'; tabLatex.style.color = '#e11d48'; }
         if (tabMd) { tabMd.style.borderColor = 'var(--input-border)'; tabMd.style.color = 'hsl(var(--text-primary))'; }
       }
     };
@@ -7749,13 +7749,13 @@ window.showLinkManuscriptModal = function(item) {
       <button class="btn-secondary btn-icon" id="btn-close-modal">✕</button>
     </div>
     <div style="background:var(--material-background, rgba(0,0,0,0.02)); border:1px solid var(--border-color); border-radius:6px; padding:10px; margin-bottom:14px; font-size:12px;">
-      <div style="font-weight:600; color:var(--text-accent, #cc292b);">${currentLanguage === 'zh' ? '选中 Zotero 文献：' : 'Selected Zotero Item:'}</div>
+      <div style="font-weight:600; color:var(--text-accent, #e11d48);">${currentLanguage === 'zh' ? '选中 Zotero 文献：' : 'Selected Zotero Item:'}</div>
       <div style="margin-top:2px; color:hsl(var(--text-primary)); font-size:13px; font-weight:500;">${escapeHTML(item.title || (currentLanguage === 'zh' ? '未命名文献' : 'Untitled Literature'))}</div>
       <div style="font-size:11px; color:hsl(var(--text-secondary)); margin-top:2px;">
         ${escapeHTML(item.authors || '')} (${escapeHTML(item.year || '')}) ${item.citekey ? `<code>[@${escapeHTML(item.citekey)}]</code>` : ''}
       </div>
     </div>
-    <div style="font-size:12px; font-weight:600; margin-bottom:8px; color:hsl(var(--text-primary));">${currentLanguage === 'zh' ? '请选择要绑定的 ResearchFlow 稿件：' : 'Select a ResearchFlow manuscript to link:'}</div>
+    <div style="font-size:12px; font-weight:600; margin-bottom:8px; color:hsl(var(--text-primary));">${currentLanguage === 'zh' ? '请选择要绑定的 Zotero PaperFlow 稿件：' : 'Select a Zotero PaperFlow manuscript to link:'}</div>
     <div style="max-height:300px; overflow-y:auto; padding-right:4px;">
       ${listHtml}
     </div>
