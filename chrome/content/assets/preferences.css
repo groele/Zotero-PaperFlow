@@ -1,6 +1,6 @@
 /* ========================================================= */
 /* Zotero PaperFlow Preferences Pane Styles                  */
-/* Modern MetaFlow-Style Accordion Setting Options           */
+/* Compact MetaFlow-Style Setting Groups                     */
 /* ========================================================= */
 
 .rf-prefs-container {
@@ -73,77 +73,60 @@
   color: #059669;
 }
 
-/* Accordion Card (MetaFlow / Zotero 7 Modern Card Style) */
-.rf-accordion {
+/* Always-visible setting groups (no nested disclosure controls) */
+.rf-setting-group {
   border: 1px solid var(--border-color, #e2e8f0);
   border-radius: 8px;
-  background: var(--card-bg-header, #f8fafc);
+  background: var(--card-body-bg, #ffffff);
   margin-bottom: 12px;
   overflow: hidden;
   transition: border-color 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
 }
 
-.rf-accordion:hover {
+.rf-setting-group:hover {
   border-color: var(--border-hover, #cbd5e1);
 }
 
-.rf-accordion[open] {
-  background: var(--card-bg-open, #ffffff);
+.rf-setting-group:focus-within {
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
 }
 
-/* Accordion Summary / Header */
-.rf-accordion-header {
+/* Plain group heading */
+.rf-setting-group-title {
   display: flex;
   align-items: center;
   justify-content: space-between;
   padding: 12px 16px;
+  margin: 0;
   font-size: 13.5px;
   font-weight: 600;
   color: var(--text-primary, #1e293b);
-  cursor: pointer;
-  user-select: none;
-  list-style: none;
-  transition: background 0.15s ease;
 }
 
-.rf-accordion-header:focus-visible {
-  outline: 2px solid #e11d48;
-  outline-offset: -2px;
-}
-
-.rf-accordion-header::-webkit-details-marker {
-  display: none;
-}
-
-.rf-accordion-header:hover {
-  background: var(--header-hover-bg, #f1f5f9);
-}
-
-.rf-accordion-title {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.rf-chevron-indicator {
-  font-size: 15px;
-  color: var(--text-muted, #64748b);
-  font-weight: bold;
-  line-height: 1;
-  transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1), color 0.15s ease;
-}
-
-.rf-accordion[open] > .rf-accordion-header .rf-chevron-indicator {
-  transform: rotate(90deg);
-  color: #e11d48;
-}
-
-/* Accordion Body */
-.rf-accordion-body {
+/* Group body */
+.rf-setting-group-body {
   border-top: 1px solid var(--border-color, #e2e8f0);
   padding: 16px;
   background: var(--card-body-bg, #ffffff);
+}
+
+.rf-setting-subgroup {
+  padding: 0 0 14px;
+  margin: 0 0 14px;
+  border-bottom: 1px solid var(--border-subtle, #f1f5f9);
+}
+
+.rf-setting-subgroup:last-child {
+  padding-bottom: 0;
+  margin-bottom: 0;
+  border-bottom: none;
+}
+
+.rf-setting-subgroup-title {
+  margin: 0 0 8px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--text-primary, #1e293b);
 }
 
 .rf-card-desc {
@@ -361,30 +344,27 @@
     color: #94a3b8;
   }
 
-  .rf-accordion {
+  .rf-setting-group {
     background: #181920;
     border-color: rgba(255, 255, 255, 0.08);
   }
 
-  .rf-accordion:hover {
+  .rf-setting-group:hover {
     border-color: rgba(255, 255, 255, 0.16);
   }
 
-  .rf-accordion[open] {
-    background: #1e1f26;
-  }
-
-  .rf-accordion-header {
+  .rf-setting-group-title,
+  .rf-setting-subgroup-title {
     color: #f8fafc;
   }
 
-  .rf-accordion-header:hover {
-    background: rgba(255, 255, 255, 0.04);
-  }
-
-  .rf-accordion-body {
+  .rf-setting-group-body {
     border-top-color: rgba(255, 255, 255, 0.08);
     background: #1e1f26;
+  }
+
+  .rf-setting-subgroup {
+    border-bottom-color: rgba(255, 255, 255, 0.04);
   }
 
   .rf-card-desc {
@@ -452,8 +432,8 @@
 
 @media (max-width: 560px) {
   .rf-prefs-container { padding-inline: 6px; }
-  .rf-accordion-header { padding: 11px 12px; }
-  .rf-accordion-body { padding: 13px 12px; }
+  .rf-setting-group-title { padding: 11px 12px; }
+  .rf-setting-group-body { padding: 13px 12px; }
   .rf-about-info-grid { grid-template-columns: minmax(0, 1fr); }
   .rf-control { max-width: none; }
   .rf-sub-action-btn { align-items: flex-start; gap: 8px; }
@@ -461,5 +441,5 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .rf-accordion, .rf-chevron-indicator, .rf-sub-action-btn, .rf-sub-chevron { transition: none; }
+  .rf-setting-group, .rf-sub-action-btn, .rf-sub-chevron { transition: none; }
 }
