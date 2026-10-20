@@ -107,6 +107,11 @@
   transition: background 0.15s ease;
 }
 
+.rf-accordion-header:focus-visible {
+  outline: 2px solid #e11d48;
+  outline-offset: -2px;
+}
+
 .rf-accordion-header::-webkit-details-marker {
   display: none;
 }
@@ -245,6 +250,7 @@
   color: var(--text-primary, #1e293b);
   cursor: pointer;
   text-align: left;
+  min-height: 40px;
   transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
 }
 
@@ -303,6 +309,20 @@
   font-size: 12px;
   color: #0284c7;
   font-weight: 500;
+  overflow-wrap: anywhere;
+}
+
+.rf-import-status-text:empty { display: none; }
+.rf-pref-status { overflow-wrap: anywhere; }
+.rf-storage-path-box { min-width: 0; flex-wrap: wrap; }
+.rf-storage-code { min-width: 0; overflow-wrap: anywhere; }
+
+.rf-prefs-container button:focus-visible,
+.rf-prefs-container a:focus-visible,
+.rf-prefs-container input:focus-visible,
+.rf-prefs-container select:focus-visible {
+  outline: 2px solid #e11d48;
+  outline-offset: 2px;
 }
 
 /* About info grid */
@@ -428,4 +448,18 @@
   .rf-about-item strong {
     color: #f8fafc;
   }
+}
+
+@media (max-width: 560px) {
+  .rf-prefs-container { padding-inline: 6px; }
+  .rf-accordion-header { padding: 11px 12px; }
+  .rf-accordion-body { padding: 13px 12px; }
+  .rf-about-info-grid { grid-template-columns: minmax(0, 1fr); }
+  .rf-control { max-width: none; }
+  .rf-sub-action-btn { align-items: flex-start; gap: 8px; }
+  .rf-sub-chevron { flex: 0 0 auto; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rf-accordion, .rf-chevron-indicator, .rf-sub-action-btn, .rf-sub-chevron { transition: none; }
 }

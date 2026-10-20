@@ -10,7 +10,7 @@ addon_id = manifest['applications']['zotero']['id']
 update = json.loads((ROOT / 'update.json').read_text(encoding='utf-8'))['addons'][addon_id]['updates'][0]
 name = f'zotero-paperflow-{version}.xpi'
 assert update['version'] == version
-assert update['update_link'].endswith(f'/v{version}/{name}')
+assert update['update_link'] == f'https://raw.githubusercontent.com/groele/Zotero-PaperFlow/main/{name}'
 for section in ('applications', 'browser_specific_settings'):
     assert manifest[section]['zotero']['update_url'].endswith('/main/update.json')
 for relative in ('chrome/content/index.html', 'chrome/content/pages/options.html',
