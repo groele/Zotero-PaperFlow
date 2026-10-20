@@ -1,13 +1,19 @@
 /* PaperFlow preferences: compact, direct-visible groups. */
 .rf-prefs-container {
-  --rf-accent: var(--accent-blue, #4070f4);
+  --flow-pref-text: var(--fill-primary, CanvasText);
+  --flow-pref-muted: var(--fill-secondary, color-mix(in srgb, var(--flow-pref-text) 68%, transparent));
+  --flow-pref-accent: var(--accent-blue, #4070f4);
+  --flow-pref-border: color-mix(in srgb, var(--flow-pref-text) 18%, transparent);
+  --flow-pref-divider: color-mix(in srgb, var(--flow-pref-text) 10%, transparent);
+  --flow-pref-surface: color-mix(in srgb, var(--flow-pref-text) 2%, transparent);
+  --flow-pref-hover: color-mix(in srgb, var(--flow-pref-text) 5%, transparent);
   box-sizing: border-box;
   width: 100%;
   max-width: 780px;
   min-width: 0;
   margin-inline: auto;
   padding: 10px 14px 28px;
-  color: var(--text-primary, currentColor);
+  color: var(--flow-pref-text);
   /* Keep Zotero's native preference typography instead of imposing a platform font. */
   font: inherit;
   font-size: 13px;
@@ -26,32 +32,32 @@
 .rf-pref-brand-header {
   margin: 0 0 12px;
   padding: 0 0 10px;
-  border-bottom: 1px solid color-mix(in srgb, currentColor 12%, transparent);
+  border-bottom: 1px solid var(--flow-pref-divider);
 }
 .rf-pref-brand-row { display: flex; align-items: center; gap: 8px; }
-.rf-pref-brand-title { font-size: 15px; font-weight: 600; }
+.rf-pref-brand-title { font-size: 16px; font-weight: 600; }
 .rf-pref-brand-tag {
   padding: 1px 6px;
-  border: 1px solid color-mix(in srgb, var(--rf-accent) 26%, transparent);
+  border: 1px solid var(--flow-pref-border);
   border-radius: 4px;
-  background: color-mix(in srgb, var(--rf-accent) 8%, transparent);
-  color: var(--rf-accent);
+  background: var(--flow-pref-surface);
+  color: var(--flow-pref-muted);
   font-size: 11px;
-  font-weight: 600;
-  line-height: 1.4;
+  font-weight: 400;
+  line-height: 1.5;
 }
 .rf-pref-brand-slogan,
-.rf-card-desc { color: var(--text-muted, color-mix(in srgb, currentColor 68%, transparent)); }
+.rf-card-desc { color: var(--flow-pref-muted); }
 .rf-pref-brand-slogan { margin-top: 3px; font-size: 12px; }
-.rf-pref-status { margin-top: 5px; color: #27835c; font-size: 12px; overflow-wrap: anywhere; }
+.rf-pref-status { margin-top: 5px; color: var(--flow-pref-muted); font-size: 12px; overflow-wrap: anywhere; }
 
 /* Top-level groups collapse independently; subgroup dividers only organize related controls. */
 .rf-setting-group {
   margin: 0 0 10px;
   overflow: hidden;
-  border: 1px solid color-mix(in srgb, currentColor 18%, transparent);
+  border: 1px solid var(--flow-pref-border);
   border-radius: 9px;
-  background: color-mix(in srgb, currentColor 2%, transparent);
+  background: var(--flow-pref-surface);
 }
 .rf-setting-group-title {
   display: flex;
@@ -65,26 +71,25 @@
   cursor: pointer;
   list-style: none;
 }
+.rf-setting-group:last-of-type { margin-bottom: 0; }
 .rf-setting-group-title::-webkit-details-marker { display: none; }
 .rf-setting-group-title::after {
-  content: "";
-  width: 7px;
-  height: 7px;
-  margin: -3px 2px 0 12px;
+  content: "›";
   flex: 0 0 auto;
-  border-right: 1.5px solid currentColor;
-  border-bottom: 1.5px solid currentColor;
-  opacity: .65;
-  transform: rotate(45deg);
+  margin-inline-start: 12px;
+  color: var(--flow-pref-muted);
+  font-size: 18px;
+  font-weight: 400;
+  line-height: 1;
+  transform: rotate(0deg);
   transition: transform .15s ease;
 }
-.rf-setting-group:not([open]) > .rf-setting-group-title::after { transform: rotate(-45deg); }
-.rf-setting-group[open] > .rf-setting-group-title { border-bottom: 1px solid color-mix(in srgb, currentColor 10%, transparent); }
-.rf-setting-group-body { padding: 4px 13px 12px; }
+.rf-setting-group[open] > .rf-setting-group-title::after { transform: rotate(90deg); }
+.rf-setting-group-body { padding: 4px 13px 10px; border-top: 1px solid var(--flow-pref-divider); }
 .rf-setting-subgroup {
   margin: 0;
   padding: 8px 0;
-  border-top: 1px solid color-mix(in srgb, currentColor 11%, transparent);
+  border-top: 1px solid var(--flow-pref-divider);
 }
 .rf-setting-subgroup:first-child { border-top: 0; padding-top: 2px; }
 .rf-setting-subgroup:last-child { padding-bottom: 0; }
@@ -98,7 +103,7 @@
   flex-direction: column;
   gap: 5px;
   padding: 6px 0;
-  border-bottom: 1px solid color-mix(in srgb, currentColor 9%, transparent);
+  border-bottom: 1px solid var(--flow-pref-divider);
 }
 .rf-setting-item:last-child,
 .rf-control-row:last-child { border-bottom: 0; }
@@ -112,20 +117,21 @@
   height: 16px;
   min-height: 16px;
   margin: 2px 0 0;
-  accent-color: var(--rf-accent);
+  accent-color: var(--flow-pref-accent);
 }
 .rf-check-title { font-size: 13px; font-weight: 500; line-height: 1.45; }
-.rf-setting-desc { margin: 2px 0 0 24px; color: var(--text-muted, color-mix(in srgb, currentColor 68%, transparent)); font-size: 12px; line-height: 1.55; }
-.rf-control-label { font-size: 12.5px; font-weight: 600; }
+.rf-setting-desc { margin: 2px 0 0 24px; color: var(--flow-pref-muted); font-size: 12px; line-height: 1.55; }
+.rf-control-label { font-size: 13px; font-weight: 500; }
 .rf-control {
   width: 100%;
   max-width: 380px;
   min-height: 30px;
   padding: 4px 8px;
-  border: 1px solid color-mix(in srgb, currentColor 22%, transparent);
+  border: 1px solid var(--flow-pref-border);
   border-radius: 4px;
-  background: var(--input-bg, color-mix(in srgb, currentColor 3%, transparent));
-  color: inherit;
+  background: Field;
+  color: var(--flow-pref-text);
+  appearance: auto;
 }
 
 /* Actions use a restrained native-like surface. */
@@ -136,19 +142,26 @@
   justify-content: space-between;
   gap: 8px;
   width: 100%;
-  min-height: 32px;
-  padding: 6px 9px;
-  border: 1px solid color-mix(in srgb, currentColor 16%, transparent);
+  min-height: 30px;
+  padding: 5px 9px;
+  border: 1px solid var(--flow-pref-border);
   border-radius: 4px;
-  background: color-mix(in srgb, currentColor 3%, transparent);
-  color: inherit;
-  font-size: 12.5px;
+  background: Field;
+  color: var(--flow-pref-text);
+  font-size: 12px;
+  line-height: 1.35;
   text-align: left;
   cursor: pointer;
 }
-.rf-sub-action-btn:hover { border-color: color-mix(in srgb, var(--rf-accent) 44%, currentColor); color: var(--rf-accent); }
-.rf-sub-action-btn:active { background: color-mix(in srgb, currentColor 8%, transparent); }
-.rf-sub-chevron { color: color-mix(in srgb, currentColor 60%, transparent); }
+.rf-sub-action-btn:hover { background: var(--flow-pref-hover); }
+.rf-sub-action-btn:active { background: var(--flow-pref-hover); }
+#rf-btn-open-workspace {
+  border-color: color-mix(in srgb, var(--flow-pref-accent) 42%, transparent);
+  background: color-mix(in srgb, var(--flow-pref-accent) 6%, transparent);
+  color: var(--flow-pref-accent);
+}
+#rf-btn-open-workspace:hover { background: color-mix(in srgb, var(--flow-pref-accent) 12%, transparent); }
+.rf-sub-chevron { color: var(--flow-pref-muted); }
 .rf-storage-path-box {
   display: flex;
   flex-wrap: wrap;
@@ -156,37 +169,42 @@
   gap: 6px;
   min-width: 0;
   padding: 7px 9px;
-  border: 1px solid color-mix(in srgb, currentColor 12%, transparent);
+  border: 1px solid var(--flow-pref-border);
   border-radius: 4px;
-  background: color-mix(in srgb, currentColor 3%, transparent);
+  background: var(--flow-pref-surface);
   font-size: 12px;
 }
 .rf-storage-icon { font-weight: 600; white-space: nowrap; }
-.rf-storage-code { min-width: 0; padding: 2px 5px; border-radius: 3px; background: color-mix(in srgb, currentColor 7%, transparent); font: 11px/1.4 ui-monospace, SFMono-Regular, Consolas, monospace; overflow-wrap: anywhere; }
-.rf-import-status-text { margin: 6px 0 0; color: var(--text-muted, currentColor); font-size: 12px; font-weight: 500; overflow-wrap: anywhere; }
+.rf-storage-code { min-width: 0; padding: 2px 5px; border-radius: 3px; background: var(--flow-pref-hover); font: 11px/1.4 ui-monospace, SFMono-Regular, Consolas, monospace; overflow-wrap: anywhere; }
+.rf-import-status-text { margin: 6px 0 0; color: var(--flow-pref-muted); font-size: 12px; font-weight: 500; overflow-wrap: anywhere; }
 .rf-import-status-text:empty { display: none; }
 .rf-version-info {
-  margin-top: 12px;
-  padding: 9px 13px;
-  border: 1px solid color-mix(in srgb, currentColor 14%, transparent);
+  margin-top: 14px;
+  padding: 10px 13px;
+  border: 1px solid var(--flow-pref-border);
   border-radius: 9px;
-  background: color-mix(in srgb, currentColor 2%, transparent);
-  color: var(--text-muted, color-mix(in srgb, currentColor 68%, transparent));
+  background: var(--flow-pref-surface);
+  color: var(--flow-pref-text);
   font-size: 12px;
   overflow-wrap: anywhere;
 }
-.rf-version-info-title { margin-bottom: 4px; color: var(--text-primary, currentColor); font-size: 12px; font-weight: 600; }
-.rf-version-info-row { margin-top: 2px; }
-.rf-version-info-row strong { color: var(--text-primary, currentColor); font-weight: 550; }
-.rf-version-info a { color: var(--rf-accent); text-decoration: none; }
+.rf-version-info-title { margin-bottom: 4px; color: var(--flow-pref-text); font-size: 13px; font-weight: 600; }
+.rf-version-info-row {
+  display: grid;
+  grid-template-columns: minmax(6em, 8em) minmax(0, 1fr);
+  gap: 8px;
+  margin-top: 0;
+  padding-block: 3px;
+  color: var(--flow-pref-muted);
+}
+.rf-version-info-row strong { color: var(--flow-pref-muted); font-weight: 500; }
+.rf-version-info a { color: var(--flow-pref-accent); text-decoration: none; }
 .rf-version-info a:hover { text-decoration: underline; }
 
-.rf-prefs-container :focus-visible { outline: 2px solid var(--rf-accent); outline-offset: 2px; }
+.rf-prefs-container :focus-visible { outline: 2px solid var(--flow-pref-accent); outline-offset: 2px; }
 
 @media (max-width: 560px) {
   .rf-prefs-container { padding: 8px 8px 20px; }
-  .rf-setting-group-title { padding-inline: 10px; }
-  .rf-setting-group-body { padding-inline: 10px; }
   .rf-control { max-width: none; }
   .rf-sub-action-btn { align-items: flex-start; }
 }
