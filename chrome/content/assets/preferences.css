@@ -1,12 +1,12 @@
 /* PaperFlow preferences: compact, direct-visible groups. */
 .rf-prefs-container {
-  --flow-pref-text: var(--fill-primary, CanvasText);
-  --flow-pref-muted: var(--fill-secondary, color-mix(in srgb, var(--flow-pref-text) 68%, transparent));
-  --flow-pref-accent: var(--accent-blue, #4070f4);
-  --flow-pref-border: color-mix(in srgb, var(--flow-pref-text) 18%, transparent);
-  --flow-pref-divider: color-mix(in srgb, var(--flow-pref-text) 10%, transparent);
-  --flow-pref-surface: color-mix(in srgb, var(--flow-pref-text) 2%, transparent);
-  --flow-pref-hover: color-mix(in srgb, var(--flow-pref-text) 5%, transparent);
+  --flow-pref-text: light-dark(#20242b, #f1f3f5);
+  --flow-pref-muted: light-dark(#505862, #c4c9d1);
+  --flow-pref-accent: light-dark(#245ac7, #9bbcff);
+  --flow-pref-border: light-dark(#c9cdd3, #646a73);
+  --flow-pref-divider: light-dark(#e2e5e9, #565c65);
+  --flow-pref-surface: light-dark(#ffffff, #35383d);
+  --flow-pref-hover: light-dark(#f3f6fc, #414751);
   box-sizing: border-box;
   width: 100%;
   max-width: 780px;
@@ -14,10 +14,9 @@
   margin-inline: auto;
   padding: 10px 14px 28px;
   color: var(--flow-pref-text);
-  /* Keep Zotero's native preference typography instead of imposing a platform font. */
-  font: inherit;
-  font-size: 13px;
-  line-height: 1.5;
+  font-family: system-ui, "Microsoft YaHei UI", "Microsoft YaHei", sans-serif;
+  font-size: 14px;
+  line-height: 1.6;
 }
 
 .rf-prefs-container *,
@@ -35,21 +34,22 @@
   border-bottom: 1px solid var(--flow-pref-divider);
 }
 .rf-pref-brand-row { display: flex; align-items: center; gap: 8px; }
-.rf-pref-brand-title { font-size: 16px; font-weight: 600; }
+.rf-pref-brand-title { font-size: 18px; font-weight: 600; line-height: 1.6; }
 .rf-pref-brand-tag {
   padding: 1px 6px;
   border: 1px solid var(--flow-pref-border);
   border-radius: 4px;
   background: var(--flow-pref-surface);
   color: var(--flow-pref-muted);
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 400;
   line-height: 1.5;
 }
 .rf-pref-brand-slogan,
 .rf-card-desc { color: var(--flow-pref-muted); }
-.rf-pref-brand-slogan { margin-top: 3px; font-size: 12px; }
-.rf-pref-status { margin-top: 5px; color: var(--flow-pref-muted); font-size: 12px; overflow-wrap: anywhere; }
+.rf-pref-brand-slogan { margin-top: 3px; font-size: 13px; line-height: 1.6; }
+.rf-pref-status { margin-top: 5px; color: var(--flow-pref-muted); font-size: 13px; line-height: 1.6; overflow-wrap: anywhere; }
+.rf-pref-error { color: light-dark(#b42318, #ff8a80) !important; font-weight: 500; }
 
 /* Top-level groups collapse independently; subgroup dividers only organize related controls. */
 .rf-setting-group {
@@ -65,9 +65,9 @@
   justify-content: space-between;
   margin: 0;
   padding: 11px 13px;
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 600;
-  line-height: 1.5;
+  line-height: 1.6;
   cursor: pointer;
   list-style: none;
 }
@@ -93,8 +93,8 @@
 }
 .rf-setting-subgroup:first-child { border-top: 0; padding-top: 2px; }
 .rf-setting-subgroup:last-child { padding-bottom: 0; }
-.rf-setting-subgroup-title { margin: 0 0 5px; font-size: 12.5px; font-weight: 600; }
-.rf-card-desc { margin: 0 0 8px; font-size: 12px; }
+.rf-setting-subgroup-title { margin: 0 0 5px; font-size: 14px; font-weight: 600; line-height: 1.6; }
+.rf-card-desc { margin: 0 0 8px; font-size: 13px; line-height: 1.6; }
 
 /* Preference rows */
 .rf-setting-item,
@@ -107,7 +107,7 @@
 }
 .rf-setting-item:last-child,
 .rf-control-row:last-child { border-bottom: 0; }
-.rf-check-header { display: flex; align-items: flex-start; gap: 8px; cursor: pointer; line-height: 1.45; }
+.rf-check-header { display: flex; align-items: flex-start; gap: 8px; cursor: pointer; line-height: 1.6; }
 .rf-check-header input[type="checkbox"] {
   appearance: auto;
   flex: 0 0 16px;
@@ -119,14 +119,14 @@
   margin: 2px 0 0;
   accent-color: var(--flow-pref-accent);
 }
-.rf-check-title { font-size: 13px; font-weight: 500; line-height: 1.45; }
-.rf-setting-desc { margin: 2px 0 0 24px; color: var(--flow-pref-muted); font-size: 12px; line-height: 1.55; }
-.rf-control-label { font-size: 13px; font-weight: 500; }
+.rf-check-title { font-size: 14px; font-weight: 500; line-height: 1.6; }
+.rf-setting-desc { margin: 2px 0 0 24px; color: var(--flow-pref-muted); font-size: 13px; line-height: 1.6; }
+.rf-control-label { font-size: 14px; font-weight: 500; }
 .rf-control {
   width: 100%;
   max-width: 380px;
-  min-height: 30px;
-  padding: 4px 8px;
+  min-height: 32px;
+  padding: 5px 8px;
   border: 1px solid var(--flow-pref-border);
   border-radius: 4px;
   background: Field;
@@ -142,14 +142,14 @@
   justify-content: space-between;
   gap: 8px;
   width: 100%;
-  min-height: 30px;
-  padding: 5px 9px;
+  min-height: 32px;
+  padding: 6px 10px;
   border: 1px solid var(--flow-pref-border);
   border-radius: 4px;
   background: Field;
   color: var(--flow-pref-text);
-  font-size: 12px;
-  line-height: 1.35;
+  font-size: 13px;
+  line-height: 1.6;
   text-align: left;
   cursor: pointer;
 }
@@ -172,11 +172,12 @@
   border: 1px solid var(--flow-pref-border);
   border-radius: 4px;
   background: var(--flow-pref-surface);
-  font-size: 12px;
+  font-size: 13px;
 }
 .rf-storage-icon { font-weight: 600; white-space: nowrap; }
-.rf-storage-code { min-width: 0; padding: 2px 5px; border-radius: 3px; background: var(--flow-pref-hover); font: 11px/1.4 ui-monospace, SFMono-Regular, Consolas, monospace; overflow-wrap: anywhere; }
-.rf-import-status-text { margin: 6px 0 0; color: var(--flow-pref-muted); font-size: 12px; font-weight: 500; overflow-wrap: anywhere; }
+.rf-storage-code { min-width: 0; padding: 2px 5px; border-radius: 3px; background: var(--flow-pref-hover); font: inherit; overflow-wrap: anywhere; }
+.rf-import-status-text { margin: 6px 0 0; color: var(--flow-pref-muted); font-size: 13px; line-height: 1.6; font-weight: 500; overflow-wrap: anywhere; }
+.rf-import-status-text.rf-pref-error { color: light-dark(#b42318, #ff8a80) !important; }
 .rf-import-status-text:empty { display: none; }
 .rf-version-info {
   margin-top: 14px;
@@ -185,10 +186,11 @@
   border-radius: 9px;
   background: var(--flow-pref-surface);
   color: var(--flow-pref-text);
-  font-size: 12px;
+  font-size: 13px;
+  line-height: 1.6;
   overflow-wrap: anywhere;
 }
-.rf-version-info-title { margin-bottom: 4px; color: var(--flow-pref-text); font-size: 13px; font-weight: 600; }
+.rf-version-info-title { margin-bottom: 4px; color: var(--flow-pref-text); font-size: 14px; font-weight: 600; }
 .rf-version-info-row {
   display: grid;
   grid-template-columns: minmax(6em, 8em) minmax(0, 1fr);
@@ -196,6 +198,8 @@
   margin-top: 0;
   padding-block: 3px;
   color: var(--flow-pref-muted);
+  font-size: 13px;
+  line-height: 1.6;
 }
 .rf-version-info-row strong { color: var(--flow-pref-muted); font-weight: 500; }
 .rf-version-info a { color: var(--flow-pref-accent); text-decoration: none; }

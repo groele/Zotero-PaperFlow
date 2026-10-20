@@ -57,6 +57,12 @@ window.ResearchFlow_Preferences = (() => {
     } catch (_) {}
   };
 
+  const setStatus = (element, message, error = false) => {
+    if (!element) return;
+    element.textContent = message;
+    element.classList.toggle('rf-pref-error', error);
+  };
+
   const renderSection = (doc, containerId, fields) => {
     const container = doc.getElementById(containerId);
     if (!container) return;
@@ -146,7 +152,7 @@ window.ResearchFlow_Preferences = (() => {
       initialized = true;
       const doc = window.document;
       const status = doc.getElementById('rf-pref-status');
-      if (status) status.textContent = '首选项已就绪。所有更改将实时生效并保存。';
+      setStatus(status, '首选项已就绪。所有更改将实时生效并保存。');
 
       renderSection(doc, 'rf-pref-window', FIELDS.window);
 
@@ -181,9 +187,9 @@ window.ResearchFlow_Preferences = (() => {
           const result = await Zotero.ResearchFlow.exportDatabaseFile();
           if (result?.cancelled) return;
           if (!result?.success) throw new Error(result?.error || '数据库导出失败');
-          if (status) status.textContent = `✅ 数据库已导出至：${result.filePath}`;
+          setStatus(status, `✅ 数据库已导出至：${result.filePath}`);
         } catch (e) {
-          if (status) status.textContent = `❌ 导出失败：${e.message}`;
+          setStatus(status, `❌ 导出失败：${e.message}`, true);
         }
       });
 
@@ -206,9 +212,9 @@ window.ResearchFlow_Preferences = (() => {
           const result = await Zotero.ResearchFlow.exportDiagnosticsFile(diag);
           if (result?.cancelled) return;
           if (!result?.success) throw new Error(result?.error || '诊断报告导出失败');
-          if (status) status.textContent = `✅ 诊断报告已导出至：${result.filePath}`;
+          setStatus(status, `✅ 诊断报告已导出至：${result.filePath}`);
         } catch (e) {
-          if (status) status.textContent = `❌ 诊断报告导出失败：${e.message}`;
+          setStatus(status, `❌ 诊断报告导出失败：${e.message}`, true);
         }
       });
 
@@ -221,9 +227,9 @@ window.ResearchFlow_Preferences = (() => {
           const result = await Zotero.ResearchFlow.importDatabaseFile(mode);
           if (result?.cancelled) return;
           if (!result?.success) throw new Error(result?.error || '数据库导入失败');
-          if (statusEl) statusEl.textContent = `✅ 导入成功！(${mode === 'merge' ? '已智能合并' : '已完全替换'}，当前共 ${result.data?.manuscripts?.length || 0} 个稿件管线)`;
+          setStatus(statusEl, `✅ 导入成功！(${mode === 'merge' ? '已智能合并' : '已完全替换'}，当前共 ${result.data?.manuscripts?.length || 0} 个稿件管线)`);
         } catch (e) {
-          if (statusEl) statusEl.textContent = `❌ 导入失败：${e.message}`;
+          setStatus(statusEl, `❌ 导入失败：${e.message}`, true);
         }
       });
 
@@ -234,10 +240,10 @@ window.ResearchFlow_Preferences = (() => {
           if (!Zotero?.ResearchFlow?.restoreBackupDatabase) throw new Error('PaperFlow 宿主尚未就绪');
           const res = await Zotero.ResearchFlow.restoreBackupDatabase();
           if (statusEl) {
-            statusEl.textContent = `✅ 备份恢复成功！(当前共 ${res?.manuscripts?.length || 0} 个稿件管线)`;
+            setStatus(statusEl, `✅ 备份恢复成功！(当前共 ${res?.manuscripts?.length || 0} 个稿件管线)`);
           }
         } catch (e) {
-          if (statusEl) statusEl.textContent = `❌ 恢复备份失败：${e.message}`;
+          setStatus(statusEl, `❌ 恢复备份失败：${e.message}`, true);
         }
       });
     }
