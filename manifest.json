@@ -1,7 +1,7 @@
 {
   "manifest_version": 2,
   "name": "Zotero PaperFlow",
-  "version": "12.3.0",
+  "version": "12.3.1",
   "description": "Zotero PaperFlow: From Manuscript to Publication. 面向科研论文全生命周期的智能投稿与审稿管理工作台 (完美支持 Zotero 7+ & Zotero 10)",
   "homepage_url": "https://github.com/groele/Zotero-PaperFlow",
   "author": "groele",

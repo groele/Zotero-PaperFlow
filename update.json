@@ -3,8 +3,8 @@
     "zotero-paperflow@groele.org": {
       "updates": [
         {
-          "version": "12.3.0",
-          "update_link": "https://github.com/groele/Zotero-PaperFlow/releases/download/v12.3.0/zotero-paperflow-12.3.0.xpi",
+          "version": "12.3.1",
+          "update_link": "https://github.com/groele/Zotero-PaperFlow/releases/download/v12.3.1/zotero-paperflow-12.3.1.xpi",
           "applications": {
             "zotero": {
               "strict_min_version": "6.999",
@@ -17,15 +17,15 @@
               "strict_max_version": "15.*"
             }
           },
-          "update_hash": "sha256:47a37efa70d58fde1da8aca39bc32e1ce61459cef6b4721d2d9fc2c26d8edc81"
+          "update_hash": "sha256:08526a3013481c5da6e7782679f1111e014b1bf5a4bdbe5ae0b70963abdf6eba"
         }
       ]
     },
     "researchflow@groele.org": {
       "updates": [
         {
-          "version": "12.3.0",
-          "update_link": "https://github.com/groele/Zotero-PaperFlow/releases/download/v12.3.0/zotero-paperflow-12.3.0.xpi",
+          "version": "12.3.1",
+          "update_link": "https://github.com/groele/Zotero-PaperFlow/releases/download/v12.3.1/zotero-paperflow-12.3.1.xpi",
           "applications": {
             "zotero": {
               "strict_min_version": "6.999",
@@ -38,7 +38,7 @@
               "strict_max_version": "15.*"
             }
           },
-          "update_hash": "sha256:47a37efa70d58fde1da8aca39bc32e1ce61459cef6b4721d2d9fc2c26d8edc81"
+          "update_hash": "sha256:08526a3013481c5da6e7782679f1111e014b1bf5a4bdbe5ae0b70963abdf6eba"
         }
       ]
     }

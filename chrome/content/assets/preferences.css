@@ -1,6 +1,6 @@
 /* PaperFlow preferences: compact, direct-visible groups. */
 .rf-prefs-container {
-  --rf-accent: #c43d4b;
+  --rf-accent: var(--accent-blue, #4070f4);
   box-sizing: border-box;
   width: 100%;
   max-width: 780px;
@@ -8,8 +8,10 @@
   margin-inline: auto;
   padding: 10px 14px 28px;
   color: var(--text-primary, currentColor);
-  font: 13px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans SC", sans-serif;
-  font-synthesis: none;
+  /* Keep Zotero's native preference typography instead of imposing a platform font. */
+  font: inherit;
+  font-size: 13px;
+  line-height: 1.5;
 }
 
 .rf-prefs-container *,
@@ -27,28 +29,28 @@
   border-bottom: 1px solid color-mix(in srgb, currentColor 12%, transparent);
 }
 .rf-pref-brand-row { display: flex; align-items: center; gap: 8px; }
-.rf-pref-brand-title { font-size: 16px; font-weight: 600; letter-spacing: -.01em; }
+.rf-pref-brand-title { font-size: 15px; font-weight: 600; }
 .rf-pref-brand-tag {
   padding: 1px 6px;
   border: 1px solid color-mix(in srgb, var(--rf-accent) 26%, transparent);
   border-radius: 4px;
   background: color-mix(in srgb, var(--rf-accent) 8%, transparent);
   color: var(--rf-accent);
-  font-size: 10.5px;
+  font-size: 11px;
   font-weight: 600;
   line-height: 1.4;
 }
 .rf-pref-brand-slogan,
 .rf-card-desc { color: var(--text-muted, color-mix(in srgb, currentColor 68%, transparent)); }
 .rf-pref-brand-slogan { margin-top: 3px; font-size: 12px; }
-.rf-pref-status { margin-top: 5px; color: #27835c; font-size: 11.5px; overflow-wrap: anywhere; }
+.rf-pref-status { margin-top: 5px; color: #27835c; font-size: 12px; overflow-wrap: anywhere; }
 
 /* Top-level groups collapse independently; subgroup dividers only organize related controls. */
 .rf-setting-group {
   margin: 0 0 10px;
   overflow: hidden;
   border: 1px solid color-mix(in srgb, currentColor 18%, transparent);
-  border-radius: 8px;
+  border-radius: 9px;
   background: color-mix(in srgb, currentColor 2%, transparent);
 }
 .rf-setting-group-title {
@@ -56,7 +58,7 @@
   align-items: center;
   justify-content: space-between;
   margin: 0;
-  padding: 9px 13px 7px;
+  padding: 11px 13px;
   font-size: 13px;
   font-weight: 600;
   line-height: 1.5;
@@ -78,7 +80,7 @@
 }
 .rf-setting-group:not([open]) > .rf-setting-group-title::after { transform: rotate(-45deg); }
 .rf-setting-group[open] > .rf-setting-group-title { border-bottom: 1px solid color-mix(in srgb, currentColor 10%, transparent); }
-.rf-setting-group-body { padding: 4px 13px 10px; }
+.rf-setting-group-body { padding: 4px 13px 12px; }
 .rf-setting-subgroup {
   margin: 0;
   padding: 8px 0;
@@ -100,10 +102,20 @@
 }
 .rf-setting-item:last-child,
 .rf-control-row:last-child { border-bottom: 0; }
-.rf-check-header { display: flex; align-items: center; gap: 8px; cursor: pointer; }
-.rf-check-header input[type="checkbox"] { width: 15px; height: 15px; margin: 0; accent-color: var(--rf-accent); }
-.rf-check-title { font-size: 13px; font-weight: 550; }
-.rf-setting-desc { margin: 2px 0 0 23px; color: var(--text-muted, color-mix(in srgb, currentColor 68%, transparent)); font-size: 11.5px; }
+.rf-check-header { display: flex; align-items: flex-start; gap: 8px; cursor: pointer; line-height: 1.45; }
+.rf-check-header input[type="checkbox"] {
+  appearance: auto;
+  flex: 0 0 16px;
+  width: 16px;
+  min-width: 16px;
+  max-width: 16px;
+  height: 16px;
+  min-height: 16px;
+  margin: 2px 0 0;
+  accent-color: var(--rf-accent);
+}
+.rf-check-title { font-size: 13px; font-weight: 500; line-height: 1.45; }
+.rf-setting-desc { margin: 2px 0 0 24px; color: var(--text-muted, color-mix(in srgb, currentColor 68%, transparent)); font-size: 12px; line-height: 1.55; }
 .rf-control-label { font-size: 12.5px; font-weight: 600; }
 .rf-control {
   width: 100%;
@@ -157,7 +169,7 @@
   margin-top: 12px;
   padding: 9px 13px;
   border: 1px solid color-mix(in srgb, currentColor 14%, transparent);
-  border-radius: 8px;
+  border-radius: 9px;
   background: color-mix(in srgb, currentColor 2%, transparent);
   color: var(--text-muted, color-mix(in srgb, currentColor 68%, transparent));
   font-size: 12px;
