@@ -14,7 +14,7 @@ Zotero PaperFlow connects manuscript boards, submission records, reviewer commen
 
 **当前版本 / Current version:** `12.0.1` · **插件 ID / Add-on ID:** `zotero-paperflow@groele.org`
 
-[V12.0.1 安装包 / Installer](https://raw.githubusercontent.com/groele/Zotero-PaperFlow/main/zotero-paperflow-12.0.1.xpi) · [报告问题 / Report an issue](https://github.com/groele/Zotero-PaperFlow/issues)
+[V12.0.1 安装包 / Installer](https://github.com/groele/Zotero-PaperFlow/releases/download/v12.0.1/zotero-paperflow-12.0.1.xpi) · [报告问题 / Report an issue](https://github.com/groele/Zotero-PaperFlow/issues)
 
 ## 目录 / Contents
 
@@ -56,7 +56,7 @@ Zotero PaperFlow tracks research progress and the manuscript lifecycle: manuscri
 
 **中文**
 
-1. 从 [GitHub 仓库](https://github.com/groele/Zotero-PaperFlow) 下载当前 `.xpi` 安装包：[`zotero-paperflow-12.0.1.xpi`](https://raw.githubusercontent.com/groele/Zotero-PaperFlow/main/zotero-paperflow-12.0.1.xpi)。
+1. 从 [GitHub 仓库](https://github.com/groele/Zotero-PaperFlow) 下载当前 `.xpi` 安装包：[`zotero-paperflow-12.0.1.xpi`](https://github.com/groele/Zotero-PaperFlow/releases/download/v12.0.1/zotero-paperflow-12.0.1.xpi)。
 2. 打开 Zotero，进入 **工具 → 插件**。不同 Zotero 版本可能显示为“附加组件”。
 3. 点击齿轮菜单，选择 **从文件安装附加组件…**。
 4. 选择下载的 XPI，按提示确认安装。
@@ -64,7 +64,7 @@ Zotero PaperFlow tracks research progress and the manuscript lifecycle: manuscri
 
 **English**
 
-1. Download the current `.xpi` from the [GitHub repository](https://github.com/groele/Zotero-PaperFlow): [`zotero-paperflow-12.0.1.xpi`](https://raw.githubusercontent.com/groele/Zotero-PaperFlow/main/zotero-paperflow-12.0.1.xpi).
+1. Download the current `.xpi` from the [GitHub repository](https://github.com/groele/Zotero-PaperFlow): [`zotero-paperflow-12.0.1.xpi`](https://github.com/groele/Zotero-PaperFlow/releases/download/v12.0.1/zotero-paperflow-12.0.1.xpi).
 2. In Zotero, open **Tools → Plugins**. Some versions use “Add-ons.”
 3. Open the gear menu and select **Install Add-on From File…**.
 4. Choose the XPI and confirm installation.

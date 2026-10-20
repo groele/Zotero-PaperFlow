@@ -4,7 +4,7 @@
       "updates": [
         {
           "version": "12.0.1",
-          "update_link": "https://raw.githubusercontent.com/groele/Zotero-PaperFlow/main/zotero-paperflow-12.0.1.xpi",
+          "update_link": "https://github.com/groele/Zotero-PaperFlow/releases/download/v12.0.1/zotero-paperflow-12.0.1.xpi",
           "applications": {
             "zotero": {
               "strict_min_version": "6.999",
@@ -24,7 +24,7 @@
       "updates": [
         {
           "version": "12.0.1",
-          "update_link": "https://raw.githubusercontent.com/groele/Zotero-PaperFlow/main/zotero-paperflow-12.0.1.xpi",
+          "update_link": "https://github.com/groele/Zotero-PaperFlow/releases/download/v12.0.1/zotero-paperflow-12.0.1.xpi",
           "applications": {
             "zotero": {
               "strict_min_version": "6.999",
