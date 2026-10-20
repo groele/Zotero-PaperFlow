@@ -13,8 +13,7 @@ assert update['version'] == version
 assert update['update_link'] == f'https://github.com/groele/Zotero-PaperFlow/releases/download/v{version}/{name}'
 for section in ('applications', 'browser_specific_settings'):
     assert manifest[section]['zotero']['update_url'].endswith('/main/update.json')
-for relative in ('chrome/content/index.html', 'chrome/content/pages/options.html',
-                 'chrome/content/scripts/options.js', 'chrome/content/scripts/preferences.js'):
+for relative in ('chrome/content/preferences.xhtml',):
     assert version in (ROOT / relative).read_text(encoding='utf-8'), relative
 files = [ROOT / p for p in ('bootstrap.js', 'chrome.manifest', 'manifest.json', 'prefs.js')]
 files += [p for folder in ('chrome', 'locale') for p in (ROOT / folder).rglob('*') if p.is_file()]
