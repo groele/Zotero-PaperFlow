@@ -16,6 +16,6 @@
   "githubDescription": "Manage manuscripts, submission rounds, and review responses. Part of Zotero Flow.",
   "repository": "https://github.com/groele/Zotero-PaperFlow",
   "addonID": "zotero-paperflow@groele.org",
-  "version": "12.3.3",
+  "version": "12.3.4",
   "license": null
 }
