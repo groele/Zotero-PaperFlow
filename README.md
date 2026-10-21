@@ -1,5 +1,7 @@
 # Zotero PaperFlow
 
+> 源码版本为 12.5.0；目前最新可下载的 XPI 仍为旧版，待发布 12.5.0 安装包后再更新下载地址。
+
 **Zotero Flow Series · 投稿审稿**
 
 *让研究的每一步衔接起来。 / Connect each step of research.*
@@ -8,7 +10,7 @@
 
 [简体中文](README.md) · [English](README.en.md)
 
-[![当前版本](https://img.shields.io/badge/version-12.3.4-245ac7?style=flat-square)](https://github.com/groele/Zotero-PaperFlow/releases/tag/v12.3.4) · [下载 XPI](https://github.com/groele/Zotero-PaperFlow/releases/download/v12.3.4/zotero-paperflow-12.3.4.xpi) · [问题反馈](https://github.com/groele/Zotero-PaperFlow/issues)
+[![当前版本](https://img.shields.io/badge/version-12.5.0-245ac7?style=flat-square)](https://github.com/groele/Zotero-PaperFlow/releases/tag/v12.5.0) · [下载 XPI](https://github.com/groele/Zotero-PaperFlow/releases/download/v12.3.4/zotero-paperflow-12.3.4.xpi) · [问题反馈](https://github.com/groele/Zotero-PaperFlow/issues)
 
 [产品定位](#overview) · [安装与更新](#installation) · [快速开始](#quick-start) · [核心功能](#features) · [设置与使用](#settings) · [数据、同步与外部服务](#data) · [兼容性与验证范围](#compatibility) · [常见问题](#troubleshooting) · [开发与详细文档](#development) · [系列产品](#series) · [项目来源与许可](#license)
 
@@ -75,7 +77,7 @@ Zotero 偏好页配置窗口和数据维护；工作台中的业务设置按实�
 
 | 项目 | 范围 |
 |---|---|
-| 当前插件版本 | 12.3.4 |
+| 当前插件版本 | 12.5.0 |
 | 清单声明的 Zotero 范围 | `6.999` 至 `15.*` |
 | 当前说明 | 12.3.4 设置页已在 Windows Zotero 10.0.6 原生检查（含同窗连续切换与 MetaFlow 卡片配色对照）；声明兼容范围为 6.999–15.*，本轮未覆盖所有宿主、云服务或多设备并发。 |
 
