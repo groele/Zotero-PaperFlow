@@ -22,6 +22,6 @@ Payloads are copied when a save/import is requested. Read results and saved resu
 
 Run `node --test tests/*.test.js` and build with `python tools/build-xpi.py`. Regression tests exercise queue ordering, recovery failure, retries, caller mutation, corrupt files, schema validation and UI error routing.
 
-The 2026-10-22 candidate was tested in an isolated Windows Zotero 10.0.6 profile using real IOUtils writes, Fluent messages, concurrent host operations, backup restoration and a fresh-process restart. Candidate identity/version remains 12.5.1 pending a separately authorized release; this development build is not the published 12.5.1 asset. The proposed release increment is 12.5.2.
+The 2026-10-22 release was tested in an isolated Windows Zotero 10.0.6 profile using real IOUtils writes, Fluent messages, concurrent host operations, backup restoration and a fresh-process restart. These checks cover the tested Zotero 10.0.6 profile only; they do not establish compatibility across every declared host version.
 
 This queue coordinates one host process. It does not implement optimistic revision checks for two editors saving different stale full snapshots, cross-process file locking, cross-device conflict resolution, or recovery from power loss spanning both database and backup files. The browser-only legacy import adapter is outside this change. Main-profile installation, manual file-picker interaction and cloud-provider acceptance were not performed.
