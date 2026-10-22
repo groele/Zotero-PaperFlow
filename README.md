@@ -132,3 +132,5 @@ python tools/build-xpi.py
 当前仓库没有独立 LICENSE 文件；本次不替作者新增授权。发布或再分发前，应由权利人明确许可范围。
 
 本系列独立维护，并非 Zotero 官方产品。Zotero 及第三方名称、商标与材料归各自权利人所有。
+
+[Release/tag policy](docs/release-tag-policy.md)

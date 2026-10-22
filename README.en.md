@@ -132,3 +132,5 @@ Each add-on installs and updates separately. A shared brand does not imply a sha
 The repository has no standalone LICENSE file. This update does not grant new rights on the author’s behalf; the rights holder should clarify licensing before redistribution.
 
 This series is independently maintained and is not an official Zotero product. Zotero and third-party names, trademarks, and materials belong to their respective rights holders.
+
+[Release/tag policy](docs/release-tag-policy.md)
