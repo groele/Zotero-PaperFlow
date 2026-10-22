@@ -7334,9 +7334,12 @@ function setupSettingsListeners() {
         if (res?.cancelled) {
           return;
         }
+        showGlobalToast(res?.error || t('invalidBackup'), 'error');
       } catch (e) {
-        console.warn('[ResearchFlow] Zotero native import failed, falling back to file input:', e);
+        console.error('[ResearchFlow] Zotero native import failed:', e);
+        showGlobalToast(e.message || t('invalidBackup'), 'error');
       }
+      return;
     }
     document.getElementById('import-db-file').click();
   });
@@ -7362,9 +7365,12 @@ function setupSettingsListeners() {
           showGlobalToast(res.error, 'error');
           return;
         }
+        showGlobalToast(t('invalidBackup'), 'error');
       } catch (e) {
-        console.warn('[ResearchFlow] Zotero restore failed, trying browser storage:', e);
+        console.error('[ResearchFlow] Zotero restore failed:', e);
+        showGlobalToast(e.message || t('invalidBackup'), 'error');
       }
+      return;
     }
 
     const result = await new Promise((resolve) => {

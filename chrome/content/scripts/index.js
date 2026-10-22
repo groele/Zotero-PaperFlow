@@ -813,15 +813,78 @@
       this.broadcastToIframes({ type: 'RESEARCHFLOW_DATA_UPDATED', data: this._cachedData });
     },
 
+    databaseCollections() {
+      return ['researchAreas', 'projects', 'researchRecords', 'manuscripts', 'submissions', 'tasks'];
+    },
+
+    databaseError(key, args = {}) {
+      if (!this._databaseL10n) {
+        const { Localization } = Zotero.getMainWindow();
+        this._databaseL10n = new Localization(['researchflow.ftl'], true);
+      }
+      return new Error(this._databaseL10n.formatValueSync(`researchflow-database-${key}`, args));
+    },
+
+    validateDatabase(data) {
+      const isObject = (value) => value && typeof value === 'object' && !Array.isArray(value);
+      const collections = this.databaseCollections();
+      if (!isObject(data) || !collections.some((key) => Array.isArray(data[key]))) {
+        throw this.databaseError('invalid-backup');
+      }
+      if (data.schemaVersion != null && (!Number.isInteger(Number(data.schemaVersion))
+        || Number(data.schemaVersion) < 1 || Number(data.schemaVersion) > 7)) {
+        throw this.databaseError('unsupported-version');
+      }
+      const checkRecords = (records, key) => {
+        if (!Array.isArray(records)) throw this.databaseError('invalid-collection', { field: key });
+        const seen = new Set();
+        for (const record of records) {
+          const id = record?.id;
+          if (!isObject(record) || !((typeof id === 'string' && id.trim())
+            || (typeof id === 'number' && Number.isFinite(id)))) {
+            throw this.databaseError('invalid-id', { field: key });
+          }
+          if (seen.has(String(id))) throw this.databaseError('duplicate-id', { field: key });
+          seen.add(String(id));
+        }
+      };
+      for (const key of collections) {
+        if (key in data) checkRecords(data[key], key);
+      }
+      if ('settings' in data && !isObject(data.settings)) throw this.databaseError('invalid-settings');
+      if ('deletedEntities' in data) {
+        if (!isObject(data.deletedEntities)) throw this.databaseError('invalid-deletions');
+        for (const key of collections) {
+          if (key in data.deletedEntities) checkRecords(data.deletedEntities[key], `deletedEntities.${key}`);
+        }
+      }
+    },
+
+    cloneDatabase(data) {
+      return JSON.parse(JSON.stringify(data));
+    },
+
+    enqueueDatabaseOperation(operation) {
+      const result = (this._saveQueue || Promise.resolve()).catch(() => {}).then(operation);
+      this._saveQueue = result;
+      return result;
+    },
+
     async loadDatabase() {
-      if (this._cachedData) return this._cachedData;
+      return this.enqueueDatabaseOperation(() => this.readDatabaseSnapshot());
+    },
+
+    async readDatabaseSnapshot() {
+      if (this._cachedData) return this.cloneDatabase(this._cachedData);
       const filePath = this.getDataFilePath();
       const exists = await IOUtils.exists(filePath);
       if (exists) {
         try {
           const content = await IOUtils.readUTF8(filePath);
-          this._cachedData = JSON.parse(content);
-          return this._cachedData;
+          const parsed = JSON.parse(content);
+          this.validateDatabase(parsed);
+          this._cachedData = parsed;
+          return this.cloneDatabase(parsed);
         } catch (e) {
           Zotero.logError?.('[ResearchFlow] Failed to read researchflow-data.json: ' + e);
           throw e; // Preserve an unreadable or corrupt user file for recovery.
@@ -836,7 +899,10 @@
       } catch (error) {
         Zotero.logError?.('[ResearchFlow] Bundled database unavailable: ' + error);
       }
-      if (preloaded) return this.saveDatabase(preloaded);
+      if (preloaded) {
+        this.validateDatabase(preloaded);
+        return this.writeDatabaseSnapshot(preloaded);
+      }
 
       // Default fallback database
       const initial = {
@@ -857,74 +923,86 @@
           profile: { displayName: '', chineseName: '', englishName: '', affiliation: '', orcid: '', language: 'zh', theme: 'system' }
         }
       };
-      return this.saveDatabase(initial);
+      return this.writeDatabaseSnapshot(initial);
     },
 
     async saveDatabase(data) {
-      if (!data || typeof data !== 'object' || Array.isArray(data)) throw new Error('Invalid ResearchFlow database');
-      const operation = async () => {
-        const snapshot = { ...data, lastUpdated: Date.now(), updatedAt: new Date().toISOString() };
-        const filePath = this.getDataFilePath();
-        try {
-          await IOUtils.writeUTF8(filePath, JSON.stringify(snapshot, null, 2), { tmpPath: `${filePath}.tmp` });
-          this._cachedData = snapshot;
-          this.notifyDataChanged();
-          return snapshot;
-        } catch (error) {
-          Zotero.logError?.('[ResearchFlow] Failed to write researchflow-data.json: ' + error);
-          throw error;
+      this.validateDatabase(data);
+      // Capture the caller's payload before waiting for another operation.
+      const snapshot = this.cloneDatabase(data);
+      return this.enqueueDatabaseOperation(() => this.writeDatabaseSnapshot(snapshot));
+    },
+
+    async writeDatabaseSnapshot(data) {
+      const snapshot = { ...data, lastUpdated: Date.now(), updatedAt: new Date().toISOString() };
+      const filePath = this.getDataFilePath();
+      try {
+        await IOUtils.writeUTF8(filePath, JSON.stringify(snapshot, null, 2), { tmpPath: `${filePath}.tmp` });
+        this._cachedData = this.cloneDatabase(snapshot);
+        this.notifyDataChanged();
+        return this.cloneDatabase(snapshot);
+      } catch (error) {
+        Zotero.logError?.('[ResearchFlow] Failed to write researchflow-data.json: ' + error);
+        throw error;
+      }
+    },
+
+    mergeDatabaseBackup(current, incoming) {
+      const merged = { ...current, ...incoming };
+      const mergeObjects = (oldValue, newValue) => {
+        const result = { ...oldValue };
+        for (const [key, value] of Object.entries(newValue || {})) {
+          if (['__proto__', 'constructor', 'prototype'].includes(key)) continue;
+          result[key] = value && typeof value === 'object' && !Array.isArray(value)
+            ? mergeObjects(oldValue?.[key], value) : value;
         }
+        return result;
       };
-      const result = (this._saveQueue || Promise.resolve()).catch(() => {}).then(operation);
-      this._saveQueue = result;
-      return result;
+      merged.settings = mergeObjects(current.settings, incoming.settings);
+      merged.deletedEntities = { ...current.deletedEntities, ...incoming.deletedEntities };
+      const timestamp = (item) => Date.parse(item?.deletedAt || item?.updatedAt || item?.createdAt || '') || 0;
+      for (const key of this.databaseCollections()) {
+        const records = new Map();
+        for (const item of current[key] || []) records.set(String(item.id), item);
+        for (const item of incoming[key] || []) {
+          const id = String(item.id);
+          records.set(id, { ...records.get(id), ...item });
+        }
+        const deleted = new Map();
+        for (const item of [...(current.deletedEntities?.[key] || []), ...(incoming.deletedEntities?.[key] || [])]) {
+          const id = String(item.id);
+          if (!deleted.has(id) || timestamp(item) >= timestamp(deleted.get(id))) deleted.set(id, item);
+        }
+        merged.deletedEntities[key] = Array.from(deleted.values());
+        merged[key] = Array.from(records.values()).filter((item) =>
+          !deleted.has(String(item.id)) || timestamp(item) > timestamp(deleted.get(String(item.id))));
+      }
+      return merged;
     },
 
     async importDatabase(importedData, mode = 'merge') {
-      const collections = ['researchAreas', 'projects', 'researchRecords', 'manuscripts', 'submissions', 'tasks'];
-      if (!importedData || typeof importedData !== 'object' || Array.isArray(importedData)
-        || !collections.some((key) => Array.isArray(importedData[key]))
-        || collections.some((key) => key in importedData && !Array.isArray(importedData[key]))) {
-        throw new Error('所选文件不是 ResearchFlow 数据库备份');
-      }
+      this.validateDatabase(importedData);
       if (mode !== 'merge' && mode !== 'overwrite') throw new Error('无效的导入方式');
-      // Create pre-import snapshot
-      const current = await this.loadDatabase();
-      await IOUtils.writeUTF8(this.getBackupFilePath(), JSON.stringify(current, null, 2));
-
-      let importedSnapshot;
-      if (mode === 'overwrite') {
-        importedSnapshot = { ...importedData, lastUpdated: Date.now(), updatedAt: new Date().toISOString() };
-      } else {
-        // Smart merge collections
-        const mergeCol = (oldArr = [], newArr = []) => {
-          const map = new Map();
-          oldArr.forEach((item) => { if (item?.id) map.set(item.id, item); });
-          newArr.forEach((item) => { if (item?.id) map.set(item.id, { ...(map.get(item.id) || {}), ...item }); });
-          return Array.from(map.values());
-        };
-        importedSnapshot = {
-          ...current,
-          ...importedData,
-          projects: mergeCol(current.projects, importedData.projects),
-          manuscripts: mergeCol(current.manuscripts, importedData.manuscripts),
-          submissions: mergeCol(current.submissions, importedData.submissions),
-          tasks: mergeCol(current.tasks, importedData.tasks),
-          researchRecords: mergeCol(current.researchRecords, importedData.researchRecords),
-          lastUpdated: Date.now(),
-          updatedAt: new Date().toISOString()
-        };
-      }
-      return this.saveDatabase(importedSnapshot);
+      const incoming = this.cloneDatabase(importedData);
+      return this.enqueueDatabaseOperation(async () => {
+        // Read, backup, merge and commit form one operation in the host queue.
+        const current = await this.readDatabaseSnapshot();
+        const importedSnapshot = mode === 'overwrite' ? incoming : this.mergeDatabaseBackup(current, incoming);
+        this.validateDatabase(importedSnapshot);
+        const backupPath = this.getBackupFilePath();
+        await IOUtils.writeUTF8(backupPath, JSON.stringify(current, null, 2), { tmpPath: `${backupPath}.tmp` });
+        return this.writeDatabaseSnapshot(importedSnapshot);
+      });
     },
 
     async restoreBackupDatabase() {
-      const backupPath = this.getBackupFilePath();
-      const exists = await IOUtils.exists(backupPath);
-      if (!exists) throw new Error('未找到前次导入备份文件');
-      const content = await IOUtils.readUTF8(backupPath);
-      const restored = JSON.parse(content);
-      return this.saveDatabase(restored);
+      return this.enqueueDatabaseOperation(async () => {
+        const backupPath = this.getBackupFilePath();
+        if (!await IOUtils.exists(backupPath)) throw new Error('未找到前次导入备份文件');
+        const restored = JSON.parse(await IOUtils.readUTF8(backupPath));
+        this.validateDatabase(restored);
+        return this.writeDatabaseSnapshot(restored);
+      });
     },
 
     async saveShareImageFile(pngBytes, fileName, language = 'en', window = null) {
