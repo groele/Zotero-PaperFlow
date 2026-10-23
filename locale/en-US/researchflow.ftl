@@ -33,3 +33,6 @@ researchflow-database-invalid-id = Database field { $field } contains a record w
 researchflow-database-duplicate-id = Database field { $field } contains duplicate IDs.
 researchflow-database-invalid-settings = Invalid database settings.
 researchflow-database-invalid-deletions = Invalid database deletion log.
+researchflow-database-merge-conflict = Concurrent edits conflict at { $fields }. The current database was preserved. Your edits and both database versions were saved locally to { $file } for recovery.
+researchflow-database-conflict-draft-failed = Concurrent edits could not be merged, and the recovery draft could not be written: { $reason }. The database was not overwritten. Keep this window open and copy your unsaved changes.
+researchflow-database-revision-conflict = This database changed in another PaperFlow window (expected revision { $expected }, current revision { $actual }). Your save was not applied. Copy your unsaved changes before reopening the workspace to continue editing.

@@ -33,3 +33,6 @@ researchflow-database-invalid-id = 数据库字段 { $field } 包含缺少有效
 researchflow-database-duplicate-id = 数据库字段 { $field } 包含重复 ID。
 researchflow-database-invalid-settings = 数据库设置格式无效。
 researchflow-database-invalid-deletions = 数据库删除记录格式无效。
+researchflow-database-merge-conflict = 同时编辑的内容在 { $fields } 存在冲突，当前数据库已保留。你的修改及双方数据库版本已保存到本地恢复文件：{ $file }。
+researchflow-database-conflict-draft-failed = 同时编辑的内容无法自动合并，且恢复草稿写入失败：{ $reason }。数据库未被覆盖。请保持此窗口打开，并复制尚未保存的内容。
+researchflow-database-revision-conflict = 另一个 PaperFlow 窗口已更新数据库（本窗口版本 { $expected }，当前版本 { $actual }）。本次保存未写入。请先复制尚未保存的内容，再重新打开工作台继续编辑。

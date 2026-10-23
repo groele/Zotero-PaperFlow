@@ -176,8 +176,10 @@ class StorageEngine {
   async saveDatabase(data, options = {}) {
     const zotero = this.getZoteroInstance();
     if (zotero?.ResearchFlow?.saveDatabase) {
+      const dataRevision = Number(data?.revision);
+      const expectedRevision = options.expectedRevision ?? (Number.isFinite(dataRevision) ? dataRevision : undefined);
       const normalized = await this.ensureDbShape(data, { stamp: true });
-      const saved = await zotero.ResearchFlow.saveDatabase(normalized);
+      const saved = await zotero.ResearchFlow.saveDatabase(normalized, { expectedRevision, replace: options.replace === true });
       this.cache = this.adoptSavedSnapshot(data, saved);
       try {
         if (await this.shouldRunCloudSync(this.cache)) this.scheduleBackgroundSync();
@@ -188,10 +190,14 @@ class StorageEngine {
     }
 
     if (this.isZotero() && typeof ZoteroBridge !== 'undefined' && ZoteroBridge.isZotero) {
+      const dataRevision = Number(data?.revision);
+      const expectedRevision = options.expectedRevision ?? (Number.isFinite(dataRevision) ? dataRevision : undefined);
       const normalized = await this.ensureDbShape(data, { stamp: true });
-      const response = await ZoteroBridge.request('RESEARCHFLOW_STORAGE_SET', { payload: normalized }, 15000);
+      const response = await ZoteroBridge.request('RESEARCHFLOW_STORAGE_SET', {
+        payload: normalized, expectedRevision, replace: options.replace === true
+      }, 15000);
       if (!response?.success) throw new Error(response?.error || 'Zotero database save failed. Please retry.');
-      this.cache = this.adoptSavedSnapshot(data, normalized);
+      this.cache = this.adoptSavedSnapshot(data, response.data || normalized);
       return this.cache;
     }
 
@@ -239,11 +245,20 @@ class StorageEngine {
     }, delayMs);
   }
 
-  async persistLocal(data) {
+  async persistLocal(data, options = {}) {
     const zotero = this.getZoteroInstance();
     if (zotero?.ResearchFlow?.saveDatabase) {
-      await zotero.ResearchFlow.saveDatabase(data);
-      return;
+      return await zotero.ResearchFlow.saveDatabase(data, options);
+    }
+    if (this.isZotero()) {
+      if (typeof ZoteroBridge === 'undefined' || !ZoteroBridge.isZotero) {
+        throw new Error('Zotero database host unavailable. Reopen the ResearchFlow workspace.');
+      }
+      const response = await ZoteroBridge.request('RESEARCHFLOW_STORAGE_SET', {
+        payload: data, expectedRevision: options.expectedRevision, replace: options.replace === true
+      }, 15000);
+      if (!response?.success) throw new Error(response?.error || 'Zotero database save failed. Please retry.');
+      return response.data || data;
     }
 
     const safeData = this.sanitizeDatabaseForExternalUse(data);
@@ -255,7 +270,7 @@ class StorageEngine {
           else resolve();
         });
       });
-      return;
+      return data;
     }
 
     try {
@@ -263,6 +278,7 @@ class StorageEngine {
         localStorage.setItem('researchflow_db', JSON.stringify(safeData));
       }
     } catch (_) {}
+    return data;
   }
 
   async fetchWithTimeout(url, options = {}) {
@@ -724,19 +740,19 @@ class StorageEngine {
         const latest = await this.loadAll();
         const merged = remote ? await this.mergeDatabases(latest, remote) : latest;
         const committed = await this.ensureDbShape(merged, { stamp: true });
-        await this.persistLocal(committed);
-        this.cache = committed;
-        RFPlatform.runtime.sendMessage({ action: 'DATABASE_UPDATED', data: committed }).catch(() => {});
-        return JSON.parse(JSON.stringify(committed));
+        const saved = await this.persistLocal(committed, { expectedRevision: latest.revision });
+        this.cache = saved || committed;
+        RFPlatform.runtime.sendMessage({ action: 'DATABASE_UPDATED', data: this.cache }).catch(() => {});
+        return JSON.parse(JSON.stringify(this.cache));
       });
       await this.saveToCloud(provider.provider, provider.config, pushDb);
       const pending = await this.enqueueCommit(async () => {
         const latest = await this.loadAll();
         const merged = await this.mergeDatabases(latest, pushDb);
         const pending = this.hasMeaningfulChanges(pushDb, merged);
-        await this.persistLocal(merged);
-        this.cache = merged;
-        RFPlatform.runtime.sendMessage({ action: 'DATABASE_UPDATED', data: merged }).catch(() => {});
+        const saved = await this.persistLocal(merged, { expectedRevision: latest.revision });
+        this.cache = saved || merged;
+        RFPlatform.runtime.sendMessage({ action: 'DATABASE_UPDATED', data: this.cache }).catch(() => {});
         return pending;
       });
       if (pending) this.scheduleBackgroundSync();

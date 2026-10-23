@@ -874,6 +874,87 @@
       return this.enqueueDatabaseOperation(() => this.readDatabaseSnapshot());
     },
 
+    rememberDatabaseSnapshot(data) {
+      if (!this._databaseHistory) this._databaseHistory = new Map();
+      const revision = Number(data.revision) || 0;
+      this._databaseHistory.set(revision, JSON.stringify(data));
+      // Bounded in-process history supports three-way merges without exposing mutable cache objects.
+      let size = Array.from(this._databaseHistory.values()).reduce((sum, text) => sum + text.length, 0);
+      while (this._databaseHistory.size > 12 || size > 4 * 1024 * 1024) {
+        const oldest = this._databaseHistory.keys().next().value;
+        size -= this._databaseHistory.get(oldest).length;
+        this._databaseHistory.delete(oldest);
+      }
+    },
+
+    mergeDatabaseEdits(base, local, current) {
+      const missing = Symbol('missing');
+      const conflicts = [];
+      const object = value => value !== missing && value !== null && typeof value === 'object' && !Array.isArray(value);
+      const same = (a, b) => {
+        if (a === b) return true;
+        if (Array.isArray(a) && Array.isArray(b)) return a.length === b.length && a.every((v, i) => same(v, b[i]));
+        if (object(a) && object(b)) {
+          const keys = Object.keys(a);
+          return keys.length === Object.keys(b).length && keys.every(key => Object.hasOwn(b, key) && same(a[key], b[key]));
+        }
+        return false;
+      };
+      const identified = values => Array.isArray(values) && values.every(item => object(item)
+        && ((typeof item.id === 'string' && item.id.trim()) || (typeof item.id === 'number' && Number.isFinite(item.id))))
+        && new Set(values.map(item => String(item.id))).size === values.length;
+      const merge = (before, edited, latest, path) => {
+        if (same(edited, before)) return latest;
+        if (same(latest, before) || same(edited, latest)) return edited;
+        if (object(edited) && object(latest) && (object(before) || before === missing)) {
+          const result = {};
+          for (const key of new Set([...Object.keys(latest), ...Object.keys(edited), ...Object.keys(before === missing ? {} : before)])) {
+            if (['__proto__', 'constructor', 'prototype'].includes(key)) continue;
+            const value = (obj) => obj !== missing && Object.hasOwn(obj, key) ? obj[key] : missing;
+            let combined;
+            if (!path && ['revision', 'lastUpdated', 'updatedAt', 'deviceId'].includes(key)) combined = value(latest);
+            else if (['updatedAt', 'deletedAt'].includes(key) && Date.parse(edited[key]) && Date.parse(latest[key])) {
+              combined = Date.parse(edited[key]) >= Date.parse(latest[key]) ? edited[key] : latest[key];
+            } else combined = merge(value(before), value(edited), value(latest), path ? `${path}.${key}` : key);
+            if (combined !== missing) result[key] = combined;
+          }
+          return result;
+        }
+        if (identified(edited) && identified(latest) && (identified(before) || before === missing)) {
+          const map = values => new Map((values === missing ? [] : values).map(item => [String(item.id), item]));
+          const old = map(before), ours = map(edited), theirs = map(latest);
+          const common = new Set([...old.keys()].filter(id => ours.has(id) && theirs.has(id)));
+          const order = records => [...records.keys()].filter(id => common.has(id));
+          const localReordered = !same(order(old), order(ours));
+          const latestReordered = !same(order(old), order(theirs));
+          if (localReordered && latestReordered && !same(order(ours), order(theirs))) conflicts.push(`${path}.order`);
+          const preferred = localReordered && !latestReordered ? ours : theirs;
+          const result = [];
+          for (const id of new Set([...preferred.keys(), ...theirs.keys(), ...ours.keys(), ...old.keys()])) {
+            const entry = (records) => records.has(id) ? records.get(id) : missing;
+            const combined = merge(entry(old), entry(ours), entry(theirs), `${path}[${id}]`);
+            if (combined !== missing) result.push(combined);
+          }
+          return result;
+        }
+        conflicts.push(path);
+        return latest;
+      };
+      return { data: merge(base, local, current, ''), conflicts };
+    },
+
+    async preserveDatabaseConflict(base, local, current, conflicts) {
+      const file = `${this.getDataFilePath()}.conflict-${Date.now()}-${Math.random().toString(36).slice(2)}.json`;
+      const draft = { format: 'zotero-paperflow-conflict-v1', createdAt: new Date().toISOString(),
+        conflicts, base, local, current };
+      try {
+        await IOUtils.writeUTF8(file, JSON.stringify(draft, null, 2), { tmpPath: `${file}.tmp` });
+      } catch (error) {
+        throw this.databaseError('conflict-draft-failed', { reason: String(error.message || error) });
+      }
+      return this.databaseError('merge-conflict', { fields: conflicts.slice(0, 3).join(', '), file });
+    },
+
     async readDatabaseSnapshot() {
       if (this._cachedData) return this.cloneDatabase(this._cachedData);
       const filePath = this.getDataFilePath();
@@ -884,6 +965,7 @@
           const parsed = JSON.parse(content);
           this.validateDatabase(parsed);
           this._cachedData = parsed;
+          this.rememberDatabaseSnapshot(parsed);
           return this.cloneDatabase(parsed);
         } catch (e) {
           Zotero.logError?.('[ResearchFlow] Failed to read researchflow-data.json: ' + e);
@@ -926,19 +1008,48 @@
       return this.writeDatabaseSnapshot(initial);
     },
 
-    async saveDatabase(data) {
+    async saveDatabase(data, options = {}) {
       this.validateDatabase(data);
       // Capture the caller's payload before waiting for another operation.
-      const snapshot = this.cloneDatabase(data);
-      return this.enqueueDatabaseOperation(() => this.writeDatabaseSnapshot(snapshot));
+      let snapshot = this.cloneDatabase(data);
+      const expectedRevision = options.expectedRevision;
+      const replace = options.replace === true;
+      return this.enqueueDatabaseOperation(async () => {
+        const current = await this.readDatabaseSnapshot();
+        if (expectedRevision != null) {
+          const actualRevision = Number(current.revision) || 0;
+          if (!Number.isInteger(Number(expectedRevision)) || Number(expectedRevision) < 0) {
+            throw this.databaseError('revision-conflict', {
+              expected: Number(expectedRevision),
+              actual: actualRevision
+            });
+          }
+          if (Number(expectedRevision) !== actualRevision) {
+            const storedBase = this._databaseHistory?.get(Number(expectedRevision));
+            const base = storedBase ? JSON.parse(storedBase) : null;
+            const merged = base && !replace ? this.mergeDatabaseEdits(base, snapshot, current) : null;
+            if (!merged || merged.conflicts.length) {
+              throw await this.preserveDatabaseConflict(base, snapshot, current,
+                merged?.conflicts || ['database']);
+            }
+            snapshot = merged.data;
+            this.validateDatabase(snapshot);
+          }
+        }
+        return this.writeDatabaseSnapshot(snapshot);
+      });
     },
 
-    async writeDatabaseSnapshot(data) {
-      const snapshot = { ...data, lastUpdated: Date.now(), updatedAt: new Date().toISOString() };
+    async writeDatabaseSnapshot(data, fallbackRevision = 0) {
+      // Revisions describe local commits, never the version in an imported file.
+      const previousRevision = Number(this._cachedData?.revision) || Number(fallbackRevision) || 0;
+      const snapshot = { ...data, revision: previousRevision + 1,
+        lastUpdated: Date.now(), updatedAt: new Date().toISOString() };
       const filePath = this.getDataFilePath();
       try {
         await IOUtils.writeUTF8(filePath, JSON.stringify(snapshot, null, 2), { tmpPath: `${filePath}.tmp` });
         this._cachedData = this.cloneDatabase(snapshot);
+        this.rememberDatabaseSnapshot(snapshot);
         this.notifyDataChanged();
         return this.cloneDatabase(snapshot);
       } catch (error) {
@@ -991,7 +1102,12 @@
         this.validateDatabase(importedSnapshot);
         const backupPath = this.getBackupFilePath();
         await IOUtils.writeUTF8(backupPath, JSON.stringify(current, null, 2), { tmpPath: `${backupPath}.tmp` });
-        return this.writeDatabaseSnapshot(importedSnapshot);
+        const saved = await this.writeDatabaseSnapshot(importedSnapshot);
+        if (mode === 'overwrite') {
+          this._databaseHistory = new Map();
+          this.rememberDatabaseSnapshot(saved);
+        }
+        return saved;
       });
     },
 
@@ -1001,7 +1117,17 @@
         if (!await IOUtils.exists(backupPath)) throw new Error('未找到前次导入备份文件');
         const restored = JSON.parse(await IOUtils.readUTF8(backupPath));
         this.validateDatabase(restored);
-        return this.writeDatabaseSnapshot(restored);
+        let fallbackRevision = 0;
+        try { await this.readDatabaseSnapshot(); }
+        catch (error) {
+          // A validated recovery backup must remain usable when the main file is corrupt.
+          Zotero.logError?.('[ResearchFlow] Restoring backup over unreadable database: ' + error);
+          fallbackRevision = Number(restored.revision) || 0;
+        }
+        const saved = await this.writeDatabaseSnapshot(restored, fallbackRevision);
+        this._databaseHistory = new Map();
+        this.rememberDatabaseSnapshot(saved);
+        return saved;
       });
     },
 
@@ -1496,9 +1622,9 @@
 
           // B. Storage Save Request
           if (data.type === 'RESEARCHFLOW_STORAGE_SET' && data.payload) {
-            this.saveDatabase(data.payload).then(() => {
+            this.saveDatabase(data.payload, { expectedRevision: data.expectedRevision, replace: data.replace }).then((saved) => {
               if (data.requestId) {
-                replyResult({ requestId: data.requestId, success: true });
+                replyResult({ requestId: data.requestId, success: true, data: saved });
               }
             }).catch((error) => {
               if (data.requestId) replyResult({ requestId: data.requestId, success: false, error: String(error?.message || error) });
