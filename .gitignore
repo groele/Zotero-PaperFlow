@@ -11,3 +11,7 @@ Desktop.ini
 
 # Logs
 *.log
+
+# Python release tooling caches
+**/__pycache__/
+*.pyc

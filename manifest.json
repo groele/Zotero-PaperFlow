@@ -1,7 +1,7 @@
 {
   "manifest_version": 2,
   "name": "Zotero PaperFlow",
-  "version": "12.5.3",
+  "version": "12.5.4",
   "description": "Manage manuscripts, submission rounds, and review responses.",
   "homepage_url": "https://github.com/groele/Zotero-PaperFlow",
   "author": "groele",

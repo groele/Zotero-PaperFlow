@@ -9,7 +9,7 @@ Manage manuscripts, submission rounds, and review responses.
 
 [简体中文](README.md) · [English](README.en.md)
 
-[![Release](https://img.shields.io/badge/version-12.5.3-245ac7?style=flat-square)](https://github.com/groele/Zotero-PaperFlow/releases/tag/v12.5.3) · [Download XPI](https://github.com/groele/Zotero-PaperFlow/releases/download/v12.5.3/zotero-paperflow-12.5.3.xpi) · [Report an issue](https://github.com/groele/Zotero-PaperFlow/issues)
+[![Release](https://img.shields.io/badge/version-12.5.4-245ac7?style=flat-square)](https://github.com/groele/Zotero-PaperFlow/releases/tag/v12.5.4) · [Download XPI](https://github.com/groele/Zotero-PaperFlow/releases/download/v12.5.4/zotero-paperflow-12.5.4.xpi) · [Report an issue](https://github.com/groele/Zotero-PaperFlow/issues)
 
 [Overview](#overview) · [Installation and updates](#installation) · [Quick start](#quick-start) · [Key features](#features) · [Settings](#settings) · [Data, sync, and services](#data) · [Compatibility and validation](#compatibility) · [Troubleshooting](#troubleshooting) · [Development and documentation](#development) · [The Flow series](#series) · [Origin and license](#license)
 
@@ -25,7 +25,7 @@ Install this add-on independently and combine it with other Flow products as nee
 
 ## Installation and updates
 
-1. Download [zotero-paperflow-12.5.3.xpi](https://github.com/groele/Zotero-PaperFlow/releases/download/v12.5.3/zotero-paperflow-12.5.3.xpi) (add-on version **12.5.3**), not the Source code ZIP.
+1. Download [zotero-paperflow-12.5.4.xpi](https://github.com/groele/Zotero-PaperFlow/releases/download/v12.5.4/zotero-paperflow-12.5.4.xpi) (add-on version **12.5.4**), not the Source code ZIP.
 2. In Zotero, open **Tools → Plugins/Add-ons**, then choose **Install Add-on From File** from the gear menu.
 3. Select the XPI, complete installation, and restart if requested.
 
@@ -76,11 +76,11 @@ Zotero preferences configure window behavior and data maintenance; use workspace
 
 | Item | Scope |
 |---|---|
-| Current add-on version | 12.5.3 |
+| Current add-on version | 12.5.4 |
 | Declared Zotero range | `6.999` through `15.*` |
 | Evidence boundary | The 12.3.4 settings pane was checked in Windows Zotero 10.0.6, including sequential navigation and MetaFlow card palette comparison. The declared range is 6.999–15.*; this update does not cover every host, cloud service, or concurrent multi-device scenario. |
 
-Add-on and Zotero versions are separate. Manifest compatibility does not establish testing on every host, operating system, or service. This branding/documentation update does not rerun business workflow tests.
+Add-on and Zotero versions are separate. Manifest compatibility does not establish testing on every host, operating system, or service. This release checks concurrent-save regressions, failed-write feedback, and package integrity. See the release notes for native Zotero and external sync verification limits.
 
 <a id="troubleshooting"></a>
 
@@ -97,10 +97,13 @@ For an issue, include add-on/Zotero versions, OS, steps, expected/actual results
 Normal installation needs no development environment. Existing developer entry points follow; use an isolated profile for native tests.
 
 ```powershell
-python tools/build-xpi.py
+node --test tests/*.test.js
+python scripts/test-release-package.py
+python tools/build-xpi.py --update-feeds
+python tools/build-xpi.py --verify-only
 ```
 
-- [版本说明 / Release notes](docs/releases/v12.5.3.md)
+- [版本说明 / Release notes](docs/releases/v12.5.4.md)
 - [产品简介 / Product profile](docs/brand/PRODUCT.md)
 - [品牌规范 / Brand guide](docs/brand/BRAND.md)
 - [README 模板 / README template](docs/brand/README-TEMPLATE.md)

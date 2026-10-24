@@ -62,3 +62,41 @@ test('bridge background persistence forwards the precondition and propagates a r
   await assert.rejects(storage.persistLocal({ revision: 5 }, { expectedRevision: 4 }), /Conflicting revision/);
   assert.equal(observed, 4);
 });
+
+test('local quota failure preserves the committed cache and reports an error instead of saved', async () => {
+  const states = [];
+  const storage = engine({
+    window: { dispatchEvent: event => states.push(event.detail.state) },
+    CustomEvent: class { constructor(type, options) { this.detail = options.detail; } },
+    localStorage: { setItem() { throw new Error('QuotaExceededError'); } }
+  });
+  const committed = { revision: 3, tasks: [{ id: 'old' }] };
+  storage.cache = committed;
+  const edited = { revision: 3, tasks: [{ id: 'new' }] };
+  await assert.rejects(storage.saveAll(edited), /QuotaExceededError/);
+  assert.equal(storage.cache, committed);
+  assert.equal(edited.revision, 3);
+  assert.deepEqual(states, ['saving', 'error']);
+});
+
+test('unavailable local storage is a failed persistence operation', async () => {
+  const storage = engine();
+  await assert.rejects(storage.persistLocal({ revision: 1, tasks: [] }), /Local storage unavailable/);
+});
+
+test('successful local persistence writes the data before reporting saved', async () => {
+  let written;
+  const states = [];
+  const storage = engine({
+    window: { dispatchEvent: event => {
+      if (event.detail.state === 'saved') assert.ok(written);
+      states.push(event.detail.state);
+    } },
+    CustomEvent: class { constructor(type, options) { this.detail = options.detail; } },
+    localStorage: { setItem(key, value) { assert.equal(key, 'researchflow_db'); written = JSON.parse(value); } }
+  });
+  const saved = await storage.saveAll({ revision: 2, tasks: [{ id: 'new' }] });
+  assert.equal(written.tasks[0].id, 'new');
+  assert.equal(saved.revision, 3);
+  assert.deepEqual(states, ['saving', 'saved']);
+});

@@ -273,11 +273,13 @@ class StorageEngine {
       return data;
     }
 
-    try {
-      if (typeof localStorage !== 'undefined') {
-        localStorage.setItem('researchflow_db', JSON.stringify(safeData));
-      }
-    } catch (_) {}
+    if (typeof localStorage === 'undefined') {
+      throw new Error(typeof t === 'function' ? t('localStorageUnavailable')
+        : 'Local storage unavailable. Reopen the workspace and retry.');
+    }
+    // Quota and permission failures must reach saveAll's error state. Never
+    // report an in-memory edit as durable when the persistence write failed.
+    localStorage.setItem('researchflow_db', JSON.stringify(safeData));
     return data;
   }
 
