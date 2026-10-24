@@ -16,6 +16,8 @@ Successful overwrite imports and restores reset merge history so old editors can
 
 Payloads are copied when a save/import is requested. Read results and saved results are separate copies, so an unsaved UI edit cannot silently mutate the host cache or change what the next import backs up. First-run initialization uses the same queue without nesting a queued save inside a queued read.
 
+Frontend saves also freeze the request before normalization. A late response rebases edits made during the request onto the committed snapshot only when independent. The committed frontend cache remains detached from the live editor. Overlapping changes preserve the live draft and its original revision so another save can use the host conflict-recovery path; the UI reports pending edits. Older responses cannot replace a newer adopted revision. Data-update broadcasts do not replace an editor known to have pending edits.
+
 ## Merge and validation
 
 - Merge all six collections by ID: research areas, projects, research records, manuscripts, submission rounds and tasks.

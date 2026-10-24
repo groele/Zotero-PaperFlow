@@ -88,11 +88,11 @@ class StorageEngine {
    * Initializes or fetches database from cache
    */
   async loadAll() {
-    if (this.cache) return this.cache;
+    if (this.cache) return JSON.parse(JSON.stringify(this.cache));
     if (!this.loadPromise) {
       this.loadPromise = this.loadDatabase().finally(() => { this.loadPromise = null; });
     }
-    return this.loadPromise;
+    return JSON.parse(JSON.stringify(await this.loadPromise));
   }
 
   async loadDatabase() {
@@ -165,7 +165,7 @@ class StorageEngine {
     notify('saving');
     try {
       const saved = await this.saveDatabase(data, options);
-      notify('saved');
+      notify(this.hasPendingEdits(data) ? 'pending' : 'saved');
       return saved;
     } catch (error) {
       notify('error', error.message);
@@ -174,36 +174,54 @@ class StorageEngine {
   }
 
   async saveDatabase(data, options = {}) {
+    if (!this._activeEditorSaves) this._activeEditorSaves = new WeakMap();
+    this._activeEditorSaves.set(data, (this._activeEditorSaves.get(data) || 0) + 1);
+    try {
+      return await this.commitEditorDatabase(data, options);
+    } finally {
+      const remaining = this._activeEditorSaves.get(data) - 1;
+      if (remaining) this._activeEditorSaves.set(data, remaining);
+      else this._activeEditorSaves.delete(data);
+    }
+  }
+
+  isSaving(target) {
+    return Boolean(target && this._activeEditorSaves?.has(target));
+  }
+
+  async commitEditorDatabase(data, options = {}) {
+    // Freeze the request before normalization or host/bridge waits. The live
+    // editor may continue changing nested arrays throughout those awaits.
+    const requested = JSON.parse(JSON.stringify(data));
     const zotero = this.getZoteroInstance();
     if (zotero?.ResearchFlow?.saveDatabase) {
-      const dataRevision = Number(data?.revision);
+      const dataRevision = Number(requested?.revision);
       const expectedRevision = options.expectedRevision ?? (Number.isFinite(dataRevision) ? dataRevision : undefined);
-      const normalized = await this.ensureDbShape(data, { stamp: true });
+      const normalized = await this.ensureDbShape(JSON.parse(JSON.stringify(requested)), { stamp: true });
       const saved = await zotero.ResearchFlow.saveDatabase(normalized, { expectedRevision, replace: options.replace === true });
-      this.cache = this.adoptSavedSnapshot(data, saved);
+      const adopted = this.adoptSavedSnapshot(data, saved, requested);
       try {
         if (await this.shouldRunCloudSync(this.cache)) this.scheduleBackgroundSync();
       } catch (error) {
         console.warn('Cloud sync scheduling unavailable:', error.message);
       }
-      return this.cache;
+      return adopted;
     }
 
     if (this.isZotero() && typeof ZoteroBridge !== 'undefined' && ZoteroBridge.isZotero) {
-      const dataRevision = Number(data?.revision);
+      const dataRevision = Number(requested?.revision);
       const expectedRevision = options.expectedRevision ?? (Number.isFinite(dataRevision) ? dataRevision : undefined);
-      const normalized = await this.ensureDbShape(data, { stamp: true });
+      const normalized = await this.ensureDbShape(JSON.parse(JSON.stringify(requested)), { stamp: true });
       const response = await ZoteroBridge.request('RESEARCHFLOW_STORAGE_SET', {
         payload: normalized, expectedRevision, replace: options.replace === true
       }, 15000);
       if (!response?.success) throw new Error(response?.error || 'Zotero database save failed. Please retry.');
-      this.cache = this.adoptSavedSnapshot(data, response.data || normalized);
-      return this.cache;
+      return this.adoptSavedSnapshot(data, response.data || normalized, requested);
     }
 
-    const normalized = await this.ensureDbShape(data, { stamp: true });
+    const normalized = await this.ensureDbShape(JSON.parse(JSON.stringify(requested)), { stamp: true });
     await this.persistLocal(normalized);
-    this.cache = this.adoptSavedSnapshot(data, normalized);
+    const adopted = this.adoptSavedSnapshot(data, normalized, requested);
 
     // Notify workspace views of data changes
     if (typeof RFPlatform !== 'undefined' && RFPlatform.runtime?.sendMessage) {
@@ -219,10 +237,69 @@ class StorageEngine {
       // The local commit succeeded; optional sync setup must not turn it into a failed save.
       console.warn('Cloud sync scheduling unavailable:', error.message);
     }
-    return this.cache;
+    return adopted;
   }
 
-  adoptSavedSnapshot(target, savedSnapshot) {
+  hasPendingEdits(target) {
+    return Boolean(target && this._pendingEditorTargets?.has(target));
+  }
+
+  mergePendingEdits(before, local, committed) {
+    const missing = Symbol('missing');
+    const object = value => value !== missing && value !== null && typeof value === 'object' && !Array.isArray(value);
+    const same = (a, b) => {
+      if (a === b) return true;
+      if (Array.isArray(a) && Array.isArray(b)) return a.length === b.length && a.every((v, i) => same(v, b[i]));
+      if (object(a) && object(b)) return Object.keys(a).length === Object.keys(b).length
+        && Object.keys(a).every(key => Object.hasOwn(b, key) && same(a[key], b[key]));
+      return false;
+    };
+    const identified = value => Array.isArray(value) && value.every(item => object(item)
+      && (typeof item.id === 'string' || (typeof item.id === 'number' && Number.isFinite(item.id))))
+      && new Set(value.map(item => String(item.id))).size === value.length;
+    const conflicts = [];
+    const merge = (base, edited, latest, path = '') => {
+      if (same(base, edited)) return latest;
+      if (same(base, latest) || same(edited, latest)) return edited;
+      if (object(base) && object(edited) && object(latest)) {
+        const result = {};
+        for (const key of new Set([...Object.keys(latest), ...Object.keys(edited), ...Object.keys(base)])) {
+          if (['__proto__', 'constructor', 'prototype'].includes(key)) continue;
+          const value = obj => Object.hasOwn(obj, key) ? obj[key] : missing;
+          const combined = !path && ['revision', 'lastUpdated', 'updatedAt', 'deviceId'].includes(key)
+            ? value(latest) : merge(value(base), value(edited), value(latest), path ? path + '.' + key : key);
+          if (combined !== missing) result[key] = combined;
+        }
+        return result;
+      }
+      if (identified(base) && identified(edited) && identified(latest)) {
+        const map = list => new Map(list.map(item => [String(item.id), item]));
+        const old = map(base), ours = map(edited), theirs = map(latest);
+        const common = new Set([...old.keys()].filter(id => ours.has(id) && theirs.has(id)));
+        const order = entries => [...entries.keys()].filter(id => common.has(id));
+        const oursMoved = !same(order(old), order(ours));
+        const theirsMoved = !same(order(old), order(theirs));
+        if (oursMoved && theirsMoved && !same(order(ours), order(theirs))) conflicts.push(path + '.order');
+        const preferred = oursMoved && !theirsMoved ? ours : theirs;
+        const result = [];
+        for (const id of new Set([...preferred.keys(), ...theirs.keys(), ...ours.keys(), ...old.keys()])) {
+          const entry = entries => entries.has(id) ? entries.get(id) : missing;
+          const combined = merge(entry(old), entry(ours), entry(theirs), path + '[' + id + ']');
+          if (combined !== missing) result.push(combined);
+        }
+        return result;
+      }
+      conflicts.push(path);
+      return latest;
+    };
+    return { data: merge(before, local, committed), pending: !same(before, local), conflicts };
+  }
+
+  adoptSavedSnapshot(target, savedSnapshot, requested) {
+    if (Number(this.cache?.revision) > Number(savedSnapshot?.revision)
+      || Number(target?.revision) > Number(savedSnapshot?.revision)) return target;
+    // The committed cache is independent from the still-editable caller.
+    this.cache = JSON.parse(JSON.stringify(savedSnapshot));
     if (
       target
       && savedSnapshot
@@ -230,8 +307,15 @@ class StorageEngine {
       && typeof target === 'object'
       && !Array.isArray(target)
     ) {
+      if (!this._pendingEditorTargets) this._pendingEditorTargets = new WeakSet();
+      const merged = this.mergePendingEdits(requested, target, savedSnapshot);
+      if (merged.pending) this._pendingEditorTargets.add(target);
+      else this._pendingEditorTargets.delete(target);
+      // Keep the original revision on a true local/remote overlap so the next
+      // host save uses its conflict-draft path rather than overwriting either side.
+      if (merged.conflicts.length) return target;
       Object.keys(target).forEach((key) => delete target[key]);
-      Object.assign(target, savedSnapshot);
+      Object.assign(target, JSON.parse(JSON.stringify(merged.data)));
       return target;
     }
     return savedSnapshot;

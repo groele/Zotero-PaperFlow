@@ -7,6 +7,7 @@ let db = null;
 
 function applyDatabaseUpdate(newData) {
   if (!newData) return;
+  if (window.storage?.hasPendingEdits?.(db) || window.storage?.isSaving?.(db)) return;
   // Zotero echoes a successful save to the originating page. A delayed echo
   // must not replace newer edits or rebuild the editor between keystrokes.
   if (db && Number(newData.revision || 0) <= Number(db.revision || 0)
@@ -434,6 +435,7 @@ const I18N = {
     autoSaveInvalid: 'Check the highlighted field',
     autoSaveFailed: 'Auto-save failed. Your text remains in this form.',
     localStorageUnavailable: 'Local storage unavailable. Reopen the workspace and retry.',
+    saveNewEditsPending: 'New edits made during saving are still pending. Save again to include them.',
     acceptanceCelebrationEyebrow: 'Milestone unlocked',
     acceptanceCelebrationTitle: 'Accepted — congratulations!',
     acceptanceCelebrationBody: '{title} has crossed an important research milestone.',
@@ -922,6 +924,7 @@ const I18N = {
     autoSaveInvalid: '请检查当前填写内容',
     autoSaveFailed: '自动保存失败，当前填写内容仍保留在表单中。',
     localStorageUnavailable: '本地存储不可用。请重新打开工作台后重试。',
+    saveNewEditsPending: '保存期间产生了新编辑，仍有内容待保存。请再次保存以包含这些修改。',
     acceptanceCelebrationEyebrow: '重要里程碑达成',
     acceptanceCelebrationTitle: '文章已接收，恭喜！',
     acceptanceCelebrationBody: '《{title}》跨过了一个重要的科研里程碑。',
@@ -1940,6 +1943,7 @@ function setupSaveErrorListener() {
   window.addEventListener('researchflow-save-state', event => {
     const { state, error } = event.detail;
     if (state === 'error') showGlobalToast(error || '保存失败，请重试', 'error');
+    if (state === 'pending') showGlobalToast(t('saveNewEditsPending'), 'info');
   });
 }
 
