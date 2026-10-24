@@ -3,8 +3,8 @@
     "zotero-paperflow@groele.org": {
       "updates": [
         {
-          "version": "12.5.2",
-          "update_link": "https://github.com/groele/Zotero-PaperFlow/releases/download/v12.5.2/zotero-paperflow-12.5.2.xpi",
+          "version": "12.5.3",
+          "update_link": "https://github.com/groele/Zotero-PaperFlow/releases/download/v12.5.3/zotero-paperflow-12.5.3.xpi",
           "applications": {
             "zotero": {
               "strict_min_version": "6.999",
@@ -24,8 +24,8 @@
     "researchflow@groele.org": {
       "updates": [
         {
-          "version": "12.5.2",
-          "update_link": "https://github.com/groele/Zotero-PaperFlow/releases/download/v12.5.2/zotero-paperflow-12.5.2.xpi",
+          "version": "12.5.3",
+          "update_link": "https://github.com/groele/Zotero-PaperFlow/releases/download/v12.5.3/zotero-paperflow-12.5.3.xpi",
           "applications": {
             "zotero": {
               "strict_min_version": "6.999",
