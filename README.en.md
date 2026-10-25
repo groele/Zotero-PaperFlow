@@ -1,3 +1,5 @@
+> **12.6.0** adds conflict-draft comparison, per-field choices, change previews and recovery guarded against stale data, preserving originals and separate backups. [Release notes](docs/releases/v12.6.0.md).
+
 # Zotero PaperFlow
 
 
@@ -9,7 +11,7 @@ Manage manuscripts, submission rounds, and review responses.
 
 [简体中文](README.md) · [English](README.en.md)
 
-[![Release](https://img.shields.io/badge/version-12.5.5-245ac7?style=flat-square)](https://github.com/groele/Zotero-PaperFlow/releases/tag/v12.5.5) · [Download XPI](https://github.com/groele/Zotero-PaperFlow/releases/download/v12.5.5/zotero-paperflow-12.5.5.xpi) · [Report an issue](https://github.com/groele/Zotero-PaperFlow/issues)
+[![Release](https://img.shields.io/badge/version-12.6.0-245ac7?style=flat-square)](https://github.com/groele/Zotero-PaperFlow/releases/tag/v12.6.0) · [Download XPI](https://github.com/groele/Zotero-PaperFlow/releases/download/v12.6.0/zotero-paperflow-12.6.0.xpi) · [Report an issue](https://github.com/groele/Zotero-PaperFlow/issues)
 
 [Overview](#overview) · [Installation and updates](#installation) · [Quick start](#quick-start) · [Key features](#features) · [Settings](#settings) · [Data, sync, and services](#data) · [Compatibility and validation](#compatibility) · [Troubleshooting](#troubleshooting) · [Development and documentation](#development) · [The Flow series](#series) · [Origin and license](#license)
 
@@ -25,7 +27,7 @@ Install this add-on independently and combine it with other Flow products as nee
 
 ## Installation and updates
 
-1. Download [zotero-paperflow-12.5.5.xpi](https://github.com/groele/Zotero-PaperFlow/releases/download/v12.5.5/zotero-paperflow-12.5.5.xpi) (add-on version **12.5.5**), not the Source code ZIP.
+1. Download [zotero-paperflow-12.6.0.xpi](https://github.com/groele/Zotero-PaperFlow/releases/download/v12.6.0/zotero-paperflow-12.6.0.xpi) (add-on version **12.6.0**), not the Source code ZIP.
 2. In Zotero, open **Tools → Plugins/Add-ons**, then choose **Install Add-on From File** from the gear menu.
 3. Select the XPI, complete installation, and restart if requested.
 
@@ -58,6 +60,8 @@ The update feed also retains the legacy `researchflow@groele.org` entry.
 
 ## Settings
 
+Open **Zotero Settings → Zotero PaperFlow → Data and sync → Compare and recover conflict drafts**. Choose each conflicting value, preview all changes, then confirm. Original drafts and a separate backup are preserved.
+
 Open the add-on preference page in **Zotero → Settings → Zotero PaperFlow**.
 
 Zotero preferences configure window behavior and data maintenance; use workspace settings for its business modules. Installing an XPI does not require Node.js or Python.
@@ -76,11 +80,11 @@ Zotero preferences configure window behavior and data maintenance; use workspace
 
 | Item | Scope |
 |---|---|
-| Current add-on version | 12.5.5 |
+| Current add-on version | 12.6.0 |
 | Declared Zotero range | `6.999` through `15.*` |
-| Evidence boundary | The 12.3.4 settings pane was checked in Windows Zotero 10.0.6, including sequential navigation and MetaFlow card palette comparison. The declared range is 6.999–15.*; this update does not cover every host, cloud service, or concurrent multi-device scenario. |
+| Evidence boundary | Version 12.6.0 was checked in isolated Windows Zotero 10.0.6 for conflict recovery, its native settings entry, and light/dark and wide/narrow layouts. The declared range is 6.999–15.*; testing does not cover every host, cloud service or concurrent multi-device scenario. |
 
-Add-on and Zotero versions are separate. Manifest compatibility does not establish testing on every host, operating system, or service. This release checks concurrent-save regressions, failed-write feedback, and package integrity. See the release notes for native Zotero and external sync verification limits.
+Add-on and Zotero versions are separate. Manifest compatibility does not establish testing on every host, operating system, or service. This release passed 90 Node regression tests, seven package tests and isolated Windows Zotero 10.0.6 acceptance (10 initial checks and two restart checks), including light/dark and wide/narrow recovery layouts. No primary-profile installation, live cloud synchronization or automatic update installation was tested.
 
 <a id="troubleshooting"></a>
 
@@ -103,7 +107,7 @@ python tools/build-xpi.py --update-feeds
 python tools/build-xpi.py --verify-only
 ```
 
-- [版本说明 / Release notes](docs/releases/v12.5.5.md)
+- [版本说明 / Release notes](docs/releases/v12.6.0.md)
 - [产品简介 / Product profile](docs/brand/PRODUCT.md)
 - [品牌规范 / Brand guide](docs/brand/BRAND.md)
 - [README 模板 / README template](docs/brand/README-TEMPLATE.md)

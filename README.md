@@ -1,3 +1,5 @@
+> **12.6.0**：新增冲突草稿比较、逐字段选择、变更预览及带版本核验的恢复，保留原草稿与独立备份。[版本说明](docs/releases/v12.6.0.md)。
+
 # Zotero PaperFlow
 
 
@@ -9,7 +11,7 @@
 
 [简体中文](README.md) · [English](README.en.md)
 
-[![当前版本](https://img.shields.io/badge/version-12.5.5-245ac7?style=flat-square)](https://github.com/groele/Zotero-PaperFlow/releases/tag/v12.5.5) · [下载 XPI](https://github.com/groele/Zotero-PaperFlow/releases/download/v12.5.5/zotero-paperflow-12.5.5.xpi) · [问题反馈](https://github.com/groele/Zotero-PaperFlow/issues)
+[![当前版本](https://img.shields.io/badge/version-12.6.0-245ac7?style=flat-square)](https://github.com/groele/Zotero-PaperFlow/releases/tag/v12.6.0) · [下载 XPI](https://github.com/groele/Zotero-PaperFlow/releases/download/v12.6.0/zotero-paperflow-12.6.0.xpi) · [问题反馈](https://github.com/groele/Zotero-PaperFlow/issues)
 
 [产品定位](#overview) · [安装与更新](#installation) · [快速开始](#quick-start) · [核心功能](#features) · [设置与使用](#settings) · [数据、同步与外部服务](#data) · [兼容性与验证范围](#compatibility) · [常见问题](#troubleshooting) · [开发与详细文档](#development) · [系列产品](#series) · [项目来源与许可](#license)
 
@@ -25,7 +27,7 @@
 
 ## 安装与更新
 
-1. 下载 [zotero-paperflow-12.5.5.xpi](https://github.com/groele/Zotero-PaperFlow/releases/download/v12.5.5/zotero-paperflow-12.5.5.xpi)（插件版本 **12.5.5**），不要安装 Source code ZIP。
+1. 下载 [zotero-paperflow-12.6.0.xpi](https://github.com/groele/Zotero-PaperFlow/releases/download/v12.6.0/zotero-paperflow-12.6.0.xpi)（插件版本 **12.6.0**），不要安装 Source code ZIP。
 2. 在 Zotero 打开 **工具 → 插件／附加组件**，从齿轮菜单选择 **从文件安装插件**。
 3. 选择 XPI，完成安装；按提示重启 Zotero。
 
@@ -58,6 +60,8 @@
 
 ## 设置与使用
 
+冲突恢复入口：**Zotero 设置 → Zotero PaperFlow → 数据与同步 → 比较并恢复冲突草稿**。逐字段选择后先预览，再确认恢复；原草稿与独立恢复前备份保留。
+
 在 **Zotero → 设置 → Zotero PaperFlow** 中查看插件偏好页。
 
 Zotero 偏好页配置窗口和数据维护；工作台中的业务设置按实际模块使用。XPI 安装不要求 Node.js 或 Python。
@@ -76,11 +80,11 @@ Zotero 偏好页配置窗口和数据维护；工作台中的业务设置按实�
 
 | 项目 | 范围 |
 |---|---|
-| 当前插件版本 | 12.5.5 |
+| 当前插件版本 | 12.6.0 |
 | 清单声明的 Zotero 范围 | `6.999` 至 `15.*` |
-| 当前说明 | 12.3.4 设置页已在 Windows Zotero 10.0.6 原生检查（含同窗连续切换与 MetaFlow 卡片配色对照）；声明兼容范围为 6.999–15.*，本轮未覆盖所有宿主、云服务或多设备并发。 |
+| 当前说明 | 12.6.0 已在隔离 Windows Zotero 10.0.6 检查冲突恢复、原生设置入口及亮暗与宽窄布局；声明范围为 6.999–15.*，未覆盖所有宿主、云服务或多设备并发。 |
 
-插件版本与 Zotero 版本分别管理。清单允许安装，不代表所有版本、操作系统和外部服务均已验证。本轮验证覆盖并发保存回归、失败写入提示和安装包完整性；真实 Zotero 与外部同步验收范围见版本说明。
+插件版本与 Zotero 版本分别管理。清单允许安装，不代表所有版本、操作系统和外部服务均已验证。本版通过 90 项 Node 回归、7 项打包测试及隔离 Windows Zotero 10.0.6 的首次 10 项、重启后 2 项检查，含亮暗主题与宽窄恢复界面。未在用户主 profile 安装，未验证在线云同步和自动更新安装。
 
 <a id="troubleshooting"></a>
 
@@ -103,7 +107,7 @@ python tools/build-xpi.py --update-feeds
 python tools/build-xpi.py --verify-only
 ```
 
-- [版本说明 / Release notes](docs/releases/v12.5.5.md)
+- [版本说明 / Release notes](docs/releases/v12.6.0.md)
 - [产品简介 / Product profile](docs/brand/PRODUCT.md)
 - [品牌规范 / Brand guide](docs/brand/BRAND.md)
 - [README 模板 / README template](docs/brand/README-TEMPLATE.md)

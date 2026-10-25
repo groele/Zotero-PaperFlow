@@ -1,0 +1,28 @@
+.rf-recovery { margin-top: 16px; padding: 18px; border: 1px solid hsl(var(--card-border)); border-radius: 9px; background: hsl(var(--card-bg)); color: hsl(var(--text-primary)); font: 14px/1.6 var(--font-ui, system-ui); min-width: 0; }
+.rf-recovery [hidden] { display: none !important; }
+#paperflow-recovery.rf-recovery h3, #paperflow-recovery.rf-recovery h4 { margin: 0; font-size: 14px; font-weight: 600; }
+.rf-recovery p { margin: 8px 0; }
+.rf-recovery .rf-recovery-help, .rf-recovery-status, .rf-recovery-meta { font-size: 13px; line-height: 1.6; overflow-wrap: anywhere; }
+.rf-recovery .rf-recovery-help, .rf-recovery-meta { color: hsl(var(--text-muted)); }
+.rf-recovery-header, .rf-recovery-actions, .rf-recovery-draft { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+.rf-recovery button { font: inherit; padding: 6px 12px; min-height: 34px; border-radius: 6px; border: 1px solid currentColor; color: inherit; background: transparent; cursor: pointer; }
+.rf-recovery button:hover:not(:disabled) { background: color-mix(in srgb, currentColor 6%, transparent); }
+.rf-recovery button:disabled { opacity: .5; cursor: default; }
+.rf-recovery button:focus-visible, .rf-recovery input:focus-visible, .rf-recovery pre:focus-visible { outline: 2px solid Highlight; outline-offset: 3px; }
+.rf-recovery-draft { padding: 10px 0; border-bottom: 1px solid hsl(var(--card-border)); }
+.rf-recovery-draft > div { flex: 1 1 240px; min-width: 0; }
+.rf-recovery-draft code { display: block; font-size: 12px; overflow-wrap: anywhere; }
+.rf-recovery-editor { margin-top: 16px; min-width: 0; }
+.rf-recovery-row { margin: 12px 0; padding: 12px; border: 1px solid hsl(var(--card-border)); border-radius: 9px; min-width: 0; }
+.rf-recovery-row legend { padding: 0 5px; max-width: 100%; overflow-wrap: anywhere; font-size: 13px; }
+.rf-recovery-values { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.rf-recovery-values.rf-recovery-pair { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+#paperflow-recovery .rf-recovery-value { display: block; min-width: 0; padding: 10px; border: 1px solid hsl(var(--card-border)); border-radius: 6px; color: inherit; font-size: 14px; font-weight: 400; text-transform: none; letter-spacing: normal; }
+.rf-recovery-value > span { font-weight: 600; }
+.rf-recovery-value:has(input:checked) { border-color: Highlight; background: color-mix(in srgb, currentColor 4%, transparent); }
+#paperflow-recovery .rf-recovery-values .rf-recovery-value input[type="radio"] { appearance: auto; display: inline-block; width: 16px; height: 16px; min-height: 0; padding: 0; accent-color: Highlight; margin: 0 6px 0 0; vertical-align: middle; }
+.rf-recovery pre { margin: 8px 0 0; max-height: 240px; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; font: 13px/1.6 var(--font-ui, system-ui); }
+.rf-recovery-status { margin-top: 10px; min-height: 21px; }
+.rf-recovery-status[data-error="true"] { border-inline-start: 3px solid currentColor; padding-inline-start: 8px; }
+.rf-recovery-actions { justify-content: flex-start; margin-top: 12px; }
+@media (max-width: 760px) { .rf-recovery .rf-recovery-values, .rf-recovery .rf-recovery-values.rf-recovery-pair { grid-template-columns: minmax(0, 1fr); } .rf-recovery { padding: 12px; } }

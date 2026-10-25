@@ -887,9 +887,18 @@
       }
     },
 
-    mergeDatabaseEdits(base, local, current) {
+    mergeDatabaseEdits(base, local, current, options = {}) {
       const missing = Symbol('missing');
       const conflicts = [];
+      const details = [];
+      const conflict = (before, edited, latest, path, tokens, kind = 'value') => {
+        const key = JSON.stringify([kind, ...tokens]);
+        const box = value => value === missing ? { exists: false } : { exists: true, value };
+        conflicts.push(path);
+        if (options.details) details.push({ key, path, kind, base: box(before), local: box(edited), current: box(latest) });
+        const choice = options.choices?.[key];
+        return choice === 'base' ? before : choice === 'local' ? edited : latest;
+      };
       const object = value => value !== missing && value !== null && typeof value === 'object' && !Array.isArray(value);
       const same = (a, b) => {
         if (a === b) return true;
@@ -903,7 +912,7 @@
       const identified = values => Array.isArray(values) && values.every(item => object(item)
         && ((typeof item.id === 'string' && item.id.trim()) || (typeof item.id === 'number' && Number.isFinite(item.id))))
         && new Set(values.map(item => String(item.id))).size === values.length;
-      const merge = (before, edited, latest, path) => {
+      const merge = (before, edited, latest, path, tokens = []) => {
         if (same(edited, before)) return latest;
         if (same(latest, before) || same(edited, latest)) return edited;
         if (object(edited) && object(latest) && (object(before) || before === missing)) {
@@ -915,7 +924,7 @@
             if (!path && ['revision', 'lastUpdated', 'updatedAt', 'deviceId'].includes(key)) combined = value(latest);
             else if (['updatedAt', 'deletedAt'].includes(key) && Date.parse(edited[key]) && Date.parse(latest[key])) {
               combined = Date.parse(edited[key]) >= Date.parse(latest[key]) ? edited[key] : latest[key];
-            } else combined = merge(value(before), value(edited), value(latest), path ? `${path}.${key}` : key);
+            } else combined = merge(value(before), value(edited), value(latest), path ? `${path}.${key}` : key, [...tokens, ['field', key]]);
             if (combined !== missing) result[key] = combined;
           }
           return result;
@@ -927,20 +936,168 @@
           const order = records => [...records.keys()].filter(id => common.has(id));
           const localReordered = !same(order(old), order(ours));
           const latestReordered = !same(order(old), order(theirs));
-          if (localReordered && latestReordered && !same(order(ours), order(theirs))) conflicts.push(`${path}.order`);
-          const preferred = localReordered && !latestReordered ? ours : theirs;
+          let preferred = localReordered && !latestReordered ? ours : theirs;
+          if (localReordered && latestReordered && !same(order(ours), order(theirs))) {
+            const selected = conflict([...old.keys()], [...ours.keys()], [...theirs.keys()], `${path}.order`, tokens, 'order');
+            preferred = new Map(selected.map(id => [id, null]));
+          }
           const result = [];
           for (const id of new Set([...preferred.keys(), ...theirs.keys(), ...ours.keys(), ...old.keys()])) {
             const entry = (records) => records.has(id) ? records.get(id) : missing;
-            const combined = merge(entry(old), entry(ours), entry(theirs), `${path}[${id}]`);
+            const combined = merge(entry(old), entry(ours), entry(theirs), `${path}[${id}]`, [...tokens, ['id', id]]);
             if (combined !== missing) result.push(combined);
           }
           return result;
         }
-        conflicts.push(path);
-        return latest;
+        return conflict(before, edited, latest, path, tokens);
       };
-      return { data: merge(base, local, current, ''), conflicts };
+      const data = merge(base, local, current, '');
+      return options.details ? { data, conflicts, details } : { data, conflicts };
+    },
+
+    recoveryFile(id) {
+      const name = PathUtils.filename(this.getDataFilePath());
+      const prefix = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      if (typeof id !== 'string' || !new RegExp(`^${prefix}\\.conflict-\\d+-[a-z0-9]+\\.json$`).test(id)) {
+        throw this.databaseError('recovery-invalid');
+      }
+      return PathUtils.join(PathUtils.parent(this.getDataFilePath()), id);
+    },
+
+    async readRecoveryJSON(file) {
+      const info = await IOUtils.stat(file);
+      if (info.type !== 'regular' || info.size > 32 * 1024 * 1024) throw this.databaseError('recovery-size');
+      const text = await IOUtils.readUTF8(file);
+      return { data: JSON.parse(text), fingerprint: Zotero.Utilities.Internal.md5(text) };
+    },
+
+    recoveryToken(value) {
+      if (!this._recoveryTokens) this._recoveryTokens = new Map();
+      for (const [key, item] of this._recoveryTokens) {
+        if (Date.now() - item.time > 10 * 60 * 1000) this._recoveryTokens.delete(key);
+      }
+      if (typeof value === 'string') {
+        const item = this._recoveryTokens.get(value);
+        if (!item) throw this.databaseError('recovery-expired');
+        return item;
+      }
+      while (this._recoveryTokens.size >= 8) this._recoveryTokens.delete(this._recoveryTokens.keys().next().value);
+      const token = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+      this._recoveryTokens.set(token, { ...value, time: Date.now() });
+      return token;
+    },
+
+    async readRecoveryState(id) {
+      const file = this.recoveryFile(id);
+      if (await IOUtils.exists(`${file}.resolved.json`)) throw this.databaseError('recovery-resolved');
+      const draft = await this.readRecoveryJSON(file);
+      if (draft.data.format !== 'zotero-paperflow-conflict-v1') throw this.databaseError('recovery-invalid');
+      if (!draft.data.base) throw this.databaseError('recovery-base');
+      for (const value of [draft.data.base, draft.data.local, draft.data.current]) this.validateDatabase(value);
+      // Recovery must see disk changes even when the ordinary host cache is populated.
+      const current = await this.readRecoveryJSON(this.getDataFilePath());
+      this.validateDatabase(current.data);
+      return { file, draft, current };
+    },
+
+    recoveryChanges(before, after) {
+      const rows = [];
+      const object = value => value !== null && typeof value === 'object' && !Array.isArray(value);
+      const visit = (oldValue, newValue, path, oldExists = true, newExists = true) => {
+        if (oldExists === newExists && JSON.stringify(oldValue) === JSON.stringify(newValue)) return;
+        if (oldExists && newExists && object(oldValue) && object(newValue)) {
+          for (const key of new Set([...Object.keys(oldValue), ...Object.keys(newValue)])) {
+            if (!path && ['revision', 'lastUpdated', 'updatedAt', 'deviceId'].includes(key)) continue;
+            visit(oldValue[key], newValue[key], path ? `${path}.${key}` : key, Object.hasOwn(oldValue, key), Object.hasOwn(newValue, key));
+          }
+          return;
+        }
+        const identified = value => Array.isArray(value) && value.every(item => object(item) && Object.hasOwn(item, 'id'))
+          && new Set(value.map(item => String(item.id))).size === value.length;
+        if (oldExists && newExists && identified(oldValue) && identified(newValue)) {
+          const old = new Map(oldValue.map(item => [String(item.id), item]));
+          const next = new Map(newValue.map(item => [String(item.id), item]));
+          if (JSON.stringify([...old.keys()]) !== JSON.stringify([...next.keys()])) {
+            rows.push({ path: `${path}.order`, before: { exists: true, value: [...old.keys()] }, after: { exists: true, value: [...next.keys()] } });
+          }
+          for (const id of new Set([...old.keys(), ...next.keys()])) visit(old.get(id), next.get(id), `${path}[${id}]`, old.has(id), next.has(id));
+        } else rows.push({ path, before: oldExists ? { exists: true, value: oldValue } : { exists: false },
+          after: newExists ? { exists: true, value: newValue } : { exists: false } });
+        if (rows.length > 500) throw this.databaseError('recovery-size');
+      };
+      visit(before, after, '');
+      return rows;
+    },
+
+    recoveryDisplay(rows) {
+      const redact = (value, key = '') => {
+        if (/(password|secret|token|api.?key|authorization)/i.test(key)) return '••••••';
+        if (Array.isArray(value)) return value.map(item => redact(item));
+        if (value && typeof value === 'object') return Object.fromEntries(Object.entries(value).map(([k, v]) => [k, redact(v, k)]));
+        return value;
+      };
+      return rows.map(row => Object.fromEntries(Object.entries(row).map(([key, value]) => {
+        if (!['base', 'local', 'current', 'before', 'after'].includes(key)) return [key, value];
+        if (!value.exists) return [key, value];
+        const text = JSON.stringify(redact(value.value, row.path), null, 2);
+        return [key, { exists: true, text: text.slice(0, 12000), truncated: text.length > 12000 }];
+      })));
+    },
+
+    async databaseConflictRecovery(action, payload = {}) {
+      return this.enqueueDatabaseOperation(async () => {
+        if (action === 'list') {
+          const paths = await IOUtils.getChildren(PathUtils.parent(this.getDataFilePath()));
+          const entries = [];
+          for (const path of paths) {
+            const id = PathUtils.filename(path);
+            try { this.recoveryFile(id); } catch (_) { continue; }
+            entries.push({ id, createdAt: Number(id.match(/\.conflict-(\d+)-/)[1]) });
+          }
+          entries.sort((a, b) => b.createdAt - a.createdAt || a.id.localeCompare(b.id));
+          const visible = entries.slice(0, 100);
+          for (const item of visible) item.resolved = await IOUtils.exists(`${this.recoveryFile(item.id)}.resolved.json`);
+          return { entries: visible, truncated: entries.length > visible.length };
+        }
+        if (!['inspect', 'preview', 'apply'].includes(action)) throw this.databaseError('recovery-invalid');
+        const previous = action === 'inspect' ? null : this.recoveryToken(payload.token);
+        if (previous && previous.stage !== (action === 'preview' ? 'inspect' : 'preview')) throw this.databaseError('recovery-expired');
+        const id = previous?.id || payload.id;
+        const state = await this.readRecoveryState(id);
+        const { draft, current, file } = state;
+        if (previous && (previous.draft !== draft.fingerprint || previous.current !== current.fingerprint)) throw this.databaseError('recovery-stale');
+        const choices = action === 'apply' ? previous.choices : payload.choices;
+        const merge = this.mergeDatabaseEdits(draft.data.base, draft.data.local, current.data, { details: true, choices });
+        if (merge.details.length > 500) throw this.databaseError('recovery-size');
+        const stamp = { id, draft: draft.fingerprint, current: current.fingerprint };
+        if (action === 'inspect') return { id, createdAt: draft.data.createdAt, revision: current.data.revision,
+          rows: this.recoveryDisplay(merge.details), token: this.recoveryToken({ ...stamp, stage: 'inspect' }) };
+        const keys = merge.details.map(row => row.key);
+        if (!choices || typeof choices !== 'object' || Array.isArray(choices) || Object.keys(choices).length !== keys.length
+          || !keys.every(key => Object.hasOwn(choices, key) && ['base', 'local', 'current'].includes(choices[key]))) {
+          throw this.databaseError('recovery-choice');
+        }
+        this.validateDatabase(merge.data);
+        const changes = this.recoveryChanges(current.data, merge.data);
+        if (action === 'preview') return { revision: current.data.revision, changes: this.recoveryDisplay(changes),
+          token: this.recoveryToken({ ...stamp, stage: 'preview', choices: this.cloneDatabase(choices) }) };
+        if (!changes.length) throw this.databaseError('recovery-empty');
+        const backup = `${this.getDataFilePath()}.before-recovery-${Date.now()}-${Math.random().toString(36).slice(2)}.json`;
+        await IOUtils.writeUTF8(backup, JSON.stringify(current.data, null, 2), { tmpPath: `${backup}.tmp` });
+        // Backup I/O yields to other processes; never commit over changes made during that await.
+        const lastRead = await this.readRecoveryJSON(this.getDataFilePath());
+        if (lastRead.fingerprint !== current.fingerprint) throw this.databaseError('recovery-stale');
+        this._cachedData = this.cloneDatabase(current.data);
+        this.rememberDatabaseSnapshot(current.data);
+        const saved = await this.writeDatabaseSnapshot(merge.data);
+        this._recoveryTokens.delete(payload.token);
+        let warning = false;
+        try {
+          await IOUtils.writeUTF8(`${file}.resolved.json`, JSON.stringify({ format: 'zotero-paperflow-resolution-v1',
+            resolvedAt: new Date().toISOString(), revision: saved.revision, backup: PathUtils.filename(backup) }), { tmpPath: `${file}.resolved.json.tmp` });
+        } catch (error) { warning = true; Zotero.logError?.(error); }
+        return { data: saved, backup: PathUtils.filename(backup), warning };
+      });
     },
 
     async preserveDatabaseConflict(base, local, current, conflicts) {
@@ -1608,6 +1765,21 @@
           };
 
           // A. Ready Handshake
+          if (data.type === 'RESEARCHFLOW_CONFLICT_RECOVERY') {
+            // Only our workspace frame may request recovery. Gecko may expose a null source.
+            const knownFrame = iframe?.contentWindow;
+            let trusted = Boolean(knownFrame && (!sourceWin || sourceWin === knownFrame));
+            try {
+              const url = new URL(sourceWin?.location?.href);
+              trusted ||= url.protocol === 'chrome:' && url.hostname === 'researchflow'
+                && ['/content/index.html', '/content/pages/options.html'].includes(url.pathname);
+            } catch (_) {}
+            if (!trusted) return;
+            this.databaseConflictRecovery(data.action, data.payload).then(result => {
+              replyResult({ requestId: data.requestId, success: true, data: result });
+            }).catch(error => replyResult({ requestId: data.requestId, success: false, error: String(error.message || error) }));
+            return;
+          }
           if (data.type === 'RESEARCHFLOW_READY') {
             this.loadDatabase().then((storedData) => {
               replyResult({
@@ -2261,7 +2433,7 @@
         const ww = Services.ww;
         let features = '';
         let windowName = '';
-        const url = `${CHROME_ROOT}index.html?mode=${encodeURIComponent(windowType)}`;
+        const url = `${CHROME_ROOT}index.html?mode=${encodeURIComponent(windowType)}${options.settingsOnly === true ? '&settingsOnly=1#paperflow-recovery' : ''}`;
         if (windowType === 'subwindow') {
           const alwaysRaised = this.getPref('subwindowAlwaysOnTop', false) ? ',alwaysRaised=yes' : '';
           features = `chrome,dialog=no,all,resizable=yes,minimizable=yes,width=480,height=780,top=80,left=80${alwaysRaised}`;
@@ -2270,6 +2442,7 @@
           features = 'chrome,dialog=no,all,resizable=yes,minimizable=yes,width=1240,height=820,centerscreen';
           windowName = 'ResearchFlow_Window';
         }
+        if (options.settingsOnly === true) windowName = 'ResearchFlow_Recovery';
 
         const mainWin = (targetWindow && targetWindow.Zotero_Tabs)
           ? targetWindow
@@ -2282,6 +2455,24 @@
           features,
           { Zotero, options: { ...options, currentWindowType: windowType } }
         );
+        if (win) {
+          // Gecko may wrap WindowWatcher arguments as opaque nsISupports. Attach
+          // the existing service before the page's DOMContentLoaded listeners run.
+          const attachHost = () => {
+            const page = win.wrappedJSObject || win;
+            page.Zotero = Zotero;
+            page._researchflowPending = { ...options, currentWindowType: windowType };
+          };
+          attachHost();
+          win.addEventListener('DOMContentLoaded', attachHost, { once: true, capture: true });
+          if (!this._standaloneWindows) this._standaloneWindows = new Set();
+          this._standaloneWindows.add(win);
+          win.addEventListener('unload', () => {
+            // The initial about:blank document also unloads. Track the outer
+            // window until it actually closes, rather than losing it on navigation.
+            mainWin.setTimeout(() => { if (win.closed) this._standaloneWindows?.delete(win); }, 0);
+          });
+        }
         if (win && win.focus) win.focus();
       } catch (err) {
         Zotero.logError?.('[ResearchFlow] openStandaloneWindow error: ' + err);
@@ -2565,6 +2756,9 @@
     },
 
     async shutdown() {
+      for (const win of this._standaloneWindows || []) { try { win.close(); } catch (_) {} }
+      this._standaloneWindows?.clear();
+      this._recoveryTokens?.clear();
       this._dataListeners.clear();
       this.destroyNotifier();
       this.destroyPrefObserver();

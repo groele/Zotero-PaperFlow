@@ -1013,25 +1013,21 @@ class StorageEngine {
     const { token, repo, branch = 'main' } = config;
     const dbUrl = `https://api.github.com/repos/${repo}/contents/researchflow_db.json`;
 
-    // We need to fetch the existing file's SHA if it exists
+    // A file may have been created after the initial sync read returned 404.
+    // Its SHA is permission to update only the merged contents, not a stale snapshot.
     let sha = db._github_sha;
+    let rebasedDatabase = null;
     if (!sha) {
-      const getRes = await this.fetchWithTimeout(`${dbUrl}?ref=${encodeURIComponent(branch)}`, {
-        headers: {
-          'Authorization': `token ${token}`,
-          'Accept': 'application/vnd.github.v3+json'
-        }
-      });
-      if (getRes.ok) {
-        const getResData = await getRes.json();
-        sha = getResData.sha;
-      } else if (getRes.status !== 404) {
-        throw new Error(`GitHub preflight failed: ${getRes.status} ${getRes.statusText}`);
+      const existing = await this.fetchFromGitHub(config);
+      if (existing) {
+        if (!existing._github_sha) throw new Error('GitHub preflight returned no file SHA');
+        rebasedDatabase = await this.mergeDatabases(db, existing);
+        sha = existing._github_sha;
       }
     }
 
     // Clean out temporary _github_sha property before pushing
-    const cleanDb = this.sanitizeDatabaseForExternalUse(db);
+    const cleanDb = this.sanitizeDatabaseForExternalUse(rebasedDatabase || db);
 
     // Convert string to base64 safely (handling UTF-8)
     const base64Body = btoa(unescape(encodeURIComponent(JSON.stringify(cleanDb, null, 2))));
@@ -1053,11 +1049,10 @@ class StorageEngine {
       body: JSON.stringify(putBody)
     });
 
-    let rebasedDatabase = null;
     if (response.status === 409 || response.status === 422) {
       const latestRemote = await this.fetchFromGitHub(config);
       if (latestRemote?._github_sha) {
-        const rebased = await this.mergeDatabases(db, latestRemote);
+        const rebased = await this.mergeDatabases(rebasedDatabase || db, latestRemote);
         rebasedDatabase = rebased;
         const retryBody = {
           message: 'sync: merge and update researchflow database',

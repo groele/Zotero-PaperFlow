@@ -6,6 +6,19 @@ const ZoteroBridge = {
   _requestCallbacks: new Map(),
   _pendingNavigation: null,
 
+  async conflictRecovery(action, payload = {}) {
+    if (!['list', 'inspect', 'preview', 'apply'].includes(action)) throw new Error('Invalid recovery action');
+    const zotero = window.Zotero || window.parent?.Zotero;
+    if (typeof zotero?.ResearchFlow?.databaseConflictRecovery === 'function') {
+      // A failed write must never be retried through a second transport.
+      return zotero.ResearchFlow.databaseConflictRecovery(action, payload);
+    }
+    if (!this.isZotero) throw new Error('Conflict recovery requires Zotero');
+    const response = await this.request('RESEARCHFLOW_CONFLICT_RECOVERY', { action, payload }, action === 'apply' ? 0 : 30000);
+    if (!response?.success) throw new Error(response?.error || 'Conflict recovery request failed');
+    return response.data;
+  },
+
   init() {
     this.detectEnvironment();
     this.setupMessageListener();
@@ -59,6 +72,20 @@ const ZoteroBridge = {
         if (window.Zotero) {
           this.isZotero = true;
           return;
+        }
+        // WindowWatcher does not expose plain JS arguments in every Gecko window.
+        // Resolve the existing host service only in our privileged chrome document.
+        if (window.location?.protocol === 'chrome:' && window.location.hostname === 'researchflow'
+          && typeof Components !== 'undefined' && Components.classes) {
+          try {
+            const host = Components.classes['@zotero.org/Zotero;1']
+              .getService(Components.interfaces.nsISupports).wrappedJSObject;
+            if (host?.ResearchFlow) {
+              window.Zotero = host;
+              this.isZotero = true;
+              return;
+            }
+          } catch (_) { /* Embedded documents can still use their parent host. */ }
         }
         if (window.parent && window.parent !== window && window.parent.Zotero) {
           window.Zotero = window.parent.Zotero;

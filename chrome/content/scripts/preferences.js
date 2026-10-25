@@ -152,6 +152,7 @@ window.ResearchFlow_Preferences = (() => {
       initialized = true;
       const doc = window.document;
       const status = doc.getElementById('rf-pref-status');
+      Zotero?.ResearchFlow?.ensureLocalization?.(doc);
       setStatus(status, '首选项已就绪。所有更改将实时生效并保存。');
 
       renderSection(doc, 'rf-pref-window', FIELDS.window);
@@ -178,6 +179,11 @@ window.ResearchFlow_Preferences = (() => {
       // Cloud settings shortcut
       doc.getElementById('rf-btn-open-cloud-settings')?.addEventListener('click', () => {
         Zotero?.ResearchFlow?.openResearchFlow?.({ view: 'view-settings' }, window, 'tab');
+      });
+
+      // Export Buttons
+      doc.getElementById('rf-btn-conflict-recovery')?.addEventListener('click', () => {
+        Zotero?.ResearchFlow?.openStandaloneWindow?.({ view: 'view-settings', settingsOnly: true }, window, 'window');
       });
 
       // Export Buttons

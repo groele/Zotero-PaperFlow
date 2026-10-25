@@ -14,6 +14,62 @@ function engine(globals = {}) {
   return storage;
 }
 
+test('GitHub creation preflight merges a file created by another device before using its SHA', async () => {
+  const storage = engine({ btoa: value => Buffer.from(value, 'binary').toString('base64'),
+    atob: value => Buffer.from(value, 'base64').toString('binary'), TextDecoder, unescape, encodeURIComponent });
+  const database = id => ({ revision: 1, settings: {}, deletedEntities: {}, tasks: [{ id, title: id }] });
+  const local = database('local'), remote = database('other-device');
+  let written;
+  storage.fetchWithTimeout = async (_url, options = {}) => {
+    if (options.method === 'PUT') {
+      written = JSON.parse(options.body);
+      return { ok: true, json: async () => ({ content: { sha: 'committed-sha' } }) };
+    }
+    return { ok: true, json: async () => ({ sha: 'created-sha', content: Buffer.from(JSON.stringify(remote)).toString('base64') }) };
+  };
+  await storage.saveToGitHub({ token: 'fixture', repo: 'fixture/repo' }, local);
+  const payload = JSON.parse(Buffer.from(written.content, 'base64').toString('utf8'));
+  assert.deepEqual(payload.tasks.map(task => task.id).sort(), ['local', 'other-device']);
+  assert.equal(written.sha, 'created-sha');
+  assert.deepEqual(Array.from(local.tasks, task => task.id).sort(), ['local', 'other-device']);
+  assert.equal(local._github_sha, 'committed-sha');
+});
+
+test('a second GitHub race retains both preflight and conflict-refresh records', async () => {
+  const storage = engine({ btoa: value => Buffer.from(value, 'binary').toString('base64'),
+    atob: value => Buffer.from(value, 'base64').toString('binary'), TextDecoder, unescape, encodeURIComponent });
+  const database = id => ({ revision: 1, settings: {}, deletedEntities: {}, tasks: [{ id }] });
+  const local = database('local'), writes = [];
+  let reads = 0;
+  storage.fetchWithTimeout = async (_url, options = {}) => {
+    if (options.method === 'PUT') {
+      writes.push(JSON.parse(options.body));
+      return writes.length === 1 ? { status: 409 } : { ok: true, json: async () => ({ content: { sha: 'saved' } }) };
+    }
+    const remote = database(++reads === 1 ? 'first-remote' : 'second-remote');
+    return { ok: true, json: async () => ({ sha: 'remote-' + reads, content: Buffer.from(JSON.stringify(remote)).toString('base64') }) };
+  };
+  await storage.saveToGitHub({ repo: 'fixture/repo' }, local);
+  assert.equal(writes.length, 2);
+  const saved = JSON.parse(Buffer.from(writes[1].content, 'base64').toString('utf8'));
+  assert.deepEqual(saved.tasks.map(task => task.id).sort(), ['first-remote', 'local', 'second-remote']);
+  assert.equal(writes[1].sha, 'remote-2');
+  assert.equal(local._github_sha, 'saved');
+});
+
+test('a failed GitHub preflight never writes remote data or mutates the local snapshot', async () => {
+  const storage = engine(), local = { revision: 1, tasks: [{ id: 'local' }] };
+  const before = JSON.stringify(local);
+  let writes = 0;
+  storage.fetchWithTimeout = async (_url, options = {}) => {
+    if (options.method === 'PUT') writes++;
+    return { ok: false, status: 503, statusText: 'Unavailable' };
+  };
+  await assert.rejects(storage.saveToGitHub({ repo: 'fixture/repo' }, local), /GitHub fetch failed/);
+  assert.equal(writes, 0);
+  assert.equal(JSON.stringify(local), before);
+});
+
 test('direct host saves send the editor revision and adopt the committed revision', async () => {
   let observed;
   const storage = engine({ window: { Zotero: { ResearchFlow: {

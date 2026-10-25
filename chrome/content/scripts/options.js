@@ -47,6 +47,24 @@ const UI_THEME_OPTIONS = new Set(['system', 'light', 'dark']);
 
 const I18N = {
   en: {
+    recoveryTitle: 'Conflict recovery',
+    recoveryHelp: 'Compare saved drafts with the latest database. Choose each conflicting value, then preview all changes. Original drafts and a separate backup are kept.',
+    recoveryRefresh: 'Refresh drafts', recoveryOpen: 'Compare', recoveryResolved: 'Recovered', recoveryEmpty: 'No conflict drafts found.',
+    recoveryListLimit: 'Showing the latest 100 drafts. Older files are preserved in the Zotero data directory.',
+    recoveryBase: 'Baseline', recoveryLocal: 'Local draft', recoveryCurrent: 'Current database',
+    recoveryMissing: '(field or record absent)', recoveryTruncated: 'Value shortened; inspect the original draft for the full value.',
+    recoveryPreview: 'Preview recovery', recoveryApply: 'Confirm recovery', recoveryBack: 'Change choices',
+    recoveryCompareTitle: 'Choose a value for every conflict', recoveryPreviewTitle: 'Review all changes before writing',
+    recoveryAutomatic: 'Independent local edits are included automatically. Values without conflicts need no selection.',
+    recoveryNoConflicts: 'No conflicting fields remain. Preview the independent local edits before recovering.',
+    recoveryNoChanges: 'No changes to write. The database is unchanged.',
+    recoveryBefore: 'Before recovery', recoveryAfter: 'After recovery', recoveryBusy: 'Working…',
+    recoveryPending: 'Save or resolve unsaved edits in this workspace before recovering.',
+    recoverySuccess: 'Recovery saved. Backup: ',
+    recoveryReceiptWarning: ' Recovery succeeded, but its status receipt could not be saved. The original draft remains listed.',
+    recoveryUnavailable: 'Open this page in Zotero to recover local conflict drafts.',
+    recoveryInvalidated: 'New data arrived. Reopen the draft to compare the latest values.',
+    recoveryRevision: 'Database revision: ', recoveryFailed: 'Recovery could not continue: ',
     searchClear: 'Clear search', searchStatus: 'Filter by status', searchAll: 'All statuses', searchActive: 'In progress', searchRevision: 'Revision', searchAccepted: 'Accepted / Published', searchRejected: 'Rejected', searchEmpty: 'No matching submissions', searchEmptyHelp: 'Try a shorter keyword or another status.', searchReset: 'Clear filters',
     shareZoom: 'Enlarge preview',
     shareFit: 'Fit image',
@@ -536,6 +554,24 @@ const I18N = {
     academicCaptureSaved: 'Zotero manuscript reviewed and saved.'
   },
   zh: {
+    recoveryTitle: '冲突恢复',
+    recoveryHelp: '将已保存的草稿与最新数据库比较，逐字段选择，再预览全部变化。原草稿和独立的恢复前备份都会保留。',
+    recoveryRefresh: '刷新草稿', recoveryOpen: '比较', recoveryResolved: '已恢复', recoveryEmpty: '没有发现冲突草稿。',
+    recoveryListLimit: '显示最近 100 份草稿。更早的原文件仍保留在 Zotero 数据目录中。',
+    recoveryBase: '基线', recoveryLocal: '本地草稿', recoveryCurrent: '当前数据库',
+    recoveryMissing: '（字段或记录不存在）', recoveryTruncated: '数值显示已缩略，完整内容请核对原始草稿。',
+    recoveryPreview: '预览恢复', recoveryApply: '确认恢复', recoveryBack: '修改选择',
+    recoveryCompareTitle: '为每个冲突选择保留值', recoveryPreviewTitle: '写入前核对全部变化',
+    recoveryAutomatic: '互不冲突的本地编辑会自动合并，无需逐项选择。',
+    recoveryNoConflicts: '当前已无冲突字段。恢复前请预览可自动合并的本地编辑。',
+    recoveryNoChanges: '没有需要写入的变化，数据库未作修改。',
+    recoveryBefore: '恢复前', recoveryAfter: '恢复后', recoveryBusy: '正在处理…',
+    recoveryPending: '请先保存或处理此工作台中尚未保存的编辑，再执行恢复。',
+    recoverySuccess: '恢复已保存。恢复前备份：',
+    recoveryReceiptWarning: ' 恢复已成功，但状态凭据保存失败，原草稿仍会出现在列表中。',
+    recoveryUnavailable: '请在 Zotero 中打开此页面，恢复本地冲突草稿。',
+    recoveryInvalidated: '检测到新数据，请重新打开草稿，比较最新值。',
+    recoveryRevision: '数据库版本：', recoveryFailed: '无法继续恢复：',
     searchClear: '清除关键词', searchStatus: '按状态筛选', searchAll: '全部状态', searchActive: '进行中', searchRevision: '修回中', searchAccepted: '已接收 / 发表', searchRejected: '已拒稿', searchEmpty: '没有找到匹配的投稿', searchEmptyHelp: '试试更短的关键词，或切换投稿状态。', searchReset: '清除筛选条件',
     shareZoom: '放大预览',
     shareFit: '适应窗口',
@@ -1262,6 +1298,7 @@ function applyLanguage() {
   setButtonText('#btn-trigger-import', t('importJson'));
   setButtonText('#btn-restore-import-backup', t('restoreImportBackup'));
   updateSyncProviderVisibility();
+  window.PaperFlowRecovery?.translate();
 }
 
 async function renderAllViews() {
