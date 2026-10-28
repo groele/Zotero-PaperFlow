@@ -1,5 +1,7 @@
 > **12.6.0** adds conflict-draft comparison, per-field choices, change previews and recovery guarded against stale data, preserving originals and separate backups. [Release notes](docs/releases/v12.6.0.md).
 
+> Local development candidate: **12.6.1** (not published). Stable download links and their existing validation statements below remain for **12.6.0**; this candidate expands product capability and development-origin documentation without updating an online XPI or update feed.
+
 # Zotero PaperFlow
 
 
@@ -49,12 +51,14 @@ The update feed also retains the legacy `researchflow@groele.org` entry.
 
 ## Key features
 
-| Feature | Scope |
-|---|---|
-| Manuscript board | Organize manuscripts and key tasks by stage and inspect research timelines. |
-| Submission rounds | Record target journals, submission dates, status, and previous rounds. |
-| Review responses | Organize reviewer comments, response text, and progress. |
-| Backup and sharing | Export database backups, create sharing images, and configure optional remote sync. |
+| Differentiator | What it does | Boundary |
+|---|---|---|
+| Manuscript board and research timeline | Connects manuscript stages, key dates, research tasks, and progress in one view of a paper’s path to publication. | It does not replace Zotero’s library/PDF functions or citation functions in word processors. |
+| Traceable submission rounds | Records target journal, date, state, decision, and prior rounds for every submission instead of scattering the process across notes. | Records are user-maintained; the add-on does not scrape or verify external submission-system status. |
+| Reviewer-comment and response workspace | Keeps reviewer comments, response drafts, action progress, and relevant Zotero items in one workflow for item-by-item progress. | Response text remains research work material and cannot substitute for human review of editorial decisions or scientific arguments. |
+| Concurrent saving and conflict recovery | Saves locally first and, on concurrent-write conflict, preserves the original draft and a separate backup for field-by-field comparison, preview, and recovery. | Recovery requires explicit user choices and confirmation; it never silently overwrites another draft. |
+| Portable backup and optional sync | Exports/imports database backups and can use WebDAV or GitHub synchronization, while documenting multi-device conflict boundaries. | Remote synchronization is optional; credentials and service availability remain under the user and provider. |
+| Share Studio and local save | Produces submission/research-progress graphics for preview, copy, and user-chosen PNG save locations. | An image reflects current records only; it neither publishes to social services nor replaces source-data backup. |
 
 <a id="settings"></a>
 
@@ -135,6 +139,8 @@ Each add-on installs and updates separately. A shared brand does not imply a sha
 <a id="license"></a>
 
 ## Origin and license
+
+**Development-origin notice:** The maintained repository’s README, manifest, and release documents do not identify a third-party Zotero add-on as PaperFlow’s derivative base; it is provided as an independently maintained Zotero Flow add-on. This fact grants no additional code or redistribution rights.
 
 The repository has no standalone LICENSE file. This update does not grant new rights on the author’s behalf; the rights holder should clarify licensing before redistribution.
 
