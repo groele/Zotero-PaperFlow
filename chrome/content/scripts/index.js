@@ -407,6 +407,7 @@
   Zotero.ResearchFlow = {
     rootURI: typeof rootURI !== 'undefined' ? rootURI : '',
     addonId: ADDON_ID,
+    version: (typeof version !== 'undefined' && version) ? version : '12.6.1',
     serializeLiteratureItem,
     getLiteratureAnnotations,
     getLiteratureNotes,
@@ -421,6 +422,7 @@
     localizedDocs: new Set(),
     _cachedData: null,
     _dataListeners: new Set(),
+    _prefPaneID: null,
     itemPaneSectionID: null,
     notifierID: null,
     _menuManagerItem: null,
@@ -527,6 +529,10 @@
     async syncStatusTagToItem(item, status) {
       const target = getLiteratureItem(item);
       if (!target) return false;
+      if (target.deleted || (typeof target.isEditable === 'function' && !target.isEditable())) {
+        Zotero.logError?.('[PaperFlow] syncStatusTagToItem blocked: Item is read-only or in trash');
+        return false;
+      }
       try {
         const existingTags = typeof target.getTags === 'function' ? target.getTags() : [];
         for (const t of existingTags) {
@@ -636,6 +642,9 @@
           Zotero.Prefs.registerObserver('extensions.researchflow.showContextMenu', () => {
             this.updateItemContextMenu();
           }, this._prefObserverSymbol);
+          Zotero.Prefs.registerObserver('extensions.researchflow.enableItemPane', () => {
+            this.updateItemPaneSection();
+          }, this._prefObserverSymbol);
         } catch (_) {}
       }
     },
@@ -661,7 +670,7 @@
             menus: [
               {
                 menuType: 'menuitem',
-                label: '📝 摘录至 ResearchFlow 稿件研究笔记',
+                label: '📝 摘录至 Zotero PaperFlow 稿件研究笔记',
                 icon: `${CHROME_ROOT}icons/researchflow.svg`,
                 onCommand: (event) => {
                   try {
@@ -744,8 +753,13 @@
             const list = [];
             if (typeof Services !== 'undefined' && Services.wm?.getEnumerator) {
               try {
-                const en = Services.wm.getEnumerator('navigator:browser');
-                while (en.hasMoreElements()) list.push(en.getNext());
+                const en = Services.wm.getEnumerator('');
+                if (en && en.hasMoreElements()) {
+                  while (en.hasMoreElements()) list.push(en.getNext());
+                } else {
+                  const enBrowser = Services.wm.getEnumerator('navigator:browser');
+                  while (enBrowser && enBrowser.hasMoreElements()) list.push(enBrowser.getNext());
+                }
               } catch (_) {}
             }
             return list;
@@ -1416,6 +1430,10 @@
     async syncManuscriptToChildNote(item, manuscript = null) {
       const target = getLiteratureItem(item);
       if (!target) return null;
+      if (target.deleted || (typeof target.isEditable === 'function' && !target.isEditable())) {
+        Zotero.logError?.('[PaperFlow] syncManuscriptToChildNote blocked: Item is read-only or in trash');
+        return null;
+      }
 
       try {
         const db = await this.loadDatabase();
@@ -1498,7 +1516,7 @@
           noteHtml += `</table>`;
         }
 
-        noteHtml += `<hr/><p style="font-size:11px;color:#94a3b8;">由 ResearchFlow for Zotero 自动生成并同步至 Zotero 云端笔记 | 更新时间：${new Date().toLocaleString()}</p>`;
+        noteHtml += `<hr/><p style="font-size:11px;color:#94a3b8;">由 Zotero PaperFlow 自动生成并同步至 Zotero 云端笔记 | 更新时间：${new Date().toLocaleString()}</p>`;
 
         // Find existing ResearchFlow child note
         let targetNote = null;
@@ -1508,7 +1526,7 @@
             const noteItem = Zotero.Items.get(nid);
             if (noteItem && typeof noteItem.isNote === 'function' && noteItem.isNote()) {
               const content = noteItem.getNote();
-              if (content && (content.includes('[ResearchFlow]') || content.includes('ResearchFlow for Zotero'))) {
+              if (content && (content.includes('[ResearchFlow]') || content.includes('ResearchFlow for Zotero') || content.includes('Zotero PaperFlow') || content.includes('[Zotero PaperFlow]'))) {
                 targetNote = noteItem;
                 break;
               }
@@ -1555,7 +1573,8 @@
       this.registerMenus();
       this.initWindowListener();
 
-      const windows = Services.wm.getEnumerator('navigator:browser');
+      const winEnum = Services.wm.getEnumerator('');
+      const windows = (winEnum && winEnum.hasMoreElements()) ? winEnum : Services.wm.getEnumerator('navigator:browser');
       while (windows.hasMoreElements()) {
         const win = windows.getNext();
         this.addToWindow(win);
@@ -1577,7 +1596,7 @@
             ? `${this.rootURI}chrome/content/icons/researchflow.svg`
             : `${CHROME_ROOT}icons/researchflow.svg`;
 
-          await Zotero.PreferencePanes.register({
+          this._prefPaneID = await Zotero.PreferencePanes.register({
             pluginID: ADDON_ID,
             id: 'researchflow-preferences-pane',
             src: prefSrc,
@@ -1591,14 +1610,29 @@
         }
       }
 
-      // Ensure ItemPane Section is unregistered (user requested not to display in the right-hand sidebar)
-      if (typeof Zotero.ItemPaneManager?.unregisterSection === 'function') {
-        try {
-          Zotero.ItemPaneManager.unregisterSection('researchflow-item-pane');
-        } catch (_) {}
-      }
+      this.updateItemPaneSection();
 
       Zotero.log('[ResearchFlow] Initialized successfully in Zotero');
+    },
+
+    updateItemPaneSection() {
+      const enabled = Boolean(this.getPref('enableItemPane', false));
+      if (enabled) {
+        if (!this.itemPaneSectionID) {
+          this.registerItemPaneSection();
+        }
+      } else {
+        if (this.itemPaneSectionID && typeof Zotero.ItemPaneManager?.unregisterSection === 'function') {
+          try {
+            Zotero.ItemPaneManager.unregisterSection(this.itemPaneSectionID);
+          } catch (_) {}
+          this.itemPaneSectionID = null;
+        } else if (typeof Zotero.ItemPaneManager?.unregisterSection === 'function') {
+          try {
+            Zotero.ItemPaneManager.unregisterSection('researchflow-item-pane');
+          } catch (_) {}
+        }
+      }
     },
 
     initWindowListener() {
@@ -2545,6 +2579,7 @@
             body.replaceChildren();
             const target = getLiteratureItem(item);
             if (!target) return;
+            const isReadOnly = Boolean(target.deleted || (typeof target.isEditable === 'function' && !target.isEditable()));
 
             const db = await this.loadDatabase();
             const targetKey = target.key;
@@ -2621,19 +2656,27 @@
                 actionRow.appendChild(btnView);
 
                 const btnSyncNote = document.createElement('button');
-                btnSyncNote.style.cssText = 'font-size:11px; padding:3px 8px; border-radius:4px; border:1px solid var(--border-primary, #cbd5e1); background:var(--fill-secondary, rgba(127,127,127,0.08)); color:var(--text-primary, #334155); cursor:pointer; font-weight:500;';
+                btnSyncNote.style.cssText = 'font-size:11px; padding:3px 8px; border-radius:4px; border:1px solid var(--border-primary, #cbd5e1); background:var(--fill-secondary, rgba(127,127,127,0.08)); color:var(--text-primary, #334155); font-weight:500;';
                 btnSyncNote.textContent = '📝 同步笔记';
-                btnSyncNote.title = '将稿件进展与审稿矩阵同步为文献子笔记 (支持 Zotero 云端全平台多端同步)';
-                btnSyncNote.addEventListener('click', async () => {
-                  btnSyncNote.textContent = '⏳ 同步中...';
-                  const note = await Zotero.ResearchFlow.syncManuscriptToChildNote(target, m);
-                  if (note) {
-                    btnSyncNote.textContent = '✅ 已同步';
-                    setTimeout(() => { btnSyncNote.textContent = '📝 同步笔记'; }, 2000);
-                  } else {
-                    btnSyncNote.textContent = '❌ 失败';
-                  }
-                });
+                if (isReadOnly) {
+                  btnSyncNote.disabled = true;
+                  btnSyncNote.style.opacity = '0.5';
+                  btnSyncNote.style.cursor = 'not-allowed';
+                  btnSyncNote.title = '条目处于只读库或回收站，不可同步笔记';
+                } else {
+                  btnSyncNote.style.cursor = 'pointer';
+                  btnSyncNote.title = '将稿件进展与审稿矩阵同步为文献子笔记 (支持 Zotero 云端全平台多端同步)';
+                  btnSyncNote.addEventListener('click', async () => {
+                    btnSyncNote.textContent = '⏳ 同步中...';
+                    const note = await Zotero.ResearchFlow.syncManuscriptToChildNote(target, m);
+                    if (note) {
+                      btnSyncNote.textContent = '✅ 已同步';
+                      setTimeout(() => { btnSyncNote.textContent = '📝 同步笔记'; }, 2000);
+                    } else {
+                      btnSyncNote.textContent = '❌ 失败';
+                    }
+                  });
+                }
                 actionRow.appendChild(btnSyncNote);
 
                 const metaData = serializeLiteratureItem(target);
@@ -2721,26 +2764,41 @@
               btnRow.style.cssText = 'display:flex; gap:8px;';
 
               const createBtn = document.createElement('button');
-              createBtn.style.cssText = 'font-size:11px; padding:5px 12px; border-radius:5px; background:linear-gradient(135deg, #e11d48, #be123c); color:#fff; border:1px solid #be123c; cursor:pointer; font-weight:500;';
+              createBtn.style.cssText = 'font-size:11px; padding:5px 12px; border-radius:5px; background:linear-gradient(135deg, #e11d48, #be123c); color:#fff; border:1px solid #be123c; font-weight:500;';
               createBtn.textContent = '➕ 新建稿件管线';
-              createBtn.addEventListener('click', () => {
-                const serialized = serializeLiteratureItem(target);
-                Zotero.ResearchFlow.triggerResearchFlowOpen(document.defaultView, {
-                  action: 'create_manuscript_from_item',
-                  item: serialized
-                });
-              });
 
               const linkBtn = document.createElement('button');
-              linkBtn.style.cssText = 'font-size:11px; padding:5px 12px; border-radius:5px; background:var(--fill-secondary, rgba(127,127,127,0.1)); color:var(--text-primary, #334155); border:1px solid var(--border-primary, #cbd5e1); cursor:pointer; font-weight:500;';
+              linkBtn.style.cssText = 'font-size:11px; padding:5px 12px; border-radius:5px; background:var(--fill-secondary, rgba(127,127,127,0.1)); color:var(--text-primary, #334155); border:1px solid var(--border-primary, #cbd5e1); font-weight:500;';
               linkBtn.textContent = '🔗 关联现有稿件';
-              linkBtn.addEventListener('click', () => {
-                const serialized = serializeLiteratureItem(target);
-                Zotero.ResearchFlow.triggerResearchFlowOpen(document.defaultView, {
-                  action: 'link_item_to_manuscript',
-                  item: serialized
+
+              if (isReadOnly) {
+                createBtn.disabled = true;
+                createBtn.style.opacity = '0.5';
+                createBtn.style.cursor = 'not-allowed';
+                createBtn.title = '条目处于只读库或回收站，不可创建稿件管线';
+                linkBtn.disabled = true;
+                linkBtn.style.opacity = '0.5';
+                linkBtn.style.cursor = 'not-allowed';
+                linkBtn.title = '条目处于只读库或回收站，不可关联稿件';
+              } else {
+                createBtn.style.cursor = 'pointer';
+                createBtn.addEventListener('click', () => {
+                  const serialized = serializeLiteratureItem(target);
+                  Zotero.ResearchFlow.triggerResearchFlowOpen(document.defaultView, {
+                    action: 'create_manuscript_from_item',
+                    item: serialized
+                  });
                 });
-              });
+
+                linkBtn.style.cursor = 'pointer';
+                linkBtn.addEventListener('click', () => {
+                  const serialized = serializeLiteratureItem(target);
+                  Zotero.ResearchFlow.triggerResearchFlowOpen(document.defaultView, {
+                    action: 'link_item_to_manuscript',
+                    item: serialized
+                  });
+                });
+              }
 
               btnRow.append(createBtn, linkBtn);
               emptyCard.append(emptyText, btnRow);
@@ -2776,10 +2834,17 @@
         });
       }
       injectedElements.clear();
+      if (this._prefPaneID && Zotero.PreferencePanes?.unregister) {
+        try {
+          Zotero.PreferencePanes.unregister(this._prefPaneID);
+        } catch (_) {}
+        this._prefPaneID = null;
+      }
       if (this.itemPaneSectionID && Zotero.ItemPaneManager?.unregisterSection) {
         try {
           Zotero.ItemPaneManager.unregisterSection(this.itemPaneSectionID);
         } catch (_) {}
+        this.itemPaneSectionID = null;
       }
       Zotero.log('[ResearchFlow] Shutdown complete');
     }

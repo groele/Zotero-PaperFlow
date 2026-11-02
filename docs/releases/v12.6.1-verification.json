@@ -1,0 +1,14 @@
+{
+  "version": "12.6.1",
+  "file": "zotero-paperflow-12.6.1.xpi",
+  "size": 464996,
+  "sha256": "e715994d9cebb241115b1783e31f90504aa040a8ae87a8629cfa875c9da8f552",
+  "entries": 62,
+  "payloadVerifiedAgainstWorkspace": true,
+  "updateFeedsVerified": [
+    "update.json"
+  ],
+  "testHarnessIncluded": false,
+  "reproducibleZipMetadata": true,
+  "textLineEndings": "LF"
+}

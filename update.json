@@ -3,42 +3,42 @@
     "zotero-paperflow@groele.org": {
       "updates": [
         {
-          "version": "12.6.0",
-          "update_link": "https://github.com/groele/Zotero-PaperFlow/releases/download/v12.6.0/zotero-paperflow-12.6.0.xpi",
+          "version": "12.6.1",
+          "update_link": "https://github.com/groele/Zotero-PaperFlow/releases/download/v12.6.1/zotero-paperflow-12.6.1.xpi",
           "applications": {
             "zotero": {
-              "strict_min_version": "6.999",
-              "strict_max_version": "15.*"
+              "strict_min_version": "10.0",
+              "strict_max_version": "12.*"
             }
           },
           "browser_specific_settings": {
             "zotero": {
-              "strict_min_version": "6.999",
-              "strict_max_version": "15.*"
+              "strict_min_version": "10.0",
+              "strict_max_version": "12.*"
             }
           },
-          "update_hash": "sha256:0e38292a4b30f96c625091d4ccc996669e8f53607740c883c4e09b18fe68a22b"
+          "update_hash": "sha256:e715994d9cebb241115b1783e31f90504aa040a8ae87a8629cfa875c9da8f552"
         }
       ]
     },
     "researchflow@groele.org": {
       "updates": [
         {
-          "version": "12.6.0",
-          "update_link": "https://github.com/groele/Zotero-PaperFlow/releases/download/v12.6.0/zotero-paperflow-12.6.0.xpi",
+          "version": "12.6.1",
+          "update_link": "https://github.com/groele/Zotero-PaperFlow/releases/download/v12.6.1/zotero-paperflow-12.6.1.xpi",
           "applications": {
             "zotero": {
-              "strict_min_version": "6.999",
-              "strict_max_version": "15.*"
+              "strict_min_version": "10.0",
+              "strict_max_version": "12.*"
             }
           },
           "browser_specific_settings": {
             "zotero": {
-              "strict_min_version": "6.999",
-              "strict_max_version": "15.*"
+              "strict_min_version": "10.0",
+              "strict_max_version": "12.*"
             }
           },
-          "update_hash": "sha256:0e38292a4b30f96c625091d4ccc996669e8f53607740c883c4e09b18fe68a22b"
+          "update_hash": "sha256:e715994d9cebb241115b1783e31f90504aa040a8ae87a8629cfa875c9da8f552"
         }
       ]
     }

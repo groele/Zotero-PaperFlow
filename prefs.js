@@ -10,7 +10,7 @@ pref("extensions.researchflow.theme", "system");
 pref("extensions.researchflow.language", "en");
 
 // Group 3: Literature ItemPane Sidebar & Integration
-pref("extensions.researchflow.enableItemPane", true);
+pref("extensions.researchflow.enableItemPane", false);
 pref("extensions.researchflow.locateOnManuscriptClick", true);
 pref("extensions.researchflow.autoLinkSelectedPaper", true);
 pref("extensions.researchflow.showContextMenu", false);

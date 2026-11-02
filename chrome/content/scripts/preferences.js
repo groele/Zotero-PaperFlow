@@ -8,7 +8,8 @@ window.ResearchFlow_Preferences = (() => {
     // Window Modes
     windowMode: 'tab',
     subwindowAlwaysOnTop: false,
-    showContextMenu: false
+    showContextMenu: false,
+    enableItemPane: false
   };
 
   const FIELDS = {
@@ -34,6 +35,12 @@ window.ResearchFlow_Preferences = (() => {
         key: 'showContextMenu',
         label: '在文献右键菜单中显示快捷操作',
         desc: '默认关闭以保持 Zotero 主界面整洁。关闭时可通过工具栏按钮或快捷键快速操作。',
+        type: 'check'
+      },
+      {
+        key: 'enableItemPane',
+        label: '在条目信息侧栏中显示稿件管线卡片',
+        desc: '在文献条目右侧信息面板中显示关联手稿、投稿进度与一键同步子笔记。默认关闭以保持主界面简洁。',
         type: 'check'
       }
     ]
@@ -205,7 +212,7 @@ window.ResearchFlow_Preferences = (() => {
           const diag = {
             exportedAt: new Date().toISOString(),
             zoteroVersion: Zotero.version,
-            researchflowVersion: '12.2.0',
+            researchflowVersion: Zotero?.ResearchFlow?.version || '12.6.1',
             schemaVersion: db?.schemaVersion,
             counts: {
               manuscripts: db?.manuscripts?.length || 0,

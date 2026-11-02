@@ -1,6 +1,4 @@
-> **12.6.0** adds conflict-draft comparison, per-field choices, change previews and recovery guarded against stale data, preserving originals and separate backups. [Release notes](docs/releases/v12.6.0.md).
-
-> Local development candidate: **12.6.1** (not published). Stable download links and their existing validation statements below remain for **12.6.0**; this candidate expands product capability and development-origin documentation without updating an online XPI or update feed.
+> **12.6.1**: Aligns with the modern Zotero 10+ host baseline (10.0–12.*), hardens item read-only guarding, improves detached window enumeration, cleans up branding, and expands unit test coverage with reproducible builds. [Release notes](docs/releases/v12.6.1.md).
 
 # Zotero PaperFlow
 
@@ -13,7 +11,7 @@ Manage manuscripts, submission rounds, and review responses.
 
 [简体中文](README.md) · [English](README.en.md)
 
-[![Release](https://img.shields.io/badge/version-12.6.0-245ac7?style=flat-square)](https://github.com/groele/Zotero-PaperFlow/releases/tag/v12.6.0) · [Download XPI](https://github.com/groele/Zotero-PaperFlow/releases/download/v12.6.0/zotero-paperflow-12.6.0.xpi) · [Report an issue](https://github.com/groele/Zotero-PaperFlow/issues)
+[![Release](https://img.shields.io/badge/version-12.6.1-245ac7?style=flat-square)](https://github.com/groele/Zotero-PaperFlow/releases/tag/v12.6.1) · [Download XPI](https://github.com/groele/Zotero-PaperFlow/releases/download/v12.6.1/zotero-paperflow-12.6.1.xpi) · [Report an issue](https://github.com/groele/Zotero-PaperFlow/issues)
 
 [Overview](#overview) · [Installation and updates](#installation) · [Quick start](#quick-start) · [Key features](#features) · [Settings](#settings) · [Data, sync, and services](#data) · [Compatibility and validation](#compatibility) · [Troubleshooting](#troubleshooting) · [Development and documentation](#development) · [The Flow series](#series) · [Origin and license](#license)
 
@@ -29,7 +27,7 @@ Install this add-on independently and combine it with other Flow products as nee
 
 ## Installation and updates
 
-1. Download [zotero-paperflow-12.6.0.xpi](https://github.com/groele/Zotero-PaperFlow/releases/download/v12.6.0/zotero-paperflow-12.6.0.xpi) (add-on version **12.6.0**), not the Source code ZIP.
+1. Download [zotero-paperflow-12.6.1.xpi](https://github.com/groele/Zotero-PaperFlow/releases/download/v12.6.1/zotero-paperflow-12.6.1.xpi) (add-on version **12.6.1**), not the Source code ZIP.
 2. In Zotero, open **Tools → Plugins/Add-ons**, then choose **Install Add-on From File** from the gear menu.
 3. Select the XPI, complete installation, and restart if requested.
 
@@ -84,11 +82,11 @@ Zotero preferences configure window behavior and data maintenance; use workspace
 
 | Item | Scope |
 |---|---|
-| Current add-on version | 12.6.0 |
-| Declared Zotero range | `6.999` through `15.*` |
-| Evidence boundary | Version 12.6.0 was checked in isolated Windows Zotero 10.0.6 for conflict recovery, its native settings entry, and light/dark and wide/narrow layouts. The declared range is 6.999–15.*; testing does not cover every host, cloud service or concurrent multi-device scenario. |
+| Current add-on version | 12.6.1 |
+| Declared Zotero range | `10.0` through `12.*` (for modern Zotero 10+ Web Components architecture) |
+| Evidence boundary | Version 12.6.1 was checked in isolated Windows Zotero 10 for conflict recovery, native settings entry, and light/dark and wide/narrow layouts. The declared range is 10.0–12.*, validated with 94 Node.js automated unit tests and reproducible installer packaging. |
 
-Add-on and Zotero versions are separate. Manifest compatibility does not establish testing on every host, operating system, or service. This release passed 90 Node regression tests, seven package tests and isolated Windows Zotero 10.0.6 acceptance (10 initial checks and two restart checks), including light/dark and wide/narrow recovery layouts. No primary-profile installation, live cloud synchronization or automatic update installation was tested.
+Add-on and Zotero versions are separate. Manifest compatibility does not establish testing on every host, operating system, or service. This release passed 94 Node regression tests, seven package tests, release tag self-tests, and isolated Windows Zotero 10 environment checks. No primary-profile installation, live cloud synchronization or automatic update installation was tested.
 
 <a id="troubleshooting"></a>
 
