@@ -51,9 +51,14 @@
 .rf-pref-status { margin-top: 5px; color: var(--flow-pref-muted); font-size: 13px; line-height: 1.6; overflow-wrap: anywhere; }
 .rf-pref-error { color: light-dark(#b42318, #ff8a80) !important; font-weight: 500; }
 
-/* Top-level groups collapse independently; subgroup dividers only organize related controls. */
+/* Top-level groups collapse independently; subgroup dividers only organize related controls.
+   Aligned with 2026-11-02 Settings Hierarchy & Edge Distance Standard Specification:
+   - Card Horizontal Padding: padding-inline: 16px
+   - Level 1: Outer margin 0, Title padding 12px 16px (16px from outer border)
+   - Level 2: Control icon at 16px, label text at 40px (16px + 16px icon + 8px gap)
+   - Level 3: Subordinate description & controls indent at 24px (flush at 40px line) */
 .rf-setting-group {
-  margin: 0 0 10px;
+  margin: 0 0 12px;
   overflow: hidden;
   border: 1px solid var(--flow-pref-border);
   border-radius: 9px;
@@ -64,10 +69,10 @@
   align-items: center;
   justify-content: space-between;
   margin: 0;
-  padding: 11px 13px;
+  padding: 12px 16px;
   font-size: 14px;
   font-weight: 600;
-  line-height: 1.6;
+  line-height: 1.5;
   cursor: pointer;
   list-style: none;
 }
@@ -85,24 +90,24 @@
   transition: transform .15s ease;
 }
 .rf-setting-group[open] > .rf-setting-group-title::after { transform: rotate(90deg); }
-.rf-setting-group-body { padding: 4px 13px 10px; border-top: 1px solid var(--flow-pref-divider); }
+.rf-setting-group-body { padding: 10px 16px 14px; border-top: 1px solid var(--flow-pref-divider); }
 .rf-setting-subgroup {
   margin: 0;
-  padding: 8px 0;
+  padding: 10px 0;
   border-top: 1px solid var(--flow-pref-divider);
 }
 .rf-setting-subgroup:first-child { border-top: 0; padding-top: 2px; }
 .rf-setting-subgroup:last-child { padding-bottom: 0; }
-.rf-setting-subgroup-title { margin: 0 0 5px; font-size: 14px; font-weight: 600; line-height: 1.6; }
-.rf-card-desc { margin: 0 0 8px; font-size: 13px; line-height: 1.6; }
+.rf-setting-subgroup-title { margin: 0 0 6px; font-size: 14px; font-weight: 600; line-height: 1.6; }
+.rf-card-desc { margin: 0 0 10px; font-size: 13px; line-height: 1.6; color: var(--flow-pref-muted); }
 
 /* Preference rows */
 .rf-setting-item,
 .rf-control-row {
   display: flex;
   flex-direction: column;
-  gap: 5px;
-  padding: 6px 0;
+  gap: 6px;
+  padding: 8px 0;
   border-bottom: 1px solid var(--flow-pref-divider);
 }
 .rf-setting-item:last-child,
@@ -116,10 +121,11 @@
   max-width: 16px;
   height: 16px;
   min-height: 16px;
-  margin: 2px 0 0;
+  margin: 3px 0 0;
   accent-color: var(--flow-pref-accent);
 }
 .rf-check-title { font-size: 14px; font-weight: 500; line-height: 1.6; }
+/* Level 3 subordinate description strictly aligned at 40px line (16px + 24px) */
 .rf-setting-desc { margin: 2px 0 0 24px; color: var(--flow-pref-muted); font-size: 13px; line-height: 1.6; }
 .rf-control-label { font-size: 14px; font-weight: 500; }
 .rf-control {
@@ -135,7 +141,7 @@
 }
 
 /* Actions use a restrained native-like surface. */
-.rf-sub-action-group { display: flex; flex-direction: column; gap: 6px; margin-top: 8px; }
+.rf-sub-action-group { display: flex; flex-direction: column; gap: 6px; margin-top: 10px; }
 .rf-sub-action-btn {
   display: flex;
   align-items: center;
@@ -168,9 +174,9 @@
   align-items: center;
   gap: 6px;
   min-width: 0;
-  padding: 7px 9px;
+  padding: 10px 14px;
   border: 1px solid var(--flow-pref-border);
-  border-radius: 4px;
+  border-radius: 8px;
   background: var(--flow-pref-surface);
   font-size: 13px;
 }
@@ -181,7 +187,7 @@
 .rf-import-status-text:empty { display: none; }
 .rf-version-info {
   margin-top: 14px;
-  padding: 10px 13px;
+  padding: 12px 16px;
   border: 1px solid var(--flow-pref-border);
   border-radius: 9px;
   background: var(--flow-pref-surface);

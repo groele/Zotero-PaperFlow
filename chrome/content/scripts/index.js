@@ -537,16 +537,16 @@
         const existingTags = typeof target.getTags === 'function' ? target.getTags() : [];
         for (const t of existingTags) {
           const tagName = t.tag || String(t);
-          if (tagName.startsWith('ResearchFlow/') || tagName.startsWith('RF/')) {
+          if (tagName.startsWith('PaperFlow/') || tagName.startsWith('ResearchFlow/') || tagName.startsWith('RF/')) {
             target.removeTag(tagName);
           }
         }
-        const newTag = STATUS_TAG_MAP[status] || `ResearchFlow/${status}`;
+        const newTag = STATUS_TAG_MAP[status] || `PaperFlow/${status}`;
         target.addTag(newTag, 0);
         await target.saveTx();
         return true;
       } catch (e) {
-        Zotero.logError?.('[ResearchFlow] syncStatusTagToItem error: ' + e);
+        Zotero.logError?.('[PaperFlow] syncStatusTagToItem error: ' + e);
         return false;
       }
     },
@@ -554,11 +554,15 @@
     async addItemToPipelineCollection(item) {
       const target = getLiteratureItem(item);
       if (!target) return null;
+      if (target.deleted || (typeof target.isEditable === 'function' && !target.isEditable())) {
+        Zotero.logError?.('[PaperFlow] addItemToPipelineCollection blocked: Item is read-only or in trash');
+        return null;
+      }
       const libraryID = target.libraryID || Zotero.Libraries?.userLibraryID || 1;
-      const collectionName = '🚀 ResearchFlow 论文管线';
+      const collectionName = '🚀 Zotero PaperFlow 论文管线';
       try {
         let collection = Zotero.Collections?.getByLibrary?.(libraryID)
-          ?.find((c) => !c.deleted && c.name === collectionName) || null;
+          ?.find((c) => !c.deleted && (c.name === collectionName || c.name === '🚀 ResearchFlow 论文管线')) || null;
         if (!collection && Zotero.Collection) {
           collection = new Zotero.Collection();
           collection.libraryID = libraryID;
@@ -573,7 +577,7 @@
         }
         return collection;
       } catch (e) {
-        Zotero.logError?.('[ResearchFlow] addItemToPipelineCollection error: ' + e);
+        Zotero.logError?.('[PaperFlow] addItemToPipelineCollection error: ' + e);
         return null;
       }
     },
@@ -582,7 +586,7 @@
       try {
         if (Zotero.ProgressWindow) {
           const pw = new Zotero.ProgressWindow({ closeOnClick: true });
-          pw.changeHeadline(`ResearchFlow · ${title}`);
+          pw.changeHeadline(`Zotero PaperFlow · ${title}`);
           const icon = (type === 'success')
             ? 'chrome://zotero/skin/tick.png'
             : (type === 'error')
@@ -1841,7 +1845,8 @@
           // C. Select item in Zotero library
           if (data.type === 'RESEARCHFLOW_SELECT_ITEM' && data.itemKey) {
             try {
-              const item = Zotero.Items.getByLibraryAndKey(Zotero.Libraries.userLibraryID, data.itemKey);
+              const libID = data.libraryID || Zotero.Libraries?.userLibraryID || 1;
+              const item = Zotero.Items.getByLibraryAndKey(libID, data.itemKey);
               if (item && window.ZoteroPane) {
                 window.ZoteroPane.selectItem(item.id);
               }
@@ -1862,7 +1867,8 @@
 
           // E. Open PDF Attachment in Reader
           if (data.type === 'RESEARCHFLOW_OPEN_PDF' && data.itemKey) {
-            const item = Zotero.Items.getByLibraryAndKey(Zotero.Libraries.userLibraryID, data.itemKey);
+            const libID = data.libraryID || Zotero.Libraries?.userLibraryID || 1;
+            const item = Zotero.Items.getByLibraryAndKey(libID, data.itemKey);
             if (item) {
               this.openPdfAttachment(item, data.page);
             }
@@ -1871,7 +1877,8 @@
 
           // F. Sync to Zotero Child Note
           if (data.type === 'RESEARCHFLOW_SYNC_NOTE' && data.itemKey) {
-            const item = Zotero.Items.getByLibraryAndKey(Zotero.Libraries.userLibraryID, data.itemKey);
+            const libID = data.libraryID || Zotero.Libraries?.userLibraryID || 1;
+            const item = Zotero.Items.getByLibraryAndKey(libID, data.itemKey);
             if (item) {
               this.syncManuscriptToChildNote(item).then((note) => {
                 if (data.requestId) {
@@ -1908,7 +1915,8 @@
           
           // K. Get Literature PDF Annotations & Highlights
           if (data.type === 'RESEARCHFLOW_GET_ANNOTATIONS' && data.itemKey) {
-            const item = Zotero.Items.getByLibraryAndKey(Zotero.Libraries.userLibraryID, data.itemKey);
+            const libID = data.libraryID || Zotero.Libraries?.userLibraryID || 1;
+            const item = Zotero.Items.getByLibraryAndKey(libID, data.itemKey);
             const annos = item ? getLiteratureAnnotations(item) : [];
             replyResult({ requestId: data.requestId, annotations: annos });
             return;
@@ -1916,7 +1924,8 @@
 
           // L. Sync Status Tag to Zotero Item
           if (data.type === 'RESEARCHFLOW_SYNC_STATUS_TAG' && data.itemKey && data.status) {
-            const item = Zotero.Items.getByLibraryAndKey(Zotero.Libraries.userLibraryID, data.itemKey);
+            const libID = data.libraryID || Zotero.Libraries?.userLibraryID || 1;
+            const item = Zotero.Items.getByLibraryAndKey(libID, data.itemKey);
             if (item) {
               this.syncStatusTagToItem(item, data.status).then((success) => {
                 replyResult({ requestId: data.requestId, success });
@@ -1929,7 +1938,8 @@
 
           // M. Add Item to Pipeline Collection
           if (data.type === 'RESEARCHFLOW_ADD_TO_PIPELINE_COLLECTION' && data.itemKey) {
-            const item = Zotero.Items.getByLibraryAndKey(Zotero.Libraries.userLibraryID, data.itemKey);
+            const libID = data.libraryID || Zotero.Libraries?.userLibraryID || 1;
+            const item = Zotero.Items.getByLibraryAndKey(libID, data.itemKey);
             if (item) {
               this.addItemToPipelineCollection(item).then((col) => {
                 replyResult({ requestId: data.requestId, success: Boolean(col) });
