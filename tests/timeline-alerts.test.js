@@ -5,6 +5,9 @@ const path = require('node:path');
 const { test } = require('node:test');
 
 const root = path.resolve(__dirname, '..');
+const i18nSource = fs.readFileSync(path.join(root, 'chrome/content/scripts/modules/i18n.js'), 'utf8');
+const timelineSource = fs.readFileSync(path.join(root, 'chrome/content/scripts/modules/timeline-engine.js'), 'utf8');
+const academicSource = fs.readFileSync(path.join(root, 'chrome/content/scripts/modules/academic-sync.js'), 'utf8');
 const optionsSource = fs.readFileSync(path.join(root, 'chrome/content/scripts/options.js'), 'utf8');
 
 function setupTestEnvironment() {
@@ -94,7 +97,10 @@ function setupTestEnvironment() {
   sandbox.removeEventListener = () => {};
   sandbox.RFPlatform = { storage: { local: { get: async () => ({}), set: async () => {} } }, runtime: { onMessage: { addListener() {} } } };
 
-  // Evaluate options.js inside context up to renderKanban or evaluate functions
+  // Evaluate modularized engine and options inside context
+  vm.runInContext(i18nSource, context);
+  vm.runInContext(timelineSource, context);
+  vm.runInContext(academicSource, context);
   vm.runInContext(optionsSource, context);
   return context;
 }

@@ -1,4 +1,4 @@
-> **13.0.0 Major Milestone**: Elevates PaperFlow with commercial-grade robustness and quality control. Aligns with the modern Zotero 10+ host baseline (10.0–12.*), thoroughly hardens item read-only guarding, improves detached window/tab enumeration, adds seamless group library support, conforms strictly to the 2026-11-02 Settings Hierarchy standard, and completes multi-cloud sync & conflict recovery. [Release notes](docs/releases/v13.0.0.md).
+> **13.0.1 Modular Architecture Refactoring**: Deeply decomposes monolithic scripts into 8 dedicated domain modules, drastically improving maintainability, developer ergonomics, and testability while preserving full Zotero 10+ (10.0–12.*) compatibility. [Release notes](docs/releases/v13.0.1.md).
 
 # Zotero PaperFlow
 
@@ -11,7 +11,7 @@ Manage manuscripts, submission rounds, and review responses.
 
 [简体中文](README.md) · [English](README.en.md)
 
-[![Release](https://img.shields.io/badge/version-13.0.0-245ac7?style=flat-square)](https://github.com/groele/Zotero-PaperFlow/releases/tag/v13.0.0) · [Download XPI](https://github.com/groele/Zotero-PaperFlow/releases/download/v13.0.0/zotero-paperflow-13.0.0.xpi) · [Report an issue](https://github.com/groele/Zotero-PaperFlow/issues)
+[![Release](https://img.shields.io/badge/version-13.0.1-245ac7?style=flat-square)](https://github.com/groele/Zotero-PaperFlow/releases/tag/v13.0.1) · [Download XPI](https://github.com/groele/Zotero-PaperFlow/releases/download/v13.0.1/zotero-paperflow-13.0.1.xpi) · [Report an issue](https://github.com/groele/Zotero-PaperFlow/issues)
 
 [Overview](#overview) · [Installation and updates](#installation) · [Quick start](#quick-start) · [Key features](#features) · [Settings](#settings) · [Data, sync, and services](#data) · [Compatibility and validation](#compatibility) · [Troubleshooting](#troubleshooting) · [Development and documentation](#development) · [The Flow series](#series) · [Origin and license](#license)
 
@@ -27,7 +27,7 @@ Install this add-on independently and combine it with other Flow products as nee
 
 ## Installation and updates
 
-1. Download [zotero-paperflow-13.0.0.xpi](https://github.com/groele/Zotero-PaperFlow/releases/download/v13.0.0/zotero-paperflow-13.0.0.xpi) (add-on version **13.0.0**), not the Source code ZIP.
+1. Download [zotero-paperflow-13.0.1.xpi](https://github.com/groele/Zotero-PaperFlow/releases/download/v13.0.1/zotero-paperflow-13.0.1.xpi) (add-on version **13.0.1**), not the Source code ZIP.
 2. In Zotero, open **Tools → Plugins/Add-ons**, then choose **Install Add-on From File** from the gear menu.
 3. Select the XPI, complete installation, and restart if requested.
 
@@ -82,9 +82,9 @@ Zotero preferences configure window behavior and data maintenance; use workspace
 
 | Item | Scope |
 |---|---|
-| Current add-on version | 13.0.0 |
+| Current add-on version | 13.0.1 |
 | Declared Zotero range | `10.0` through `12.*` (for modern Zotero 10+ Web Components architecture) |
-| Evidence boundary | Version 13.0.0 achieves commercial-grade polish, covering multi-window detached reader traversal, comprehensive item read-only guarding, 2026-11-02 Settings Hierarchy compliance, seamless group library resolution, and 100% automated test and reproducible build validation. |
+| Evidence boundary | Version 13.0.1 decomposes monolithic codebase into 8 specialized domain modules, with 100% test pass rate and full backward compatibility. |
 
 Add-on and Zotero versions are separate. Manifest compatibility does not establish testing on every host, operating system, or service. This release passed the full Node regression test suite, installer packaging verification, tag self-tests, and isolated Windows Zotero 10 environment checks.
 

@@ -170,7 +170,7 @@ test('addItemToPipelineCollection blocks read-only and deleted items and returns
   assert.ok(errors.some(e => e.includes('read-only or in trash')));
 });
 
-test('authoritative versions across manifest, product.json, preferences, and workspace are unified at 13.0.0', () => {
+test('authoritative versions across manifest, product.json, preferences, and workspace are unified at 13.0.1', () => {
   const manifest = JSON.parse(fs.readFileSync(path.join(root, 'manifest.json'), 'utf8'));
   const product = JSON.parse(fs.readFileSync(path.join(root, 'docs/brand/product.json'), 'utf8'));
   const prefsXhtml = fs.readFileSync(path.join(root, 'chrome/content/preferences.xhtml'), 'utf8');
@@ -179,7 +179,7 @@ test('authoritative versions across manifest, product.json, preferences, and wor
   const optionsJs = fs.readFileSync(path.join(root, 'chrome/content/scripts/options.js'), 'utf8');
   const updateJson = JSON.parse(fs.readFileSync(path.join(root, 'update.json'), 'utf8'));
 
-  const expectedVersion = '13.0.0';
+  const expectedVersion = '13.0.1';
   assert.equal(manifest.version, expectedVersion);
   assert.equal(product.version, expectedVersion);
   assert.ok(prefsXhtml.includes(`>v${expectedVersion}<`));

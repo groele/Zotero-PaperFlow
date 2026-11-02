@@ -1,4 +1,4 @@
-> **13.0.0 重大里程碑**：商业级稳健性全面跃升！对齐 Zotero 10+ 现代宿主基准（10.0–12.*），全链路强化条目只读防护（Read-only Guard）与多窗口/拆分标签页穿透，实现群组库无缝解析与 2026-11-02 设置规范三级层级对齐，多云同步与灾备冲突恢复闭环。[版本说明](docs/releases/v13.0.0.md)。
+> **13.0.1 模块化架构重构版**：全面梳理深层业务逻辑，将原有单体庞大脚本拆分为 8 大独立业务子模块，提高系统维护性与健壮性；保持 Zotero 10+ 现代宿主基准（10.0–12.*）与商业级全链路防护。[版本说明](docs/releases/v13.0.1.md)。
 
 # Zotero PaperFlow
 
@@ -11,7 +11,7 @@
 
 [简体中文](README.md) · [English](README.en.md)
 
-[![当前版本](https://img.shields.io/badge/version-13.0.0-245ac7?style=flat-square)](https://github.com/groele/Zotero-PaperFlow/releases/tag/v13.0.0) · [下载 XPI](https://github.com/groele/Zotero-PaperFlow/releases/download/v13.0.0/zotero-paperflow-13.0.0.xpi) · [问题反馈](https://github.com/groele/Zotero-PaperFlow/issues)
+[![当前版本](https://img.shields.io/badge/version-13.0.1-245ac7?style=flat-square)](https://github.com/groele/Zotero-PaperFlow/releases/tag/v13.0.1) · [下载 XPI](https://github.com/groele/Zotero-PaperFlow/releases/download/v13.0.1/zotero-paperflow-13.0.1.xpi) · [问题反馈](https://github.com/groele/Zotero-PaperFlow/issues)
 
 [产品定位](#overview) · [安装与更新](#installation) · [快速开始](#quick-start) · [核心功能](#features) · [设置与使用](#settings) · [数据、同步与外部服务](#data) · [兼容性与验证范围](#compatibility) · [常见问题](#troubleshooting) · [开发与详细文档](#development) · [系列产品](#series) · [项目来源与许可](#license)
 
@@ -27,7 +27,7 @@
 
 ## 安装与更新
 
-1. 下载 [zotero-paperflow-13.0.0.xpi](https://github.com/groele/Zotero-PaperFlow/releases/download/v13.0.0/zotero-paperflow-13.0.0.xpi)（插件版本 **13.0.0**），不要安装 Source code ZIP。
+1. 下载 [zotero-paperflow-13.0.1.xpi](https://github.com/groele/Zotero-PaperFlow/releases/download/v13.0.1/zotero-paperflow-13.0.1.xpi)（插件版本 **13.0.1**），不要安装 Source code ZIP。
 2. 在 Zotero 打开 **工具 → 插件／附加组件**，从齿轮菜单选择 **从文件安装插件**。
 3. 选择 XPI，完成安装；按提示重启 Zotero。
 
@@ -82,9 +82,9 @@ Zotero 偏好页配置窗口和数据维护；工作台中的业务设置按实�
 
 | 项目 | 范围 |
 |---|---|
-| 当前插件版本 | 13.0.0 |
+| 当前插件版本 | 13.0.1 |
 | 清单声明的 Zotero 范围 | `10.0` 至 `12.*`（面向 Zotero 10+ 现代 Web Components 架构） |
-| 当前说明 | 13.0.0 全面实现商业级品质管控与加固，覆盖多窗口与拆分阅读器遍历、条目只读防护、2026-11-02 设置规范三级层级对齐、群组库无缝解析，自动化测试与可复现包校验 100% 通过。 |
+| 当前说明 | 13.0.1 完成深度架构重构与模块化解耦，拆分为 8 大独立业务子模块，全量单元测试与打包校验 100% 通过。 |
 
 插件版本与 Zotero 版本分别管理。清单允许安装，不代表所有版本、操作系统和外部服务均已验证。本版通过全套自动化回归测试、打包校验测试、标签语法自检及隔离 Windows Zotero 10 环境验证。
 

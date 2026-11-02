@@ -30,7 +30,9 @@
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#39;');
 
-  // Data helpers
+  // =========================================================================
+  // MODULE 1: LITERATURE SERIALIZATION & ACADEMIC CITATION ENGINE
+  // =========================================================================
   const itemSelectUri = (item) => {
     if (!item) return '';
     const key = item.key || item.id;
@@ -404,10 +406,13 @@
   const pendingWindowLoads = new Map();
   let windowListener = null;
 
+  // =========================================================================
+  // MODULE 2: HOST RUNTIME PREFERENCES, LOCALIZATION, & OBSERVERS
+  // =========================================================================
   Zotero.ResearchFlow = {
     rootURI: typeof rootURI !== 'undefined' ? rootURI : '',
     addonId: ADDON_ID,
-    version: (typeof version !== 'undefined' && version) ? version : '12.6.1',
+    version: (typeof version !== 'undefined' && version) ? version : '13.0.1',
     serializeLiteratureItem,
     getLiteratureAnnotations,
     getLiteratureNotes,
@@ -662,6 +667,9 @@
       }
     },
 
+    // =======================================================================
+    // MODULE 3: NATIVE LIBRARY & READER CONTEXT MENUS
+    // =======================================================================
     registerMenus() {
       this.updateItemContextMenu();
 
@@ -795,6 +803,9 @@
       this.purgeStaleContextMenus();
     },
 
+    // =======================================================================
+    // MODULE 4: HOST DATABASE STORAGE, SNAPSHOTS, & ATOMIC LOCKING
+    // =======================================================================
     async searchLibrary(query, limit = 15) {
       if (!query || typeof query !== 'string') return [];
       const q = query.trim();
@@ -1306,6 +1317,9 @@
       });
     },
 
+    // =======================================================================
+    // MODULE 5: NATIVE PLATFORM FILE PICKERS & EXPORTERS
+    // =======================================================================
     async saveShareImageFile(pngBytes, fileName, language = 'en', window = null) {
       if (this._shareImageSavePending) return { success: false, error: 'An image save is already in progress.' };
       this._shareImageSavePending = true;
@@ -1427,6 +1441,9 @@
       return { success: false, cancelled: true };
     },
 
+    // =======================================================================
+    // MODULE 6: ZOTERO CHILD NOTE CLOUD SYNCING
+    // =======================================================================
     /**
      * Automated Zotero Child Note Cloud Sync
      * Creates or updates a formatted child note containing manuscript tracking and review milestones
@@ -1560,6 +1577,9 @@
       }
     },
 
+    // =======================================================================
+    // MODULE 7: WINDOW LIFECYCLE, DETACHED READER TABS & DOM TOOLBAR
+    // =======================================================================
     createXULElement(doc, tagName) {
       if (!doc) return null;
       if (typeof doc.createXULElement === 'function') {
@@ -2181,6 +2201,9 @@
       }
     },
 
+    // =======================================================================
+    // MODULE 8: NAVIGATION, WINDOW OPENERS & PDF COMPANION
+    // =======================================================================
     getSelectedRegularItems(window) {
       const pane =
         window?.ZoteroPane ||
@@ -2538,6 +2561,9 @@
       }
     },
 
+    // =======================================================================
+    // MODULE 9: WEB COMPONENTS ITEM PANE SECTION
+    // =======================================================================
     registerItemPaneSection() {
       if (typeof Zotero.ItemPaneManager?.registerSection !== 'function') return;
       try {
@@ -2823,6 +2849,9 @@
       }
     },
 
+    // =======================================================================
+    // MODULE 10: EXTENSION SHUTDOWN & CLEANUPS
+    // =======================================================================
     async shutdown() {
       for (const win of this._standaloneWindows || []) { try { win.close(); } catch (_) {} }
       this._standaloneWindows?.clear();
