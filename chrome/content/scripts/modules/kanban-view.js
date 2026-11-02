@@ -380,7 +380,7 @@ function getSubmissionStatusLabel(status) {
 }
 
 // Add/Edit Manuscript Modal
-document.getElementById('btn-add-manuscript').addEventListener('click', () => {
+document.getElementById('btn-add-manuscript')?.addEventListener('click', () => {
   openManuscriptModal(null);
 });
 

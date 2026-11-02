@@ -1,4 +1,4 @@
-> **13.0.2 仪表盘与管线渲染修复版**：修复 13.0.1 模块化解耦后主页面时间轴管线卡片未渲染的关键异常，补全 `typeMeta` 视觉元数据配置；保持 Zotero 10+ 现代宿主基准（10.0–12.*）与商业级全链路防护。[版本说明](docs/releases/v13.0.2.md)。
+> **13.0.3 核心稳定性与监听自愈增强版**：补全保存状态全局监听器 `setupSaveErrorListener`，全面强化 DOM 查询与事件监听可选链防御，完善稿件关联集合数据容错回退机制；保持 Zotero 10+ 现代宿主基准（10.0–12.*）与商业级全链路防护。[版本说明](docs/releases/v13.0.3.md)。
 
 # Zotero PaperFlow
 
@@ -11,7 +11,7 @@
 
 [简体中文](README.md) · [English](README.en.md)
 
-[![当前版本](https://img.shields.io/badge/version-13.0.2-245ac7?style=flat-square)](https://github.com/groele/Zotero-PaperFlow/releases/tag/v13.0.2) · [下载 XPI](https://github.com/groele/Zotero-PaperFlow/releases/download/v13.0.2/zotero-paperflow-13.0.2.xpi) · [问题反馈](https://github.com/groele/Zotero-PaperFlow/issues)
+[![当前版本](https://img.shields.io/badge/version-13.0.3-245ac7?style=flat-square)](https://github.com/groele/Zotero-PaperFlow/releases/tag/v13.0.3) · [下载 XPI](https://github.com/groele/Zotero-PaperFlow/releases/download/v13.0.3/zotero-paperflow-13.0.3.xpi) · [问题反馈](https://github.com/groele/Zotero-PaperFlow/issues)
 
 [产品定位](#overview) · [安装与更新](#installation) · [快速开始](#quick-start) · [核心功能](#features) · [设置与使用](#settings) · [数据、同步与外部服务](#data) · [兼容性与验证范围](#compatibility) · [常见问题](#troubleshooting) · [开发与详细文档](#development) · [系列产品](#series) · [项目来源与许可](#license)
 
@@ -27,7 +27,7 @@
 
 ## 安装与更新
 
-1. 下载 [zotero-paperflow-13.0.2.xpi](https://github.com/groele/Zotero-PaperFlow/releases/download/v13.0.2/zotero-paperflow-13.0.2.xpi)（插件版本 **13.0.2**），不要安装 Source code ZIP。
+1. 下载 [zotero-paperflow-13.0.3.xpi](https://github.com/groele/Zotero-PaperFlow/releases/download/v13.0.3/zotero-paperflow-13.0.3.xpi)（插件版本 **13.0.3**），不要安装 Source code ZIP。
 2. 在 Zotero 打开 **工具 → 插件／附加组件**，从齿轮菜单选择 **从文件安装插件**。
 3. 选择 XPI，完成安装；按提示重启 Zotero。
 
@@ -82,9 +82,9 @@ Zotero 偏好页配置窗口和数据维护；工作台中的业务设置按实�
 
 | 项目 | 范围 |
 |---|---|
-| 当前插件版本 | 13.0.2 |
+| 当前插件版本 | 13.0.3 |
 | 清单声明的 Zotero 范围 | `10.0` 至 `12.*`（面向 Zotero 10+ 现代 Web Components 架构） |
-| 当前说明 | 13.0.2 修复主页面仪表盘管线时间线卡片渲染问题，补齐关键时间线节点色彩与类型映射，全量单元测试与打包校验 100% 通过。 |
+| 当前说明 | 13.0.3 补全保存状态错误监听实现，防御性强化所有 DOM 查询与事件监听可选链绑定，提供完整的多集合缺省安全回退，全量单元测试与打包校验 100% 通过。 |
 
 插件版本与 Zotero 版本分别管理。清单允许安装，不代表所有版本、操作系统和外部服务均已验证。本版通过全套自动化回归测试、打包校验测试、标签语法自检及隔离 Windows Zotero 10 环境验证。
 

@@ -101,6 +101,13 @@ function setupDashboardFilterListeners() {
 
 // A failed local write still needs a visible error after removing the unused
 // sidebar sync card.
+function setupSaveErrorListener() {
+  window.addEventListener('researchflow-save-state', event => {
+    const { state, error } = event.detail || {};
+    if (state === 'error') showGlobalToast(error || (currentLanguage === 'zh' ? '保存失败，请重试' : 'Save failed, please retry'), 'error');
+    if (state === 'pending') showGlobalToast(t('saveNewEditsPending'), 'info');
+  });
+}
 
 function renderDashboard() {
   const manuscriptsById = new Map(db.manuscripts.map(manuscript => [manuscript.id, manuscript]));

@@ -142,7 +142,7 @@ function setupSettingsListeners() {
   }
 
   // Save Mappings Button
-  document.getElementById('btn-save-settings').addEventListener('click', async () => {
+  document.getElementById('btn-save-settings')?.addEventListener('click', async () => {
     const routeDb = document.getElementById('route-db').value;
 
     const webdavConfig = {
@@ -207,7 +207,7 @@ function setupSettingsListeners() {
   });
 
   // Test WebDAV Connection
-  document.getElementById('btn-test-webdav').addEventListener('click', async () => {
+  document.getElementById('btn-test-webdav')?.addEventListener('click', async () => {
     const btn = document.getElementById('btn-test-webdav');
     btn.disabled = true;
     btn.textContent = 'Testing connection...';
@@ -229,7 +229,7 @@ function setupSettingsListeners() {
   });
 
   // Test GitHub Connection
-  document.getElementById('btn-test-github').addEventListener('click', async () => {
+  document.getElementById('btn-test-github')?.addEventListener('click', async () => {
     const btn = document.getElementById('btn-test-github');
     btn.disabled = true;
     btn.textContent = 'Testing repo...';
@@ -252,7 +252,7 @@ function setupSettingsListeners() {
 
   // --- DATABASE BACKUP & IMPORT LISTENERS ---
   // Export Database
-  document.getElementById('btn-export-db').addEventListener('click', async () => {
+  document.getElementById('btn-export-db')?.addEventListener('click', async () => {
     const isZoteroEnv = Boolean(
       (typeof ZoteroBridge !== 'undefined' && ZoteroBridge.isZotero) ||
       (typeof window !== 'undefined' && (window.Zotero || window.parent?.Zotero))
@@ -284,7 +284,7 @@ function setupSettingsListeners() {
     showGlobalToast(t('databaseExported'), 'success');
   });
 
-  document.getElementById('btn-export-diagnostics').addEventListener('click', async () => {
+  document.getElementById('btn-export-diagnostics')?.addEventListener('click', async () => {
     const metadataRoute = db?.settings?.syncProviders?.metadata || { provider: 'local', config: {} };
     const effectiveRoute = await window.storage.getEffectiveMetadataProvider(db);
     const diagnosticReport = {
@@ -359,7 +359,7 @@ function setupSettingsListeners() {
   });
 
   // Trigger File Import Dialog
-  document.getElementById('btn-trigger-import').addEventListener('click', async () => {
+  document.getElementById('btn-trigger-import')?.addEventListener('click', async () => {
     const isZoteroEnv = Boolean(
       (typeof ZoteroBridge !== 'undefined' && ZoteroBridge.isZotero) ||
       (typeof window !== 'undefined' && (window.Zotero || window.parent?.Zotero))
@@ -387,7 +387,7 @@ function setupSettingsListeners() {
     document.getElementById('import-db-file').click();
   });
 
-  document.getElementById('btn-restore-import-backup').addEventListener('click', async () => {
+  document.getElementById('btn-restore-import-backup')?.addEventListener('click', async () => {
     if (!confirm(t('restoreImportConfirm'))) return;
 
     const isZoteroEnv = Boolean(
@@ -439,7 +439,7 @@ function setupSettingsListeners() {
 
 
   // Handle Imported JSON File and Adapt Schema Format
-  document.getElementById('import-db-file').addEventListener('change', (e) => {
+  document.getElementById('import-db-file')?.addEventListener('change', (e) => {
     const file = e.target.files[0];
     if (!file) return;
     if (file.size > MAX_IMPORT_BYTES) {

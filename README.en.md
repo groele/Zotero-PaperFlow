@@ -1,4 +1,4 @@
-> **13.0.2 Dashboard & Pipeline Rendering Fix**: Fixes a critical timeline rendering issue where pipeline cards were not rendered following the 13.0.1 module refactoring, restoring full `typeMeta` node visual definitions; preserving full Zotero 10+ (10.0–12.*) compatibility. [Release notes](docs/releases/v13.0.2.md).
+> **13.0.3 Core Stability & Listener Self-Healing**: Implements the missing `setupSaveErrorListener` global persistence listener, enforces optional chaining across all DOM queries and event attachments, and hardens collection array fallbacks; preserving full Zotero 10+ (10.0–12.*) compatibility. [Release notes](docs/releases/v13.0.3.md).
 
 # Zotero PaperFlow
 
@@ -11,7 +11,7 @@ Manage manuscripts, submission rounds, and review responses.
 
 [简体中文](README.md) · [English](README.en.md)
 
-[![Release](https://img.shields.io/badge/version-13.0.2-245ac7?style=flat-square)](https://github.com/groele/Zotero-PaperFlow/releases/tag/v13.0.2) · [Download XPI](https://github.com/groele/Zotero-PaperFlow/releases/download/v13.0.2/zotero-paperflow-13.0.2.xpi) · [Report an issue](https://github.com/groele/Zotero-PaperFlow/issues)
+[![Release](https://img.shields.io/badge/version-13.0.3-245ac7?style=flat-square)](https://github.com/groele/Zotero-PaperFlow/releases/tag/v13.0.3) · [Download XPI](https://github.com/groele/Zotero-PaperFlow/releases/download/v13.0.3/zotero-paperflow-13.0.3.xpi) · [Report an issue](https://github.com/groele/Zotero-PaperFlow/issues)
 
 [Overview](#overview) · [Installation and updates](#installation) · [Quick start](#quick-start) · [Key features](#features) · [Settings](#settings) · [Data, sync, and services](#data) · [Compatibility and validation](#compatibility) · [Troubleshooting](#troubleshooting) · [Development and documentation](#development) · [The Flow series](#series) · [Origin and license](#license)
 
@@ -27,7 +27,7 @@ Install this add-on independently and combine it with other Flow products as nee
 
 ## Installation and updates
 
-1. Download [zotero-paperflow-13.0.2.xpi](https://github.com/groele/Zotero-PaperFlow/releases/download/v13.0.2/zotero-paperflow-13.0.2.xpi) (add-on version **13.0.2**), not the Source code ZIP.
+1. Download [zotero-paperflow-13.0.3.xpi](https://github.com/groele/Zotero-PaperFlow/releases/download/v13.0.3/zotero-paperflow-13.0.3.xpi) (add-on version **13.0.3**), not the Source code ZIP.
 2. In Zotero, open **Tools → Plugins/Add-ons**, then choose **Install Add-on From File** from the gear menu.
 3. Select the XPI, complete installation, and restart if requested.
 
@@ -82,9 +82,9 @@ Zotero preferences configure window behavior and data maintenance; use workspace
 
 | Item | Scope |
 |---|---|
-| Current add-on version | 13.0.2 |
+| Current add-on version | 13.0.3 |
 | Declared Zotero range | `10.0` through `12.*` (for modern Zotero 10+ Web Components architecture) |
-| Evidence boundary | Version 13.0.2 resolves dashboard pipeline card rendering, restoring full typeMeta event metadata mappings; 100% test pass rate across 100 test cases and full backward compatibility. |
+| Evidence boundary | Version 13.0.3 restores save error event handling, defensively guards all DOM element listeners, provides safe defaults for all database collections, and passes 100% of the 103 test cases and package validations. |
 
 Add-on and Zotero versions are separate. Manifest compatibility does not establish testing on every host, operating system, or service. This release passed the full Node regression test suite, installer packaging verification, tag self-tests, and isolated Windows Zotero 10 environment checks.
 

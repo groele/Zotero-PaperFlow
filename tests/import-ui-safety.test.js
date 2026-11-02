@@ -4,7 +4,7 @@ const path = require('node:path');
 const vm = require('node:vm');
 const { test } = require('node:test');
 const source = fs.readFileSync(path.join(__dirname, '../chrome/content/scripts/modules/settings-view.js'), 'utf8');
-const start = source.indexOf("  document.getElementById('btn-trigger-import').addEventListener");
+const start = source.search(/\bdocument\.getElementById\(['"]btn-trigger-import['"]\)\??\.addEventListener/);
 const end = source.indexOf('  // Handle Imported JSON File', start);
 assert.ok(start >= 0 && end > start);
 

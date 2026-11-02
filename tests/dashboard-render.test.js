@@ -32,6 +32,11 @@ function setupEnvironment() {
       el.tagName = tag.toUpperCase();
       return el;
     },
+    createDocumentFragment: () => {
+      const frag = getOrCreateElement('frag-' + Math.random());
+      frag.appendChild = (child) => { frag.children.push(child); return child; };
+      return frag;
+    },
     createTextNode: (text) => ({ textContent: String(text) }),
     importNode: (node) => node,
     documentElement: null,
@@ -60,8 +65,18 @@ function setupEnvironment() {
         dataset: {},
         addEventListener() {},
         removeEventListener() {},
-        appendChild(child) { this.children.push(child); this.childNodes.push(child); return child; },
+        appendChild(child) {
+          if (child && child.children && child.id && child.id.startsWith('frag-')) {
+            this.children.push(...child.children);
+            this.childNodes.push(...child.children);
+          } else {
+            this.children.push(child);
+            this.childNodes.push(child);
+          }
+          return child;
+        },
         replaceChildren(...newChildren) { this.children = [...newChildren]; this.childNodes = [...newChildren]; },
+        remove() {},
         querySelector() { return null; },
         querySelectorAll() { return []; },
         closest() { return null; },
@@ -194,3 +209,63 @@ test('renderDashboard populates pipeline cards and timeline alerts correctly wit
   const milestones = elements.get('dashboard-pending-milestones');
   assert.ok(milestones, 'dashboard-pending-milestones container must exist');
 });
+
+test('renderKanban and renderSubmissions execute cleanly across all stages', () => {
+  const { context, elements } = setupEnvironment();
+
+  const mockData = {
+    manuscripts: [
+      { id: 'man_1', title: 'Idea Paper', status: 'idea' },
+      { id: 'man_2', title: 'Drafting Paper', status: 'drafting' },
+      { id: 'man_3', title: 'Under Review Paper', status: 'submitted' },
+      { id: 'man_4', title: 'Published Paper', status: 'accepted' }
+    ],
+    submissions: [
+      { id: 'sub_1', manuscriptId: 'man_3', journal: 'Nature Electronics', status: 'under_review', timelineNodes: [] },
+      { id: 'sub_2', manuscriptId: 'man_4', journal: 'Advanced Materials', status: 'accepted', timelineNodes: [] }
+    ],
+    settings: { profile: { theme: 'system', language: 'zh' } }
+  };
+
+  vm.runInContext('db = ' + JSON.stringify(mockData) + '; currentLanguage = "zh";', context);
+
+  assert.doesNotThrow(() => {
+    context.renderKanban();
+  });
+
+  assert.equal(elements.get('cards-idea').children.length, 1);
+  assert.equal(elements.get('cards-drafting').children.length, 1);
+  assert.equal(elements.get('cards-submitted').children.length, 1);
+  assert.equal(elements.get('cards-accepted').children.length, 1);
+
+  assert.doesNotThrow(() => {
+    context.renderSubmissions();
+  });
+  const subList = elements.get('submissions-list-container');
+  assert.ok(subList && subList.children.length >= 2, 'Submissions view renders submission cards');
+});
+
+test('setupSaveErrorListener registers without reference error and listens to events', () => {
+  const { context } = setupEnvironment();
+  assert.equal(typeof context.setupSaveErrorListener, 'function');
+  assert.doesNotThrow(() => {
+    context.setupSaveErrorListener();
+  });
+});
+
+test('defensive setup listeners and search handlers execute safely with empty or populated DOM', () => {
+  const { context } = setupEnvironment();
+  assert.equal(typeof context.setupSubmissionSearch, 'function');
+  assert.equal(typeof context.setupJournalPortalListeners, 'function');
+  assert.equal(typeof context.setupDashboardFilterListeners, 'function');
+  assert.equal(typeof context.setupSettingsListeners, 'function');
+
+  assert.doesNotThrow(() => {
+    context.setupSubmissionSearch();
+    context.setupJournalPortalListeners();
+    context.setupDashboardFilterListeners();
+    context.setupSettingsListeners();
+  });
+});
+
+

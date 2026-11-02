@@ -544,16 +544,20 @@ function setupSubmissionAutoSave(sub) {
 
 function setupSubmissionSearch() {
   const input = document.getElementById('submission-search');
+  if (!input) return;
+  if (input.dataset.bound) return;
+  input.dataset.bound = 'true';
   input.addEventListener('input', event => { if (!event.isComposing) applySubmissionSearch(); });
   input.addEventListener('compositionend', applySubmissionSearch);
-  document.getElementById('submission-search-status').addEventListener('change', applySubmissionSearch);
+  document.getElementById('submission-search-status')?.addEventListener('change', applySubmissionSearch);
   const clear = (all = false) => {
     input.value = '';
-    if (all) document.getElementById('submission-search-status').value = 'all';
+    const statusSelect = document.getElementById('submission-search-status');
+    if (all && statusSelect) statusSelect.value = 'all';
     applySubmissionSearch(); input.focus();
   };
-  document.getElementById('submission-search-clear').addEventListener('click', () => clear());
-  document.getElementById('submission-search-reset').addEventListener('click', () => clear(true));
+  document.getElementById('submission-search-clear')?.addEventListener('click', () => clear());
+  document.getElementById('submission-search-reset')?.addEventListener('click', () => clear(true));
   input.addEventListener('keydown', event => {
     if (event.isComposing) return;
     if (event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); clear(); }
@@ -563,14 +567,15 @@ function setupSubmissionSearch() {
     }
   });
   document.addEventListener('keydown', event => {
-    if (event.key !== '/' || event.ctrlKey || event.metaKey || event.altKey || event.isComposing || modal.classList.contains('active')) return;
+    if (event.key !== '/' || event.ctrlKey || event.metaKey || event.altKey || event.isComposing || (typeof modal !== 'undefined' && modal?.classList?.contains('active'))) return;
     if (event.target.closest?.('input, textarea, select, [contenteditable="true"]')) return;
-    if (document.getElementById('view-submissions').classList.contains('active')) { event.preventDefault(); input.focus(); }
+    if (document.getElementById('view-submissions')?.classList?.contains('active')) { event.preventDefault(); input.focus(); }
   });
 }
 
 function applySubmissionSearch() {
   const input = document.getElementById('submission-search');
+  if (!input) return;
   const filter = document.getElementById('submission-search-status')?.value || 'all';
   const terms = window.RFUI.normalizeSearchText(input.value).split(/\s+/).filter(Boolean);
   const cards = document.querySelectorAll('#submissions-list-container .submission-card-item');
@@ -580,9 +585,12 @@ function applySubmissionSearch() {
     if (card.hidden === matches) card.hidden = !matches;
     if (matches) count += 1;
   });
-  document.getElementById('submission-search-clear').hidden = !input.value;
-  document.getElementById('submission-search-empty').hidden = count > 0 || cards.length === 0;
-  document.getElementById('submission-search-count').textContent = tf('submissionSearchCount', { count, total: cards.length });
+  const clearBtn = document.getElementById('submission-search-clear');
+  if (clearBtn) clearBtn.hidden = !input.value;
+  const emptyEl = document.getElementById('submission-search-empty');
+  if (emptyEl) emptyEl.hidden = count > 0 || cards.length === 0;
+  const countEl = document.getElementById('submission-search-count');
+  if (countEl) countEl.textContent = tf('submissionSearchCount', { count, total: cards.length });
 }
 
 function renderSubmissions({ refreshDetails = true } = {}) {
@@ -647,7 +655,7 @@ function renderSubmissions({ refreshDetails = true } = {}) {
       });
 
       const editButton = card.querySelector('.btn-edit-submission');
-      editButton.addEventListener('click', (event) => {
+      editButton?.addEventListener('click', (event) => {
         event.stopPropagation();
         openSubmissionForEditing(sub, { focusEditCenter: true });
       });
@@ -736,14 +744,14 @@ function renderJournalPortals() {
       </div>
     `);
 
-    card.querySelector('.portal-open').addEventListener('click', event => {
+    card.querySelector('.portal-open')?.addEventListener('click', event => {
       if (!safeUrl) event.preventDefault();
     });
-    card.querySelector('.btn-edit-portal').addEventListener('click', () => openJournalPortalEditor(portal));
+    card.querySelector('.btn-edit-portal')?.addEventListener('click', () => openJournalPortalEditor(portal));
 
     // Hook up delete listener
     const deleteBtn = card.querySelector('.btn-delete-portal');
-    deleteBtn.addEventListener('click', async (e) => {
+    deleteBtn?.addEventListener('click', async (e) => {
       e.preventDefault();
       e.stopPropagation();
       if (confirm(tf('portalDeleteConfirm', { name: portal.name }))) {
@@ -895,13 +903,13 @@ function renderSubmissionDetails(sub) {
   sub.status = normalizeSubmissionStatus(sub.status);
   normalizeSubmissionTimeline(sub);
   const detailPanel = document.getElementById('submission-detail-panel');
-  const man = db.manuscripts.find(m => m.id === sub.manuscriptId);
-  const project = db.projects.find(item => item.id === (sub.projectId || man?.projectId));
+  const man = (db.manuscripts || []).find(m => m.id === sub.manuscriptId);
+  const project = (db.projects || []).find(item => item.id === (sub.projectId || man?.projectId)) || null;
   const relationship = window.RFUI.buildSubmissionRelationshipSummary({
     submission: sub,
     manuscript: man,
     project,
-    records: db.researchRecords
+    records: db.researchRecords || []
   });
   const manuscriptTitle = man ? man.title : (sub.title || t('untitledManuscript'));
   const manAbstract = man ? man.abstract || '' : '';
@@ -1255,7 +1263,7 @@ function renderSubmissionDetails(sub) {
     });
   }
 
-  document.getElementById('btn-mark-sub-rejected').addEventListener('click', async () => {
+  document.getElementById('btn-mark-sub-rejected')?.addEventListener('click', async () => {
     if (!confirm(t('confirmMarkRejected'))) return;
     markSubmissionRejected(sub, todayString());
     syncManuscriptStatusFromSubmission(sub);
@@ -1267,12 +1275,12 @@ function renderSubmissionDetails(sub) {
     showGlobalToast(t('rejectedToast'), 'success');
   });
 
-  document.getElementById('btn-transfer-submission').addEventListener('click', () => {
+  document.getElementById('btn-transfer-submission')?.addEventListener('click', () => {
     openTransferSubmissionModal(sub);
   });
 
   // Delete submission
-  document.getElementById('btn-delete-sub').addEventListener('click', async () => {
+  document.getElementById('btn-delete-sub')?.addEventListener('click', async () => {
     if (confirm(t('confirmDeleteSubmission'))) {
       window.storage.recordEntityDeletion(db, 'submissions', sub.id);
       syncManuscriptStatusesFromSubmissions(db);
@@ -1338,7 +1346,7 @@ function renderSubmissionDetails(sub) {
   }
 
   // Action: Export LaTeX & Markdown Rebuttal Table
-  document.getElementById('btn-export-rebuttal-table').addEventListener('click', () => {
+  document.getElementById('btn-export-rebuttal-table')?.addEventListener('click', () => {
     const savedReviewRows = getSubmissionReviewMatrixRows(sub);
     if (savedReviewRows.length === 0) {
       showGlobalToast(t('noReviewerCommentsExport'), 'warning');
@@ -1564,7 +1572,7 @@ function openTransferSubmissionModal(sourceSub) {
 
 
 // Track New Submission trigger
-document.getElementById('btn-add-submission').addEventListener('click', () => {
+document.getElementById('btn-add-submission')?.addEventListener('click', () => {
   let manOpts = db.manuscripts.map(m => `
     <option value="${escapeHTML(m.id)}">${escapeHTML(m.title || t('untitledManuscript'))}</option>
   `).join('');
