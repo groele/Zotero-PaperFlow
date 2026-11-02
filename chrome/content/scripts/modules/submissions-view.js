@@ -138,8 +138,11 @@ function createSubmissionReviewEditorRow(row = {}, index = 0) {
         </div>
       </div>
       <textarea class="sub-edit-review-comment" placeholder="${escapeHTML(t('reviewerCommentPlaceholder'))}">${escapeHTML(row.comment || '')}</textarea>
-      <div class="submission-edit-review-actions">
-        <button type="button" class="btn-danger btn-icon btn-delete-review-row" title="${escapeHTML(t('removeComment'))}">
+      <div class="submission-edit-review-actions" style="display:flex; align-items:center; gap:4px;">
+        <button type="button" class="btn-secondary btn-icon btn-move-review-up" title="${escapeHTML(t('moveCommentUp') || '上移')}" style="padding:2px 4px; font-size:10px; height:24px; min-width:24px;">▲</button>
+        <button type="button" class="btn-secondary btn-icon btn-move-review-down" title="${escapeHTML(t('moveCommentDown') || '下移')}" style="padding:2px 4px; font-size:10px; height:24px; min-width:24px;">▼</button>
+        <button type="button" class="btn-secondary btn-icon btn-copy-full-item" title="${escapeHTML(t('copyFullCommentItem') || '复制完整问答条目')}" style="padding:2px 4px; font-size:10px; height:24px; min-width:24px;">📋</button>
+        <button type="button" class="btn-danger btn-icon btn-delete-review-row" title="${escapeHTML(t('removeComment'))}" style="height:24px; min-width:24px;">
           <svg class="svg-icon" viewBox="0 0 24 24" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
         </button>
       </div>
@@ -197,7 +200,17 @@ function renderSubmissionChecklistEditor(sub, checklistKeys) {
 function renderSubmissionReviewMatrixEditor(sub, manAbstract) {
   const reviewBox = document.getElementById('sub-edit-review-matrix-container');
   const addButton = document.getElementById('btn-add-review-comment');
+  const batchImportBtn = document.getElementById('btn-batch-import-reviews');
+  const progressBox = document.getElementById('sub-edit-rebuttal-progress-container');
   if (!reviewBox) return;
+
+  const updateProgress = () => {
+    if (progressBox) {
+      const currentRows = collectSubmissionReviewMatrixFromEditor();
+      window.RFUI.setHTML(progressBox, renderRebuttalProgressTracker({ reviewMatrix: currentRows }));
+    }
+  };
+
   const rows = getSubmissionReviewMatrixRows(sub);
   window.RFUI.setHTML(reviewBox, '');
   if (rows.length === 0) {
@@ -207,20 +220,72 @@ function renderSubmissionReviewMatrixEditor(sub, manAbstract) {
       reviewBox.appendChild(createSubmissionReviewEditorRow(row, index));
     });
   }
+  updateProgress();
+
+  if (batchImportBtn) {
+    batchImportBtn.onclick = () => {
+      openBatchReviewImportModal(sub, reviewBox, updateProgress);
+    };
+  }
 
   if (addButton) {
-    addButton.addEventListener('click', () => {
+    addButton.onclick = () => {
       const empty = reviewBox.querySelector('.empty-state');
       if (empty) window.RFUI.setHTML(reviewBox, '');
       reviewBox.appendChild(createSubmissionReviewEditorRow({ comment: '', response: '', recordId: '' }, reviewBox.querySelectorAll('.submission-edit-review-row').length));
+      updateProgress();
       reviewBox.dispatchEvent(new CustomEvent('submission-autosave-request', {
         bubbles: true,
         detail: { immediate: true }
       }));
-    });
+    };
   }
 
   reviewBox.addEventListener('click', async event => {
+    const upBtn = event.target.closest('.btn-move-review-up');
+    if (upBtn) {
+      const row = upBtn.closest('.submission-edit-review-row');
+      const prev = row?.previousElementSibling;
+      if (prev && prev.classList.contains('submission-edit-review-row')) {
+        reviewBox.insertBefore(row, prev);
+        reindexSubmissionReviewEditorRows(reviewBox);
+        updateProgress();
+        reviewBox.dispatchEvent(new CustomEvent('submission-autosave-request', { bubbles: true, detail: { immediate: true } }));
+      }
+      return;
+    }
+
+    const downBtn = event.target.closest('.btn-move-review-down');
+    if (downBtn) {
+      const row = downBtn.closest('.submission-edit-review-row');
+      const next = row?.nextElementSibling;
+      if (next && next.classList.contains('submission-edit-review-row')) {
+        reviewBox.insertBefore(next, row);
+        reindexSubmissionReviewEditorRows(reviewBox);
+        updateProgress();
+        reviewBox.dispatchEvent(new CustomEvent('submission-autosave-request', { bubbles: true, detail: { immediate: true } }));
+      }
+      return;
+    }
+
+    const copyFullBtn = event.target.closest('.btn-copy-full-item');
+    if (copyFullBtn) {
+      const row = copyFullBtn.closest('.submission-edit-review-row');
+      const reviewer = row?.querySelector('.sub-edit-review-reviewer')?.value.trim() || 'Reviewer Comment';
+      const comment = row?.querySelector('.sub-edit-review-comment')?.value.trim() || '';
+      const response = row?.querySelector('.sub-edit-review-response')?.value.trim() || '';
+      const changes = row?.querySelector('.sub-edit-review-changes')?.value.trim() || '';
+      let block = `[${reviewer}]\nComment: ${comment}\n\nResponse: ${response}`;
+      if (changes) block += `\n\nManuscript Changes: ${changes}`;
+      try {
+        await navigator.clipboard.writeText(block);
+        showGlobalToast(t('copyCodeSuccess') || 'Copied to clipboard!', 'success');
+      } catch (_) {
+        showGlobalToast('Copy failed', 'danger');
+      }
+      return;
+    }
+
     const copyButton = event.target.closest('.btn-copy-review-response');
     if (copyButton) {
       const row = copyButton.closest('.submission-edit-review-row');
@@ -243,6 +308,7 @@ function renderSubmissionReviewMatrixEditor(sub, manAbstract) {
       const row = deleteButton.closest('.submission-edit-review-row');
       row?.remove();
       reindexSubmissionReviewEditorRows(reviewBox);
+      updateProgress();
       if (reviewBox.querySelectorAll('.submission-edit-review-row').length === 0) {
         window.RFUI.setHTML(reviewBox, `<p class="empty-state">${escapeHTML(t('emptyReviewEditor'))}</p>`);
       }
@@ -252,7 +318,10 @@ function renderSubmissionReviewMatrixEditor(sub, manAbstract) {
       }));
       return;
     }
+  });
 
+  reviewBox.addEventListener('input', () => {
+    updateProgress();
   });
 }
 
@@ -278,7 +347,9 @@ function renderSubmissionReviewPreview(sub, checklistKeys) {
       `;
       }).join('')
     : `<p class="empty-state">${escapeHTML(t('emptyReviewPreview'))}</p>`;
+  const progressHtml = renderRebuttalProgressTracker(sub);
   window.RFUI.setHTML(previewBox, `
+    ${progressHtml}
     <div class="workflow-context-grid submission-review-preview-grid">
       <div class="workflow-context-item"><span>${escapeHTML(t('checklistLabel'))}</span><strong>${completedChecks}/${checklistKeys.length}</strong></div>
       <div class="workflow-context-item"><span>${escapeHTML(t('workflowReviewerCommentsLabel'))}</span><strong>${reviewRows.length}</strong></div>
@@ -294,6 +365,7 @@ function getSubmissionEditValues(prefix) {
     firstAuthor: document.getElementById(`${prefix}-first-author`)?.value || '',
     journal: document.getElementById(`${prefix}-journal`).value,
     journalUrl: document.getElementById(`${prefix}-journal-url`).value,
+    externalManuscriptId: document.getElementById(`${prefix}-external-id`)?.value?.trim() || '',
     status: document.getElementById(`${prefix}-status`).value,
     submissionDate: document.getElementById(`${prefix}-submission-date`).value,
     firstDecisionDate: document.getElementById(`${prefix}-r1-date`).value,
@@ -668,6 +740,7 @@ function renderSubmissions({ refreshDetails = true } = {}) {
         </div>
         <div class="submission-card-footer">
           <span class="${window.RFUI.getSubmissionStatusBadgeClass(sub.status)}">${escapeHTML(statusText)}</span>
+          ${sub.externalManuscriptId ? `<span class="badge badge-purple" style="font-size:10px; padding:1px 6px; border-radius:3px;" title="Manuscript ID: ${escapeHTML(sub.externalManuscriptId)}">ID: ${escapeHTML(sub.externalManuscriptId)}</span>` : ''}
           ${cardCountdownHtml}
           ${transferText}
           ${man?.zoteroItemKey ? `
@@ -1188,9 +1261,345 @@ function generateAcademicRebuttalLetter(sub, man, format = 'latex') {
   return out;
 }
 
+function parseReviewCommentsBatch(rawText = '', defaultReviewer = 'Reviewer #1') {
+  if (!rawText || !rawText.trim()) return [];
+  const lines = rawText.split(/\r?\n/);
+  const comments = [];
+  let currentReviewer = defaultReviewer || 'Reviewer #1';
+  let currentBuffer = [];
+
+  const reviewerRegex = /^(?:(?:Reviewer|Referee)\s*#?\s*([0-9]+|[A-Z])|Editor(?:-in-Chief)?|Associate\s+Editor|Guest\s+Editor|Handling\s+Editor|Comments?\s+from\s+(?:the\s+)?(?:Editor|Reviewers?))/i;
+  const pointRegex = /^(?:(?:Point|Comment|Issue|Item|Q)\s*#?\s*([0-9]+)[\s.:)-]|(?:Major|Minor)\s*(?:Comments?|Points?)\s*#?\s*([0-9]+)[\s.:)-]|([0-9]{1,2})[\s.:)-]\s+|(\([0-9]{1,2}\))\s+|([a-z]\))\s+|[-*•]\s+)/i;
+
+  function flushComment() {
+    const text = currentBuffer.join('\n').trim();
+    if (text) {
+      comments.push({
+        id: `rev_${Date.now()}_${Math.random().toString(36).slice(2, 7)}_${comments.length}`,
+        reviewer: currentReviewer,
+        comment: text,
+        response: '',
+        changes: ''
+      });
+    }
+    currentBuffer = [];
+  }
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i].trim();
+    if (!line) {
+      if (currentBuffer.length > 0) {
+        currentBuffer.push('');
+      }
+      continue;
+    }
+
+    const revMatch = line.match(reviewerRegex);
+    if (revMatch) {
+      flushComment();
+      if (/Editor/i.test(line)) {
+        currentReviewer = 'Editor';
+      } else {
+        const revNum = revMatch[1] || '1';
+        currentReviewer = `Reviewer #${revNum}`;
+      }
+      continue;
+    }
+
+    const pointMatch = line.match(pointRegex);
+    if (pointMatch) {
+      flushComment();
+      currentBuffer.push(line);
+    } else {
+      currentBuffer.push(line);
+    }
+  }
+
+  flushComment();
+
+  if (comments.length === 0 && rawText.trim()) {
+    const blocks = rawText.split(/\r?\n\s*\r?\n/).map(b => b.trim()).filter(Boolean);
+    blocks.forEach((block, idx) => {
+      comments.push({
+        id: `rev_${Date.now()}_${idx}`,
+        reviewer: currentReviewer,
+        comment: block,
+        response: '',
+        changes: ''
+      });
+    });
+  }
+
+  return comments;
+}
+
+function renderRebuttalProgressTracker(sub = {}) {
+  const rows = getSubmissionReviewMatrixRows(sub);
+  const total = rows.length;
+  if (total === 0) return '';
+
+  const addressed = rows.filter(r => r.response && r.response.trim()).length;
+  const pending = total - addressed;
+  const withChanges = rows.filter(r => r.changes && r.changes.trim()).length;
+  const percent = Math.round((addressed / total) * 100);
+
+  const reviewerMap = new Map();
+  rows.forEach(r => {
+    const rev = r.reviewer || 'Reviewer';
+    if (!reviewerMap.has(rev)) reviewerMap.set(rev, { total: 0, done: 0 });
+    const stat = reviewerMap.get(rev);
+    stat.total++;
+    if (r.response && r.response.trim()) stat.done++;
+  });
+
+  const reviewerChips = Array.from(reviewerMap.entries()).map(([rev, stat]) => {
+    const isAllDone = stat.done === stat.total;
+    const bg = isAllDone ? 'rgba(34, 197, 94, 0.12)' : 'rgba(234, 179, 8, 0.12)';
+    const color = isAllDone ? '#16a34a' : '#ca8a04';
+    return `<span style="display:inline-flex; align-items:center; gap:4px; font-size:11px; padding:2px 8px; border-radius:12px; background:${bg}; color:${color}; font-weight:600;">` +
+      `<span>${escapeHTML(rev)}:</span> <span>${stat.done}/${stat.total}</span>` +
+    `</span>`;
+  }).join(' ');
+
+  return `
+    <div class="rebuttal-progress-card" style="margin-bottom:14px; padding:12px 14px; background:hsl(var(--card-bg, 0 0% 100% / 0.7)); border:1px solid var(--border-color, rgba(0,0,0,0.08)); border-radius:8px;">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; flex-wrap:wrap; gap:6px;">
+        <div style="display:flex; align-items:center; gap:8px;">
+          <span style="font-weight:600; font-size:13px; color:hsl(var(--text-primary));">📊 ${escapeHTML(t('rebuttalProgressTitle') || '修回攻坚进度')}</span>
+          <span class="badge ${percent === 100 ? 'badge-success' : 'badge-warning'}" style="font-size:11px;">${percent}% ${percent === 100 ? 'Completed' : 'In Progress'}</span>
+        </div>
+        <div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
+          ${reviewerChips}
+        </div>
+      </div>
+      <div style="width:100%; height:6px; background:rgba(0,0,0,0.08); border-radius:3px; overflow:hidden; margin-bottom:10px;">
+        <div style="width:${percent}%; height:100%; background:linear-gradient(90deg, #3b82f6, #10b981); transition:width 0.3s ease;"></div>
+      </div>
+      <div style="display:flex; gap:16px; font-size:12px; color:var(--text-secondary); flex-wrap:wrap;">
+        <span>${escapeHTML(t('rebuttalTotalComments') || '总意见')}: <strong>${total}</strong></span>
+        <span style="color:#16a34a;">✔ ${escapeHTML(t('rebuttalAddressed') || '已答复')}: <strong>${addressed}</strong></span>
+        <span style="color:${pending > 0 ? '#ea580c' : '#16a34a'};">⏳ ${escapeHTML(t('rebuttalPending') || '待答复')}: <strong>${pending}</strong></span>
+        <span style="color:#0284c7;">📝 ${escapeHTML(t('rebuttalChangesNoted') || '已标定改动')}: <strong>${withChanges}</strong></span>
+      </div>
+    </div>
+  `;
+}
+
+function generateRevisionCoverLetter(sub = {}, man = {}, format = 'html') {
+  const paperTitle = man.title || sub.title || 'Untitled Manuscript';
+  const journal = sub.targetJournal || 'the Journal';
+  const authors = man.authors || getSubmissionFirstAuthor(sub, man) || 'The Authors';
+  const firstAuthor = getSubmissionFirstAuthor(sub, man);
+  const msId = sub.externalManuscriptId ? ` (Manuscript ID: ${sub.externalManuscriptId})` : '';
+  const dateStr = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+  const rows = getSubmissionReviewMatrixRows(sub);
+  const totalComments = rows.length;
+  const reviewerSet = new Set(rows.map(r => r.reviewer || 'Reviewer').filter(Boolean));
+  const reviewerCount = reviewerSet.size || 2;
+
+  if (format === 'latex') {
+    return `\\documentclass[11pt]{article}\n` +
+      `\\usepackage[margin=1in]{geometry}\n` +
+      `\\usepackage{charter}\n` +
+      `\\usepackage{microtype}\n` +
+      `\\usepackage{hyperref}\n\n` +
+      `\\begin{document}\n\n` +
+      `\\noindent ${escapeLatex(dateStr)} \\\\[1.5em]\n` +
+      `\\noindent To:\\\\ \n` +
+      `The Editor-in-Chief / Handling Editor,\\\\ \n` +
+      `\\textit{${escapeLatex(journal)}}\\\\[1.5em]\n\n` +
+      `\\noindent\\textbf{Subject: Submission of Revised Manuscript${escapeLatex(msId)}}\\\\[0.5em]\n` +
+      `\\textbf{Title:} \`\`${escapeLatex(paperTitle)}''\\\\ \n` +
+      `\\textbf{Authors:} ${escapeLatex(authors)}\\\\[1.5em]\n\n` +
+      `\\noindent Dear Editor,\\par\\medskip\n\n` +
+      `\\noindent Thank you very much for your letter and the constructive comments from the editorial team and the ${reviewerCount} reviewers regarding our manuscript entitled \`\`\\textbf{${escapeLatex(paperTitle)}}''${escapeLatex(msId)}. We greatly appreciate the time and effort devoted to evaluating our work.\\par\\medskip\n\n` +
+      `\\noindent We have carefully studied all comments and thoroughly revised the manuscript accordingly. In summary, the main revisions include:\\par\n` +
+      `\\begin{itemize}\n` +
+      `  \\item Fully addressing all ${totalComments} comments raised by the reviewers and editor, with corresponding textual and graphical updates.\n` +
+      `  \\item Providing comprehensive experimental and analytical clarifications to strengthen the core arguments.\n` +
+      `  \\item Highlighting all modifications in the revised manuscript and providing a detailed Point-by-Point Response document.\n` +
+      `\\end{itemize}\\par\\medskip\n\n` +
+      `\\noindent We confirm that all authors have approved this revised version and that the work has not been published or submitted elsewhere.\\par\\medskip\n\n` +
+      `\\noindent We believe the revised manuscript has been substantially improved and now meets the high standards of \\textit{${escapeLatex(journal)}}. We look forward to your favorable consideration.\\par\\vspace{2em}\n\n` +
+      `\\noindent Sincerely,\\\\\n` +
+      `\\noindent ${escapeLatex(firstAuthor || authors)}\\\\ \n` +
+      `\\noindent on behalf of all co-authors\n\n` +
+      `\\end{document}\n`;
+  }
+
+  if (format === 'md') {
+    return `# Cover Letter for Revised Manuscript\n\n` +
+      `**Date:** ${dateStr}  \n` +
+      `**To:** The Editor-in-Chief / Handling Editor, *${journal}*  \n` +
+      `**Subject:** Submission of Revised Manuscript${msId}  \n` +
+      `**Title:** "${paperTitle}"  \n` +
+      `**Authors:** ${authors}  \n\n` +
+      `---\n\n` +
+      `Dear Editor,\n\n` +
+      `Thank you very much for your editorial decision and the constructive feedback from the reviewers regarding our manuscript entitled **"${paperTitle}"**${msId} for publication in *${journal}*.\n\n` +
+      `We have carefully considered all comments and carried out a comprehensive revision of our manuscript. Specifically:\n\n` +
+      `- We have addressed all ${totalComments} comments and suggestions from the ${reviewerCount} reviewers and editor.\n` +
+      `- Additional clarifications, analyses, and data have been integrated into the revised text and figures.\n` +
+      `- All changes in the revised manuscript have been clearly highlighted, and our point-by-point responses are detailed in the accompanying rebuttal document.\n\n` +
+      `All co-authors have reviewed and approved this revised manuscript. We confirm that this work is original and is not under consideration elsewhere.\n\n` +
+      `We hope the revised manuscript is now suitable for publication in *${journal}*, and we look forward to hearing from you.\n\n` +
+      `Sincerely,\n\n` +
+      `**${firstAuthor || authors}**  \n` +
+      `*(On behalf of all co-authors)*\n`;
+  }
+
+  // HTML format for Word / Rich Text
+  return `<div style="font-family:'Times New Roman',Times,serif; font-size:12pt; line-height:1.5; color:#111827; max-width:760px; margin:0 auto; padding:24px;">` +
+    `<p style="margin-bottom:16px;">${escapeHTML(dateStr)}</p>` +
+    `<p style="margin-bottom:20px;">` +
+      `To:<br>` +
+      `The Editor-in-Chief / Handling Editor<br>` +
+      `<em>${escapeHTML(journal)}</em>` +
+    `</p>` +
+    `<div style="background:#f8fafc; border-left:4px solid #0284c7; padding:12px 16px; margin-bottom:20px;">` +
+      `<p style="margin:0 0 6px 0; font-weight:bold; font-size:13pt;">Subject: Submission of Revised Manuscript${escapeHTML(msId)}</p>` +
+      `<p style="margin:0 0 4px 0;"><strong>Title:</strong> “${escapeHTML(paperTitle)}”</p>` +
+      `<p style="margin:0;"><strong>Authors:</strong> ${escapeHTML(authors)}</p>` +
+    `</div>` +
+    `<p style="margin-bottom:14px;">Dear Editor,</p>` +
+    `<p style="margin-bottom:14px;">` +
+      `Thank you very much for your letter and the constructive comments from the reviewers regarding our manuscript entitled ` +
+      `<strong>“${escapeHTML(paperTitle)}”</strong>${escapeHTML(msId)}. We are grateful to the editorial team and the ${reviewerCount} reviewers for their valuable suggestions to strengthen our work.` +
+    `</p>` +
+    `<p style="margin-bottom:10px;">` +
+      `We have carefully evaluated all feedback and thoroughly revised our manuscript. In particular:` +
+    `</p>` +
+    `<ul style="margin:0 0 16px 24px; padding:0;">` +
+      `<li style="margin-bottom:6px;">We have addressed all ${totalComments} comments raised by the reviewers and editor in detail.</li>` +
+      `<li style="margin-bottom:6px;">We have expanded our explanations and integrated necessary additional evidence and figure updates into the manuscript.</li>` +
+      `<li style="margin-bottom:6px;">All changes have been clearly highlighted in the revised manuscript, accompanied by our detailed Point-by-Point Response document.</li>` +
+    `</ul>` +
+    `<p style="margin-bottom:14px;">` +
+      `All co-authors have approved this revised version, and we confirm that this manuscript is not under consideration elsewhere.` +
+    `</p>` +
+    `<p style="margin-bottom:24px;">` +
+      `We hope that our revisions satisfactorily address the concerns raised and that the manuscript is now acceptable for publication in <em>${escapeHTML(journal)}</em>. We look forward to your decision.` +
+    `</p>` +
+    `<p style="margin:0;">Sincerely,</p>` +
+    `<p style="margin:6px 0 0 0; font-weight:bold;">${escapeHTML(firstAuthor || authors)}</p>` +
+    `<p style="margin:2px 0 0 0; font-style:italic; color:#4b5563;">On behalf of all co-authors</p>` +
+  `</div>`;
+}
+
+function openBatchReviewImportModal(sub, reviewBox, onComplete) {
+  openModal(`
+    <div class="modal-header">
+      <h2>✨ ${escapeHTML(t('batchImportTitle') || '智能批量解析导入审稿意见')}</h2>
+      <button class="btn-secondary btn-icon" id="btn-close-modal">✕</button>
+    </div>
+    <div style="font-size:12px; color:var(--text-secondary); margin-bottom:12px;">
+      ${escapeHTML(t('batchImportHelp') || '将期刊审稿邮件或决定信全文直接粘贴至下方，智能解析器将自动按审稿人与编号拆分为独立意见条目。')}
+    </div>
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+      <label style="font-size:12px; font-weight:600;">${escapeHTML(currentLanguage === 'zh' ? '粘贴审稿信原始全文' : 'Raw Decision Letter / Review Text')}</label>
+      <div style="display:flex; align-items:center; gap:6px;">
+        <span style="font-size:11px; color:var(--text-secondary);">${escapeHTML(currentLanguage === 'zh' ? '默认审稿人' : 'Default Reviewer')}:</span>
+        <select id="batch-import-default-rev" style="font-size:11px; padding:2px 6px; border-radius:4px; border:1px solid var(--input-border); background:var(--input-bg); color:hsl(var(--text-primary));">
+          <option value="Reviewer #1">Reviewer #1</option>
+          <option value="Reviewer #2">Reviewer #2</option>
+          <option value="Reviewer #3">Reviewer #3</option>
+          <option value="Editor">Editor</option>
+        </select>
+      </div>
+    </div>
+    <textarea id="batch-import-textarea" rows="8" placeholder="${escapeHTML(t('batchImportPlaceholder') || 'Paste review comments here...')}" style="width:100%; box-sizing:border-box; font-family:inherit; font-size:12px; line-height:1.4; padding:8px; border:1px solid var(--input-border); border-radius:6px; background:var(--input-bg); color:hsl(var(--text-primary)); resize:vertical;"></textarea>
+    
+    <div id="batch-import-preview-container" style="margin-top:10px; max-height:160px; overflow-y:auto; border:1px solid var(--input-border); border-radius:6px; padding:10px; background:hsl(var(--card-bg, 0 0% 100% / 0.5));">
+      <p style="font-size:12px; color:var(--text-secondary); margin:0;">${escapeHTML(currentLanguage === 'zh' ? '输入文本后在此实时预览解析结果...' : 'Parsed preview will appear here in real time...')}</p>
+    </div>
+
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-top:14px; flex-wrap:wrap; gap:8px;">
+      <div id="batch-import-stats" style="font-size:12px; font-weight:600; color:var(--accent-blue, #0284c7);"></div>
+      <div style="display:flex; gap:8px;">
+        <button type="button" class="btn-secondary" id="btn-batch-do-append">
+          <span>➕ ${escapeHTML(t('batchImportAppend') || '追加导入')}</span>
+        </button>
+        <button type="button" class="btn-primary" id="btn-batch-do-replace">
+          <span>🔄 ${escapeHTML(t('batchImportReplace') || '覆盖替换现有')}</span>
+        </button>
+      </div>
+    </div>
+  `);
+
+  const textarea = document.getElementById('batch-import-textarea');
+  const defaultRevSelect = document.getElementById('batch-import-default-rev');
+  const previewContainer = document.getElementById('batch-import-preview-container');
+  const statsEl = document.getElementById('batch-import-stats');
+
+  let currentParsed = [];
+
+  function updatePreview() {
+    if (!textarea || !defaultRevSelect || !previewContainer || !statsEl) return;
+    const raw = textarea.value;
+    const defRev = defaultRevSelect.value;
+    currentParsed = parseReviewCommentsBatch(raw, defRev);
+    if (currentParsed.length === 0) {
+      previewContainer.innerHTML = `<p style="font-size:12px; color:var(--text-secondary); margin:0;">${escapeHTML(currentLanguage === 'zh' ? '未解析到有效意见条目。请粘贴文本。' : 'No comments detected. Please paste text.')}</p>`;
+      statsEl.textContent = '';
+      return;
+    }
+    const revCount = new Set(currentParsed.map(p => p.reviewer)).size;
+    statsEl.textContent = tf('batchImportParsedSummary', { comments: currentParsed.length, reviewers: revCount }) ||
+      (currentLanguage === 'zh' ? `已识别到 ${currentParsed.length} 条意见（来自 ${revCount} 位审稿人/编辑）` : `Detected ${currentParsed.length} comments across ${revCount} reviewer(s).`);
+
+    previewContainer.innerHTML = currentParsed.map((item, idx) => `
+      <div style="margin-bottom:8px; padding-bottom:6px; border-bottom:1px solid rgba(0,0,0,0.06); font-size:11px;">
+        <div style="display:flex; align-items:center; gap:6px; margin-bottom:2px;">
+          <span class="badge badge-purple" style="font-size:10px;">${escapeHTML(item.reviewer)}</span>
+          <strong>#${idx + 1}</strong>
+        </div>
+        <div style="color:var(--text-secondary); max-height:40px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">
+          ${escapeHTML(item.comment)}
+        </div>
+      </div>
+    `).join('');
+  }
+
+  textarea?.addEventListener('input', updatePreview);
+  defaultRevSelect?.addEventListener('change', updatePreview);
+
+  function executeImport(mode) {
+    if (!currentParsed || currentParsed.length === 0) {
+      showGlobalToast(t('batchImportEmptyToast') || '请先粘贴待解析的审稿文本', 'warning');
+      return;
+    }
+    const emptyState = reviewBox.querySelector('.empty-state');
+    if (emptyState) emptyState.remove();
+
+    if (mode === 'replace') {
+      window.RFUI.setHTML(reviewBox, '');
+    }
+
+    const currentCount = reviewBox.querySelectorAll('.submission-edit-review-row').length;
+    currentParsed.forEach((item, index) => {
+      reviewBox.appendChild(createSubmissionReviewEditorRow(item, currentCount + index));
+    });
+
+    reindexSubmissionReviewEditorRows(reviewBox);
+    if (typeof onComplete === 'function') onComplete();
+    reviewBox.dispatchEvent(new CustomEvent('submission-autosave-request', {
+      bubbles: true,
+      detail: { immediate: true }
+    }));
+    closeModal();
+    showGlobalToast(tf('batchImportSuccessToast', { count: currentParsed.length }) || (currentLanguage === 'zh' ? `成功解析并导入 ${currentParsed.length} 条审稿意见！` : `Successfully imported ${currentParsed.length} comments.`), 'success');
+  }
+
+  document.getElementById('btn-batch-do-append')?.addEventListener('click', () => executeImport('append'));
+  document.getElementById('btn-batch-do-replace')?.addEventListener('click', () => executeImport('replace'));
+}
+
 if (typeof window !== 'undefined') {
   window.RFAcademicExport = {
     generateAcademicRebuttalLetter,
+    generateRevisionCoverLetter,
+    parseReviewCommentsBatch,
+    renderRebuttalProgressTracker,
     escapeLatexText,
     copyRebuttalRichText
   };
@@ -1272,6 +1681,7 @@ function renderSubmissionDetails(sub) {
       <div class="submission-detail-heading">
         <span class="submission-detail-kicker">${escapeHTML(t('submissionDetailKicker'))}</span>
         <h2>${escapeHTML(journalName)}</h2>
+        ${sub.externalManuscriptId ? `<span class="badge badge-purple" style="font-size:11px; font-weight:600; width:fit-content; margin-top:3px;">ID: ${escapeHTML(sub.externalManuscriptId)}</span>` : ''}
       </div>
       <button class="btn-danger btn-icon submission-delete-button" id="btn-delete-sub" title="${escapeHTML(t('deleteSubmissionTitle'))}">
         <svg class="svg-icon" viewBox="0 0 24 24" aria-hidden="true"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
@@ -1365,6 +1775,10 @@ function renderSubmissionDetails(sub) {
           <div class="form-group">
             <label>${t('targetJournalInput')}</label>
             <input type="text" id="sub-edit-journal" value="${escapeHTML(journalName)}" placeholder="${escapeHTML(t('targetJournalInput'))}">
+          </div>
+          <div class="form-group">
+            <label>${escapeHTML(t('externalManuscriptIdLabel') || '稿件编号 (Manuscript ID)')}</label>
+            <input type="text" id="sub-edit-external-id" value="${escapeHTML(sub.externalManuscriptId || '')}" placeholder="${escapeHTML(t('externalManuscriptIdPlaceholder') || '例如: AFM-2026-08123')}">
           </div>
           <div class="form-group">
             <label>${escapeHTML(t('submissionPortalUrl'))}</label>
@@ -1466,12 +1880,19 @@ function renderSubmissionDetails(sub) {
             </span>
             <span>${escapeHTML(t('peerReviewMatrixSection'))}</span>
           </div>
-          <button class="btn-primary submission-work-button" id="btn-add-review-comment">
-            <svg class="svg-icon" viewBox="0 0 24 24" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-            <span>${escapeHTML(t('addComment'))}</span>
-          </button>
+          <div style="display:flex; align-items:center; gap:8px;">
+            <button type="button" class="btn-secondary submission-work-button" id="btn-batch-import-reviews">
+              <svg class="svg-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 14.899A7 7 0 1 1 15.71 8h1.79a4.5 4.5 0 0 1 2.5 8.242"/><path d="M12 12v9"/><path d="m8 17 4 4 4-4"/></svg>
+              <span>${escapeHTML(t('smartBatchImport') || '智能批量导入')}</span>
+            </button>
+            <button type="button" class="btn-primary submission-work-button" id="btn-add-review-comment">
+              <svg class="svg-icon" viewBox="0 0 24 24" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+              <span>${escapeHTML(t('addComment'))}</span>
+            </button>
+          </div>
         </div>
         <div class="submission-edit-review-help">${escapeHTML(t('reviewEditorHelp'))}</div>
+        <div id="sub-edit-rebuttal-progress-container"></div>
         <div class="submission-edit-review-container" id="sub-edit-review-matrix-container"></div>
       </div>
 
@@ -1693,6 +2114,9 @@ function renderSubmissionDetails(sub) {
     const mdCode = generateAcademicRebuttalLetter(sub, man, 'md');
     const latexCode = generateAcademicRebuttalLetter(sub, man, 'latex');
     const tableCode = generateAcademicRebuttalLetter(sub, man, 'table');
+    const coverHtml = generateRevisionCoverLetter(sub, man, 'html');
+    const coverMd = generateRevisionCoverLetter(sub, man, 'md');
+    const coverLatex = generateRevisionCoverLetter(sub, man, 'latex');
 
     openModal(`
       <div class="modal-header">
@@ -1700,13 +2124,14 @@ function renderSubmissionDetails(sub) {
         <button class="btn-secondary btn-icon" id="btn-close-modal">✕</button>
       </div>
       <div style="font-size:12px; color:var(--text-secondary); margin-bottom:12px;">
-        ${escapeHTML(currentLanguage === 'zh' ? `共检测到 ${savedReviewRows.length} 条审稿意见与回复。支持直接复制 Word 富文本 (保留格式、排版与表格)、学术 Markdown 模版或完整编译版 LaTeX 答复信。` : `Detected ${savedReviewRows.length} comments and responses. Export formatted Word text, academic Markdown, or full LaTeX response letter.`)}
+        ${escapeHTML(currentLanguage === 'zh' ? `共检测到 ${savedReviewRows.length} 条审稿意见与回复。支持直接复制 Word 富文本 (保留格式、排版与表格)、学术 Markdown 模版、编译版 LaTeX 答复信或配套修回投稿信。` : `Detected ${savedReviewRows.length} comments and responses. Export formatted Word text, academic Markdown, LaTeX response letter, or revision cover letter.`)}
       </div>
       <div style="display:flex; gap:8px; margin-bottom:12px; flex-wrap:wrap;">
         <button type="button" class="btn-secondary modal-format-tab" id="modal-tab-word" style="font-size:12px; font-weight:600; padding:5px 12px; border-color:#e11d48; color:#e11d48;">📄 ${escapeHTML(t('exportTabWord') || 'Word / 富文本 (带格式)')}</button>
         <button type="button" class="btn-secondary modal-format-tab" id="modal-tab-md" style="font-size:12px; font-weight:600; padding:5px 12px;">📝 ${escapeHTML(t('exportTabMarkdown') || '学术 Markdown 模版')}</button>
         <button type="button" class="btn-secondary modal-format-tab" id="modal-tab-latex" style="font-size:12px; font-weight:600; padding:5px 12px;">📑 ${escapeHTML(t('exportTabLatex') || 'LaTeX 宏包答复信 (.tex)')}</button>
         <button type="button" class="btn-secondary modal-format-tab" id="modal-tab-table" style="font-size:12px; font-weight:600; padding:5px 12px;">📊 ${escapeHTML(t('exportTabTable') || '意见矩阵汇总表')}</button>
+        <button type="button" class="btn-secondary modal-format-tab" id="modal-tab-cover" style="font-size:12px; font-weight:600; padding:5px 12px;">✉ ${escapeHTML(t('revisionCoverLetterTab') || '修回投稿自述信')}</button>
       </div>
       <div class="form-group" style="margin-bottom:12px;">
         <div id="rebuttal-word-preview-box" style="display:block; max-height:280px; overflow-y:auto; border:1px solid var(--input-border); border-radius:6px; padding:14px; background:#ffffff; color:#111827;"></div>
@@ -1742,11 +2167,13 @@ function renderSubmissionDetails(sub) {
     const tabMd = document.getElementById('modal-tab-md');
     const tabLatex = document.getElementById('modal-tab-latex');
     const tabTable = document.getElementById('modal-tab-table');
+    const tabCover = document.getElementById('modal-tab-cover');
     const tabs = [
       { id: 'word', el: tabWord },
       { id: 'md', el: tabMd },
       { id: 'latex', el: tabLatex },
-      { id: 'table', el: tabTable }
+      { id: 'table', el: tabTable },
+      { id: 'cover', el: tabCover }
     ];
 
     const updatePreview = () => {
@@ -1767,6 +2194,12 @@ function renderSubmissionDetails(sub) {
           window.RFUI.setHTML(wordBox, wordHtml);
         }
         if (previewArea) previewArea.style.display = 'none';
+      } else if (currentFormat === 'cover') {
+        if (wordBox) {
+          wordBox.style.display = 'block';
+          window.RFUI.setHTML(wordBox, coverHtml);
+        }
+        if (previewArea) previewArea.style.display = 'none';
       } else {
         if (wordBox) wordBox.style.display = 'none';
         if (previewArea) {
@@ -1783,15 +2216,19 @@ function renderSubmissionDetails(sub) {
     tabMd?.addEventListener('click', () => { currentFormat = 'md'; updatePreview(); });
     tabLatex?.addEventListener('click', () => { currentFormat = 'latex'; updatePreview(); });
     tabTable?.addEventListener('click', () => { currentFormat = 'table'; updatePreview(); });
+    tabCover?.addEventListener('click', () => { currentFormat = 'cover'; updatePreview(); });
 
     document.getElementById('btn-copy-rebuttal-word')?.addEventListener('click', async () => {
-      await copyRebuttalRichText(wordHtml, mdCode);
+      const activeHtml = currentFormat === 'cover' ? coverHtml : wordHtml;
+      const activeText = currentFormat === 'cover' ? coverMd : mdCode;
+      await copyRebuttalRichText(activeHtml, activeText);
       showGlobalToast(t('copyWordSuccess') || (currentLanguage === 'zh' ? '已复制 Word 富文本至剪贴板！可直接粘贴至 Word / WPS。' : 'Copied rich text to clipboard! Ready to paste into Word.'), 'success');
     });
 
     document.getElementById('btn-copy-rebuttal-code')?.addEventListener('click', () => {
       let codeToCopy = mdCode;
-      if (currentFormat === 'latex') codeToCopy = latexCode;
+      if (currentFormat === 'cover') codeToCopy = coverMd;
+      else if (currentFormat === 'latex') codeToCopy = latexCode;
       else if (currentFormat === 'word') codeToCopy = wordHtml;
       else if (currentFormat === 'table') codeToCopy = tableCode;
 
@@ -1816,18 +2253,24 @@ function renderSubmissionDetails(sub) {
     };
 
     document.getElementById('btn-download-tex')?.addEventListener('click', () => {
-      triggerDownload(latexCode, `rebuttal_letter_${sub.id}.tex`, 'text/plain;charset=utf-8');
+      const content = currentFormat === 'cover' ? coverLatex : latexCode;
+      const name = currentFormat === 'cover' ? `cover_letter_${sub.id}.tex` : `rebuttal_letter_${sub.id}.tex`;
+      triggerDownload(content, name, 'text/plain;charset=utf-8');
       showGlobalToast(t('latexDownloaded'), 'success');
     });
 
     document.getElementById('btn-download-md')?.addEventListener('click', () => {
-      triggerDownload(mdCode, `rebuttal_letter_${sub.id}.md`, 'text/markdown;charset=utf-8');
-      showGlobalToast(currentLanguage === 'zh' ? '已下载学术 Markdown 答复信模版' : 'Downloaded Markdown response letter', 'success');
+      const content = currentFormat === 'cover' ? coverMd : mdCode;
+      const name = currentFormat === 'cover' ? `cover_letter_${sub.id}.md` : `rebuttal_letter_${sub.id}.md`;
+      triggerDownload(content, name, 'text/markdown;charset=utf-8');
+      showGlobalToast(currentLanguage === 'zh' ? '已下载学术 Markdown 模版' : 'Downloaded Markdown document', 'success');
     });
 
     document.getElementById('btn-download-doc')?.addEventListener('click', () => {
-      triggerDownload(wordHtml, `rebuttal_letter_${sub.id}.doc`, 'application/msword;charset=utf-8');
-      showGlobalToast(currentLanguage === 'zh' ? '已下载 Word 兼容答复信文件' : 'Downloaded Word response letter', 'success');
+      const content = currentFormat === 'cover' ? coverHtml : wordHtml;
+      const name = currentFormat === 'cover' ? `cover_letter_${sub.id}.doc` : `rebuttal_letter_${sub.id}.doc`;
+      triggerDownload(content, name, 'application/msword;charset=utf-8');
+      showGlobalToast(currentLanguage === 'zh' ? '已下载 Word 兼容文件' : 'Downloaded Word document', 'success');
     });
   });
 }
@@ -2170,6 +2613,9 @@ if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
     ...(module.exports || {}),
     generateAcademicRebuttalLetter,
+    generateRevisionCoverLetter,
+    parseReviewCommentsBatch,
+    renderRebuttalProgressTracker,
     escapeLatexText,
     copyRebuttalRichText,
     getSubmissionReviewMatrixRows

@@ -252,11 +252,14 @@
     ]);
     const status = String(values.status || 'submitted').trim();
 
+    const externalManuscriptId = String(values.externalManuscriptId || '').trim();
+
     return {
       ok: true,
       title: identity.title,
       journal: identity.journal,
       journalUrl: identity.journalUrl,
+      externalManuscriptId: externalManuscriptId || null,
       status: allowedStatuses.has(status) ? status : 'submitted',
       submissionDate: String(values.submissionDate || '').trim(),
       firstDecisionDate: String(values.firstDecisionDate || '').trim(),
@@ -285,6 +288,7 @@
       },
       detachedSubmissionTitle: update.title,
       submissionPatch: {
+        externalManuscriptId: update.externalManuscriptId,
         targetJournal: update.journal || null,
         journalUrl: update.journalUrl || null,
         submissionDate: toNoonIsoDate(update.submissionDate),

@@ -304,3 +304,122 @@ test('generateAcademicRebuttalLetter outputs Word-compatible HTML with Times New
   assert.ok(wordHtml.includes("XRD profiles added to Figure S2."));
   assert.ok(wordHtml.includes("Supplementary Info Section S1"));
 });
+
+test('parseReviewCommentsBatch extracts reviewers and individual points accurately', () => {
+  const sandbox = setupTestSandbox();
+  const parseBatch = sandbox.RFAcademicExport.parseReviewCommentsBatch;
+
+  assert.equal(parseBatch('').length, 0);
+  assert.equal(parseBatch('   ').length, 0);
+
+  const rawLetter = `
+Reviewer #1:
+1. The authors should clarify the experimental setup in Section 2.
+2. In Figure 3b, what is the meaning of the dashed curve?
+
+Reviewer #2 (Major Comments):
+Point 1: The novelty compared to Ref. [14] needs to be clearly explained.
+Point 2: The statistical significance should be verified using ANOVA test.
+
+Editor:
+- Please ensure data availability statement complies with journal policy.
+`;
+
+  const parsed = parseBatch(rawLetter);
+  assert.equal(parsed.length, 5);
+
+  assert.equal(parsed[0].reviewer, 'Reviewer #1');
+  assert.ok(parsed[0].comment.includes('clarify the experimental setup'));
+
+  assert.equal(parsed[1].reviewer, 'Reviewer #1');
+  assert.ok(parsed[1].comment.includes('Figure 3b'));
+
+  assert.equal(parsed[2].reviewer, 'Reviewer #2');
+  assert.ok(parsed[2].comment.includes('novelty compared to Ref. [14]'));
+
+  assert.equal(parsed[3].reviewer, 'Reviewer #2');
+  assert.ok(parsed[3].comment.includes('statistical significance'));
+
+  assert.equal(parsed[4].reviewer, 'Editor');
+  assert.ok(parsed[4].comment.includes('data availability statement'));
+});
+
+test('generateRevisionCoverLetter generates valid LaTeX, Markdown, and Word-compatible HTML', () => {
+  const sandbox = setupTestSandbox();
+  const genCover = sandbox.RFAcademicExport.generateRevisionCoverLetter;
+
+  const mockSub = {
+    id: 'sub_cover_01',
+    targetJournal: 'Nature Nanotechnology',
+    externalManuscriptId: 'NNANO-2026-08123',
+    reviewMatrix: [
+      { reviewer: 'Reviewer #1', comment: 'Point 1', response: 'Done 1', changes: 'p. 2' },
+      { reviewer: 'Reviewer #2', comment: 'Point 2', response: 'Done 2', changes: 'p. 5' }
+    ]
+  };
+
+  const mockMan = {
+    id: 'man_cover_01',
+    title: 'Room-Temperature Superconductivity in Chiral Nanoribbons',
+    authors: 'C. Chen, E. Fermi'
+  };
+
+  // Test LaTeX format
+  const tex = genCover(mockSub, mockMan, 'latex');
+  assert.ok(tex.includes('\\documentclass[11pt]{article}'));
+  assert.ok(tex.includes('Nature Nanotechnology'));
+  assert.ok(tex.includes('NNANO-2026-08123'));
+  assert.ok(tex.includes('Room-Temperature Superconductivity in Chiral Nanoribbons'));
+  assert.ok(tex.includes('\\begin{itemize}'));
+
+  // Test Markdown format
+  const md = genCover(mockSub, mockMan, 'md');
+  assert.ok(md.includes('# Cover Letter for Revised Manuscript'));
+  assert.ok(md.includes('Nature Nanotechnology'));
+  assert.ok(md.includes('NNANO-2026-08123'));
+  assert.ok(md.includes('Dear Editor,'));
+
+  // Test Word HTML format
+  const html = genCover(mockSub, mockMan, 'html');
+  assert.ok(html.includes("font-family:'Times New Roman'"));
+  assert.ok(html.includes("Subject: Submission of Revised Manuscript (Manuscript ID: NNANO-2026-08123)"));
+  assert.ok(html.includes("Room-Temperature Superconductivity in Chiral Nanoribbons"));
+});
+
+test('renderRebuttalProgressTracker computes metrics and progress percentages correctly', () => {
+  const sandbox = setupTestSandbox();
+  const renderTracker = sandbox.RFAcademicExport.renderRebuttalProgressTracker;
+
+  assert.equal(renderTracker({ reviewMatrix: [] }), '');
+
+  const sub = {
+    reviewMatrix: [
+      { reviewer: 'Reviewer #1', comment: 'C1', response: 'R1', changes: 'p. 1' },
+      { reviewer: 'Reviewer #1', comment: 'C2', response: 'R2', changes: 'p. 2' },
+      { reviewer: 'Reviewer #2', comment: 'C3', response: 'R3', changes: '' },
+      { reviewer: 'Reviewer #2', comment: 'C4', response: '', changes: '' }
+    ]
+  };
+
+  const html = renderTracker(sub);
+  assert.ok(html.includes('75%')); // 3 out of 4 addressed = 75%
+  assert.ok(html.includes('Reviewer #1:'));
+  assert.ok(html.includes('2/2'));
+  assert.ok(html.includes('Reviewer #2:'));
+  assert.ok(html.includes('1/2'));
+  assert.ok(html.includes('<strong>4</strong>')); // total comments
+});
+
+test('buildSubmissionEditSyncPlan preserves externalManuscriptId', () => {
+  const uiUtils = require(path.join(root, 'chrome/content/scripts/ui-utils.js'));
+  const plan = uiUtils.buildSubmissionEditSyncPlan({
+    title: 'Quantum Hall Effects',
+    journal: 'Physical Review B',
+    externalManuscriptId: 'PRB-2026-9901',
+    status: 'revision'
+  });
+
+  assert.equal(plan.ok, true);
+  assert.equal(plan.submissionPatch.externalManuscriptId, 'PRB-2026-9901');
+  assert.equal(plan.submissionPatch.targetJournal, 'Physical Review B');
+});
