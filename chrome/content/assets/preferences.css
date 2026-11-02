@@ -12,7 +12,7 @@
   max-width: 780px;
   min-width: 0;
   margin-inline: auto;
-  padding: 10px 14px 28px;
+  padding: 12px 16px 28px;
   color: var(--flow-pref-text);
   font-family: system-ui, "Microsoft YaHei UI", "Microsoft YaHei", sans-serif;
   font-size: 14px;
@@ -58,7 +58,7 @@
    - Level 2: Control icon at 16px, label text at 40px (16px + 16px icon + 8px gap)
    - Level 3: Subordinate description & controls indent at 24px (flush at 40px line) */
 .rf-setting-group {
-  margin: 0 0 12px;
+  margin: 0 0 10px;
   overflow: hidden;
   border: 1px solid var(--flow-pref-border);
   border-radius: 9px;
@@ -90,7 +90,7 @@
   transition: transform .15s ease;
 }
 .rf-setting-group[open] > .rf-setting-group-title::after { transform: rotate(90deg); }
-.rf-setting-group-body { padding: 10px 16px 14px; border-top: 1px solid var(--flow-pref-divider); }
+.rf-setting-group-body { padding: 14px 16px; border-top: 1px solid var(--flow-pref-divider); }
 .rf-setting-subgroup {
   margin: 0;
   padding: 10px 0;
@@ -100,6 +100,15 @@
 .rf-setting-subgroup:last-child { padding-bottom: 0; }
 .rf-setting-subgroup-title { margin: 0 0 6px; font-size: 14px; font-weight: 600; line-height: 1.6; }
 .rf-card-desc { margin: 0 0 10px; font-size: 13px; line-height: 1.6; color: var(--flow-pref-muted); }
+
+/* Level 3 subordinate indents for subgroups */
+.rf-setting-subgroup > .rf-card-desc,
+.rf-setting-subgroup > .rf-storage-path-box,
+.rf-setting-subgroup > .rf-sub-action-group,
+.rf-setting-subgroup > .rf-control-row,
+.rf-setting-subgroup > .rf-import-status-text {
+  margin-inline-start: 24px;
+}
 
 /* Preference rows */
 .rf-setting-item,
@@ -174,7 +183,7 @@
   align-items: center;
   gap: 6px;
   min-width: 0;
-  padding: 10px 14px;
+  padding: 12px 16px;
   border: 1px solid var(--flow-pref-border);
   border-radius: 8px;
   background: var(--flow-pref-surface);
@@ -187,7 +196,7 @@
 .rf-import-status-text:empty { display: none; }
 .rf-version-info {
   margin-top: 14px;
-  padding: 12px 16px;
+  padding: 16px;
   border: 1px solid var(--flow-pref-border);
   border-radius: 9px;
   background: var(--flow-pref-surface);

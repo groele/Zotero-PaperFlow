@@ -1306,13 +1306,19 @@ function renderSubmissionDetails(sub) {
 
   const btnSyncSubZotero = document.getElementById('btn-sync-submission-to-zotero');
   if (btnSyncSubZotero) {
-    btnSyncSubZotero.addEventListener('click', () => {
+    btnSyncSubZotero.addEventListener('click', async () => {
       if (typeof ZoteroBridge !== 'undefined' && man?.zoteroItemKey) {
         btnSyncSubZotero.disabled = true;
         try {
-          ZoteroBridge.syncNote(man.zoteroItemKey);
-          showGlobalToast(currentLanguage === 'zh' ? '已触发同步审稿记录与修回矩阵至 Zotero 笔记' : 'Triggered sync of review & rebuttal matrix to Zotero note', 'success');
-        } catch (_) {}
+          const ok = await ZoteroBridge.syncNote(man.zoteroItemKey);
+          if (ok) {
+            showGlobalToast(currentLanguage === 'zh' ? '已成功同步审稿记录与修回矩阵至 Zotero 笔记' : 'Successfully synced review & rebuttal matrix to Zotero note', 'success');
+          } else {
+            showGlobalToast(currentLanguage === 'zh' ? '同步至 Zotero 笔记失败：条目可能为只读或在回收站' : 'Failed to sync to Zotero note: item may be read-only or in trash', 'error');
+          }
+        } catch (e) {
+          showGlobalToast(String(e.message || e), 'error');
+        }
         setTimeout(() => { btnSyncSubZotero.disabled = false; }, 1200);
       }
     });

@@ -242,10 +242,15 @@ const ZoteroBridge = {
     try {
       const zotero = window.Zotero || window.parent?.Zotero;
       if (zotero?.Items?.getByLibraryAndKey) {
-        const item = zotero.Items.getByLibraryAndKey(zotero.Libraries.userLibraryID, itemKey);
-        if (item && zotero.ResearchFlow?.syncManuscriptToChildNote) {
-          const note = await zotero.ResearchFlow.syncManuscriptToChildNote(item);
-          return Boolean(note);
+        const item = zotero.Items.getByLibraryAndKey(zotero.Libraries?.userLibraryID || 1, itemKey);
+        if (item) {
+          if (item.deleted || (typeof item.isEditable === 'function' && !item.isEditable())) {
+            return false;
+          }
+          if (zotero.ResearchFlow?.syncManuscriptToChildNote) {
+            const note = await zotero.ResearchFlow.syncManuscriptToChildNote(item);
+            return Boolean(note);
+          }
         }
       }
     } catch (_) {}
@@ -339,6 +344,9 @@ const ZoteroBridge = {
       if (zotero?.ResearchFlow?.syncStatusTagToItem && zotero.Items?.getByLibraryAndKey) {
         const item = zotero.Items.getByLibraryAndKey(zotero.Libraries?.userLibraryID || 1, itemKey);
         if (item) {
+          if (item.deleted || (typeof item.isEditable === 'function' && !item.isEditable())) {
+            return false;
+          }
           return await zotero.ResearchFlow.syncStatusTagToItem(item, status);
         }
       }
@@ -354,6 +362,9 @@ const ZoteroBridge = {
       if (zotero?.ResearchFlow?.addItemToPipelineCollection && zotero.Items?.getByLibraryAndKey) {
         const item = zotero.Items.getByLibraryAndKey(zotero.Libraries?.userLibraryID || 1, itemKey);
         if (item) {
+          if (item.deleted || (typeof item.isEditable === 'function' && !item.isEditable())) {
+            return false;
+          }
           const col = await zotero.ResearchFlow.addItemToPipelineCollection(item);
           return Boolean(col);
         }

@@ -13,7 +13,7 @@
 .settings-primary-column, .settings-secondary-column { min-width: 0; }
 .settings-secondary-column { display: grid; gap: 20px; }
 #view-settings .settings-card {
-  padding: 20px 22px;
+  padding: 16px;
   background: hsl(var(--card-bg));
   border: 1px solid hsl(var(--card-border));
   border-radius: var(--workspace-radius);
@@ -37,7 +37,7 @@
   margin-bottom: 20px;
 }
 .settings-panel-head > div:last-child, .settings-assist-title-copy { min-width: 0; }
-#view-settings h3 { font: 600 15px/1.5 var(--font-body); color: hsl(var(--text-primary)); }
+#view-settings h3 { font: 600 14px/1.5 var(--font-body); color: hsl(var(--text-primary)); }
 #view-settings p { font-size: 13px; line-height: 1.6; }
 #view-settings .text-muted { color: hsl(var(--text-muted)); }
 .settings-panel-head p, .settings-assist-heading p { margin-top: 4px; }
@@ -61,7 +61,7 @@
   gap: 16px;
   margin-bottom: 20px;
   min-height: 84px;
-  padding: 18px 22px;
+  padding: 16px;
   border: 1px solid hsl(var(--card-border));
   border-radius: var(--workspace-radius);
   background: hsl(var(--card-bg));
@@ -75,7 +75,7 @@
 #view-settings label:not(.settings-switch) {
   display: block;
   margin-bottom: 6px;
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 600;
   color: hsl(var(--text-primary));
 }
@@ -83,8 +83,8 @@
   width: 100%;
   min-width: 0;
   min-height: 36px;
-  padding: 7px 11px;
-  font: 400 13px/1.5 var(--font-body);
+  padding: 6px 10px;
+  font: 400 14px/1.5 var(--font-body);
   color: hsl(var(--text-primary));
   background: hsl(var(--card-bg));
   border: 1px solid hsl(var(--card-border));

@@ -1,0 +1,22 @@
+{
+  "name": "zotero-paperflow",
+  "version": "13.1.0",
+  "description": "Manage manuscripts, submission rounds, and review responses. Part of Zotero Flow.",
+  "scripts": {
+    "test": "node --test tests/*.test.js && python scripts/test-release-package.py",
+    "test:unit": "node --test tests/*.test.js",
+    "test:package": "python scripts/test-release-package.py",
+    "test:tags": "python scripts/release-tags.py --self-test",
+    "build": "python tools/build-xpi.py --update-feeds"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/groele/Zotero-PaperFlow.git"
+  },
+  "author": "groele",
+  "license": "AGPL-3.0-or-later",
+  "bugs": {
+    "url": "https://github.com/groele/Zotero-PaperFlow/issues"
+  },
+  "homepage": "https://github.com/groele/Zotero-PaperFlow"
+}
