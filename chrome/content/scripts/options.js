@@ -39,7 +39,7 @@ let activeSharePreviewUrl = null;
 let activeSharePreviewCleanup = null;
 let sharePreferenceWrites = Promise.resolve();
 
-const RF_OPTIONS_RENDER_VERSION = '13.0.3';
+const RF_OPTIONS_RENDER_VERSION = '13.0.4';
 const PRE_IMPORT_BACKUP_KEY = 'researchflow_pre_import_backup';
 const SHARE_PREFS_STORAGE_KEY = 'researchflow_share_visibility';
 const MAX_IMPORT_BYTES = 25 * 1024 * 1024;
@@ -467,6 +467,7 @@ function setupZoteroIntegrations() {
 
 if (typeof window !== 'undefined') {
   if (typeof openManuscriptModal !== 'undefined') window.openManuscriptModal = openManuscriptModal;
+  if (typeof deleteManuscript !== 'undefined') window.deleteManuscript = deleteManuscript;
   if (typeof renderKanban !== 'undefined') window.renderKanban = renderKanban;
   if (typeof renderDashboard !== 'undefined') window.renderDashboard = renderDashboard;
   if (typeof renderSubmissions !== 'undefined') window.renderSubmissions = renderSubmissions;

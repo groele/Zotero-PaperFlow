@@ -98,6 +98,7 @@ function renderKanban() {
 
     const targetJournalLabel = currentLanguage === 'zh' ? '目标期刊' : 'Target';
     const editLabel = currentLanguage === 'zh' ? '编辑' : 'Edit';
+    const deleteLabel = currentLanguage === 'zh' ? '删除' : 'Delete';
 
     window.RFUI.setHTML(card, `
       <div class="kanban-card-title-row">
@@ -128,6 +129,7 @@ function renderKanban() {
           ${pendingLinkBtnHtml}
           ${linkedSubmission ? `<button type="button" class="btn-secondary btn-open-linked-submission" data-sub-id="${escapeHTML(linkedSubmission.id)}" aria-label="${escapeHTML(t('openSubmissionDetails'))}: ${escapeHTML(m.title)}">${escapeHTML(t('openSubmissionDetails'))}</button>` : ''}
           <button type="button" class="btn-secondary btn-edit-manuscript" id="btn-edit-man-${m.id}">${editLabel}</button>
+          <button type="button" class="btn-secondary btn-delete-manuscript" id="btn-delete-man-${m.id}" title="${escapeHTML(deleteLabel)}">${deleteLabel}</button>
         </div>
       </div>
     `);
@@ -174,6 +176,12 @@ function renderKanban() {
     // Bind edit button
     document.getElementById(`btn-edit-man-${m.id}`).addEventListener('click', () => {
       openManuscriptModal(m);
+    });
+
+    // Bind delete button
+    document.getElementById(`btn-delete-man-${m.id}`)?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      deleteManuscript(m.id);
     });
 
     // Pending link button
@@ -379,6 +387,85 @@ function getSubmissionStatusLabel(status) {
   return labels[canonicalStatus] || String(canonicalStatus || t('stateSubmitted')).replace(/_/g, ' ');
 }
 
+async function deleteManuscript(manuscriptId) {
+  if (!manuscriptId) return false;
+  const man = (db.manuscripts || []).find(item => item.id === manuscriptId);
+  if (!man) return false;
+
+  const title = man.title || (currentLanguage === 'zh' ? '该稿件' : 'this manuscript');
+  const linkedSubmissions = (db.submissions || []).filter(sub => sub.manuscriptId === manuscriptId);
+
+  let confirmMessage = (typeof tf === 'function' ? tf('confirmDeleteManuscript') : null) ||
+    t('confirmDeleteManuscript') ||
+    (currentLanguage === 'zh'
+      ? `确定要删除稿件《${title}》吗？`
+      : `Are you sure you want to delete manuscript "${title}"?`);
+
+  if (linkedSubmissions.length > 0) {
+    const subNotice = currentLanguage === 'zh'
+      ? `\n\n注意：此操作将同步删除关联的 ${linkedSubmissions.length} 个投稿跟踪记录。`
+      : `\n\nNote: This will also remove ${linkedSubmissions.length} associated submission tracking record(s).`;
+    confirmMessage += subNotice;
+  }
+
+  if (typeof confirm === 'function' && !confirm(confirmMessage)) return false;
+
+  try {
+    // 1. 级联记录关联 submissions 的删除墓碑并从内存数组中剔除
+    for (const sub of linkedSubmissions) {
+      if (typeof window.storage?.recordEntityDeletion === 'function') {
+        window.storage.recordEntityDeletion(db, 'submissions', sub.id);
+      } else {
+        db.submissions = (db.submissions || []).filter(s => s.id !== sub.id);
+      }
+      if (typeof selectedSubmissionId !== 'undefined' && selectedSubmissionId === sub.id) {
+        selectedSubmissionId = null;
+      }
+    }
+
+    // 2. 记录 manuscript 的删除墓碑并从内存数组中剔除
+    if (typeof window.storage?.recordEntityDeletion === 'function') {
+      window.storage.recordEntityDeletion(db, 'manuscripts', manuscriptId);
+    } else {
+      db.manuscripts = (db.manuscripts || []).filter(m => m.id !== manuscriptId);
+    }
+
+    // 3. 持久化数据
+    if (typeof window.storage?.saveAll === 'function') {
+      await window.storage.saveAll(db);
+    }
+
+    // 4. 刷新各个视图
+    if (typeof renderKanban === 'function') renderKanban();
+    if (typeof renderDashboard === 'function') renderDashboard();
+    if (typeof renderSubmissions === 'function') renderSubmissions();
+
+    // 5. 若投稿详情面板展示的是已被级联删除的投稿，重置详情面板为 empty-state
+    const subDetailPanel = document.getElementById('submission-detail-panel');
+    if (subDetailPanel && (!selectedSubmissionId || linkedSubmissions.some(s => s.id === selectedSubmissionId))) {
+      window.RFUI?.setHTML?.(subDetailPanel, `
+        <div class="empty-state">
+          <svg class="svg-icon" viewBox="0 0 24 24"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+          <h3>${escapeHTML(t('submissionEmptyDetail') || (currentLanguage === 'zh' ? '请选择一个投稿记录查看详情' : 'Select a submission to view details'))}</h3>
+        </div>
+      `);
+    }
+
+    // 6. 弹出全局 Toast 提示
+    const toastMsg = t('manuscriptDeletedToast') || (currentLanguage === 'zh' ? '稿件已成功删除。' : 'Manuscript deleted successfully.');
+    if (typeof showGlobalToast === 'function') {
+      showGlobalToast(toastMsg, 'success');
+    }
+    return true;
+  } catch (error) {
+    console.error('Delete manuscript failed:', error);
+    if (typeof showGlobalToast === 'function') {
+      showGlobalToast(error.message || (currentLanguage === 'zh' ? '删除稿件失败' : 'Failed to delete manuscript'), 'error');
+    }
+    return false;
+  }
+}
+
 // Add/Edit Manuscript Modal
 document.getElementById('btn-add-manuscript')?.addEventListener('click', () => {
   openManuscriptModal(null);
@@ -541,13 +628,22 @@ function openManuscriptModal(man = null, prefill = null) {
       <textarea id="man-abstract" placeholder="${escapeHTML(t('abstractPlaceholder'))}">${escapeHTML(initialAbstract || '')}</textarea>
     </div>
 
-    <div class="modal-footer">
-      <button type="button" class="btn-secondary" id="btn-cancel-man">${escapeHTML(t('cancel') || '取消')}</button>
-      <button type="button" class="btn-primary" id="btn-submit-man" style="min-width:120px;">${escapeHTML(isEdit ? t('saveChanges') : t('createManuscript'))}</button>
+    <div class="modal-footer" style="display:flex; justify-content:space-between; align-items:center;">
+      <div>
+        ${isEdit ? `<button type="button" class="btn-danger" id="btn-modal-delete-man" style="cursor:pointer; padding:6px 14px;">${escapeHTML(t('deleteManuscript') || (currentLanguage === 'zh' ? '删除稿件' : 'Delete Manuscript'))}</button>` : ''}
+      </div>
+      <div style="display:flex; gap:8px;">
+        <button type="button" class="btn-secondary" id="btn-cancel-man">${escapeHTML(t('cancel') || '取消')}</button>
+        <button type="button" class="btn-primary" id="btn-submit-man" style="min-width:120px;">${escapeHTML(isEdit ? t('saveChanges') : t('createManuscript'))}</button>
+      </div>
     </div>
   `);
 
   document.getElementById('btn-cancel-man')?.addEventListener('click', closeModal);
+  document.getElementById('btn-modal-delete-man')?.addEventListener('click', () => {
+    closeModal();
+    deleteManuscript(man.id);
+  });
 
   if (isZoteroEnv) {
     const applyItemToForm = (item) => {
@@ -1107,5 +1203,13 @@ function openManuscriptModal(man = null, prefill = null) {
   });
 }
 
-// --- VIEW 5: SUBMISSIONS & REBUTTAL MATRIX ---
+if (typeof window !== 'undefined') {
+  window.deleteManuscript = deleteManuscript;
+}
+if (typeof module !== 'undefined' && module.exports) {
+  module.exports = {
+    ...(module.exports || {}),
+    deleteManuscript
+  };
+}
 
