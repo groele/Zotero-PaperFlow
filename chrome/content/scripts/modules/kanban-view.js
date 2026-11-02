@@ -106,6 +106,7 @@ function renderKanban() {
       </div>
       <div class="kanban-card-meta-row">
         <span class="kanban-status-pill">${escapeHTML(getManuscriptStatusLabel(m.status))}</span>
+        ${linkedSubmission?.externalManuscriptId ? `<span class="badge badge-purple" style="font-size:10px; padding:1px 5px; border-radius:3px;" title="Manuscript ID: ${escapeHTML(linkedSubmission.externalManuscriptId)}">ID: ${escapeHTML(linkedSubmission.externalManuscriptId)}</span>` : ''}
         <p>${targetJournalLabel}: <strong>${escapeHTML(currentJournal)}</strong></p>
       </div>
       ${zoteroRowHtml}

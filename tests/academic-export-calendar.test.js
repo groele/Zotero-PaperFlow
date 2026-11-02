@@ -342,6 +342,32 @@ Editor:
 
   assert.equal(parsed[4].reviewer, 'Editor');
   assert.ok(parsed[4].comment.includes('data availability statement'));
+
+  // Test Chinese reviewer headers and punctuation enumeration
+  const rawCn = `
+审稿专家 1:
+1、请进一步补充缺陷密度的测量方法。
+2、图 3b 中的误差线未标明样本量 N。
+
+审稿人二:
+（1）与文献 [12] 相比，该机制的新颖性需要深入论证。
+（2）建议补充表 S2。
+
+主编意见:
+1. 请提供数据可用性声明。
+`;
+  const parsedCn = parseBatch(rawCn);
+  assert.equal(parsedCn.length, 5);
+  assert.equal(parsedCn[0].reviewer, 'Reviewer #1');
+  assert.ok(parsedCn[0].comment.includes('缺陷密度的测量方法'));
+  assert.equal(parsedCn[1].reviewer, 'Reviewer #1');
+  assert.ok(parsedCn[1].comment.includes('样本量 N'));
+  assert.equal(parsedCn[2].reviewer, 'Reviewer #2');
+  assert.ok(parsedCn[2].comment.includes('机制的新颖性'));
+  assert.equal(parsedCn[3].reviewer, 'Reviewer #2');
+  assert.ok(parsedCn[3].comment.includes('补充表 S2'));
+  assert.equal(parsedCn[4].reviewer, 'Editor');
+  assert.ok(parsedCn[4].comment.includes('数据可用性声明'));
 });
 
 test('generateRevisionCoverLetter generates valid LaTeX, Markdown, and Word-compatible HTML', () => {
@@ -394,20 +420,21 @@ test('renderRebuttalProgressTracker computes metrics and progress percentages co
 
   const sub = {
     reviewMatrix: [
-      { reviewer: 'Reviewer #1', comment: 'C1', response: 'R1', changes: 'p. 1' },
-      { reviewer: 'Reviewer #1', comment: 'C2', response: 'R2', changes: 'p. 2' },
-      { reviewer: 'Reviewer #2', comment: 'C3', response: 'R3', changes: '' },
-      { reviewer: 'Reviewer #2', comment: 'C4', response: '', changes: '' }
+      { reviewer: 'Reviewer #1', comment: 'C1', response: 'R1', changes: 'p. 1', status: 'addressed' },
+      { reviewer: 'Reviewer #1', comment: 'C2', response: 'R2', changes: 'p. 2', status: 'addressed' },
+      { reviewer: 'Reviewer #2', comment: 'C3', response: 'R3', changes: '', status: 'in_progress' },
+      { reviewer: 'Reviewer #2', comment: 'C4', response: '', changes: '', status: 'pending' }
     ]
   };
 
   const html = renderTracker(sub);
-  assert.ok(html.includes('75%')); // 3 out of 4 addressed = 75%
+  assert.ok(html.includes('50%')); // 2 out of 4 addressed = 50%
   assert.ok(html.includes('Reviewer #1:'));
   assert.ok(html.includes('2/2'));
   assert.ok(html.includes('Reviewer #2:'));
-  assert.ok(html.includes('1/2'));
+  assert.ok(html.includes('0/2'));
   assert.ok(html.includes('<strong>4</strong>')); // total comments
+  assert.ok(html.includes('rebuttalInProgress') || html.includes('处理中') || html.includes('In Progress'));
 });
 
 test('buildSubmissionEditSyncPlan preserves externalManuscriptId', () => {

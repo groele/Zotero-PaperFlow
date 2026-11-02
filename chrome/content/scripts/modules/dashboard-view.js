@@ -285,6 +285,7 @@ function renderDashboard() {
           <div class="project-heading-row">
             <span class="submission-index">${displayIndex}</span>
             <div class="journal" title="${escapeHTML(journalName)}">${escapeHTML(journalName)}</div>
+            ${sub.externalManuscriptId ? `<span class="badge badge-purple" style="font-size:10px; padding:1px 6px; border-radius:3px;" title="Manuscript ID: ${escapeHTML(sub.externalManuscriptId)}">ID: ${escapeHTML(sub.externalManuscriptId)}</span>` : ''}
             <span class="pipeline-compact-status" style="--state-color:${a.stateColor}">${escapeHTML(a.stateLabel)}</span>
           </div>
           <h3 class="project-title" title="${escapeHTML(manTitle)}">${escapeHTML(manTitle)}</h3>

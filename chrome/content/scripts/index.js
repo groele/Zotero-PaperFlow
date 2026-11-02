@@ -1491,6 +1491,9 @@
         let noteHtml = `<h1>🚀 [Zotero PaperFlow] 论文稿件与审稿跟踪快报</h1>`;
         noteHtml += `<p><strong>稿件标题：</strong>${escapeHtml(targetMan.title)}</p>`;
         noteHtml += `<p><strong>目标期刊：</strong>${escapeHtml(targetMan.targetJournal || targetMan.targetJournals?.[0] || '待定')} | <strong>当前状态：</strong><span style="color:#e11d48; font-weight:700;">${escapeHtml(statusText)}</span></p>`;
+        if (sub?.externalManuscriptId) {
+          noteHtml += `<p><strong>期刊稿号 (Manuscript ID)：</strong><code>${escapeHtml(sub.externalManuscriptId)}</code></p>`;
+        }
         if (targetMan.citekey || meta.citekey) {
           noteHtml += `<p><strong>Citation Key:</strong> <code>[@${escapeHtml(targetMan.citekey || meta.citekey)}]</code></p>`;
         }

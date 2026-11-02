@@ -110,14 +110,20 @@ function collectSubmissionChecklistKeysFromEditor() {
 }
 
 function collectSubmissionReviewMatrixFromEditor() {
-  return Array.from(document.querySelectorAll('#sub-edit-review-matrix-container .submission-edit-review-row')).map((row, index) => ({
-    id: row.dataset.reviewId || `rev_${Date.now()}_${index}`,
-    reviewer: row.querySelector('.sub-edit-review-reviewer')?.value?.trim() || '',
-    comment: row.querySelector('.sub-edit-review-comment')?.value || '',
-    response: row.querySelector('.sub-edit-review-response')?.value || '',
-    changes: row.querySelector('.sub-edit-review-changes')?.value?.trim() || '',
-    recordId: row.dataset.recordId || ''
-  }));
+  return Array.from(document.querySelectorAll('#sub-edit-review-matrix-container .submission-edit-review-row')).map((row, index) => {
+    const response = row.querySelector('.sub-edit-review-response')?.value || '';
+    const statusSelect = row.querySelector('.sub-edit-review-status');
+    const status = statusSelect ? statusSelect.value : (response.trim() ? 'addressed' : 'pending');
+    return {
+      id: row.dataset.reviewId || `rev_${Date.now()}_${index}`,
+      reviewer: row.querySelector('.sub-edit-review-reviewer')?.value?.trim() || '',
+      comment: row.querySelector('.sub-edit-review-comment')?.value || '',
+      response,
+      changes: row.querySelector('.sub-edit-review-changes')?.value?.trim() || '',
+      status,
+      recordId: row.dataset.recordId || ''
+    };
+  });
 }
 
 function createSubmissionReviewEditorRow(row = {}, index = 0) {
@@ -128,13 +134,20 @@ function createSubmissionReviewEditorRow(row = {}, index = 0) {
   rowDiv.dataset.recordId = row.recordId || '';
   const reviewerVal = escapeHTML(row.reviewer || '');
   const changesVal = escapeHTML(row.changes || '');
+  const statusVal = row.status || (row.response && row.response.trim() ? 'addressed' : 'pending');
   window.RFUI.setHTML(rowDiv, `
     <div class="submission-edit-review-field">
       <div class="submission-edit-review-label-row">
         <div class="submission-edit-review-label">${escapeHTML(tf('reviewerCommentLabel', { count: index + 1 }))}</div>
-        <div style="display:flex; align-items:center; gap:6px;">
+        <div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
           <span style="font-size:11px; color:var(--text-secondary);">${escapeHTML(t('reviewerFieldLabel') || '审稿人')}:</span>
-          <input type="text" class="sub-edit-review-reviewer" value="${reviewerVal}" placeholder="Reviewer #1..." style="font-size:11px; padding:2px 8px; width:110px; border-radius:4px; border:1px solid var(--input-border); background:var(--input-bg); color:hsl(var(--text-primary));">
+          <input type="text" class="sub-edit-review-reviewer" value="${reviewerVal}" placeholder="Reviewer #1..." style="font-size:11px; padding:2px 8px; width:100px; border-radius:4px; border:1px solid var(--input-border); background:var(--input-bg); color:hsl(var(--text-primary));">
+          <select class="sub-edit-review-status" aria-label="Status" style="font-size:11px; padding:2px 6px; border-radius:4px; border:1px solid var(--input-border); background:var(--input-bg); color:hsl(var(--text-primary));">
+            <option value="addressed" ${statusVal === 'addressed' ? 'selected' : ''}>${escapeHTML(t('statusAddressed') || '已解决')}</option>
+            <option value="in_progress" ${statusVal === 'in_progress' ? 'selected' : ''}>${escapeHTML(t('statusInProgress') || '处理中')}</option>
+            <option value="pending" ${statusVal === 'pending' ? 'selected' : ''}>${escapeHTML(t('statusPending') || '待处理')}</option>
+            <option value="clarified" ${statusVal === 'clarified' ? 'selected' : ''}>${escapeHTML(t('statusClarified') || '辩明 (无改动)')}</option>
+          </select>
         </div>
       </div>
       <textarea class="sub-edit-review-comment" placeholder="${escapeHTML(t('reviewerCommentPlaceholder'))}">${escapeHTML(row.comment || '')}</textarea>
@@ -323,6 +336,16 @@ function renderSubmissionReviewMatrixEditor(sub, manAbstract) {
   reviewBox.addEventListener('input', () => {
     updateProgress();
   });
+
+  reviewBox.addEventListener('change', event => {
+    if (event.target.classList.contains('sub-edit-review-status')) {
+      updateProgress();
+      reviewBox.dispatchEvent(new CustomEvent('submission-autosave-request', {
+        bubbles: true,
+        detail: { immediate: true }
+      }));
+    }
+  });
 }
 
 function renderSubmissionReviewPreview(sub, checklistKeys) {
@@ -336,10 +359,17 @@ function renderSubmissionReviewPreview(sub, checklistKeys) {
   const reviewPreview = reviewRows.length
     ? reviewRows.map((row, index) => {
         const reviewerTag = row.reviewer ? `<span class="badge badge-purple" style="font-size:10px; margin-left:6px; font-weight:normal;">${escapeHTML(row.reviewer)}</span>` : '';
+        const statusVal = row.status || (row.response?.trim() ? 'addressed' : 'pending');
+        let statusBadge = '';
+        if (statusVal === 'addressed') statusBadge = `<span class="badge badge-success" style="font-size:10px; margin-left:4px;">${escapeHTML(t('statusAddressed') || '已解决')}</span>`;
+        else if (statusVal === 'in_progress') statusBadge = `<span class="badge badge-warning" style="font-size:10px; margin-left:4px;">${escapeHTML(t('statusInProgress') || '处理中')}</span>`;
+        else if (statusVal === 'clarified') statusBadge = `<span class="badge badge-info" style="font-size:10px; margin-left:4px;">${escapeHTML(t('statusClarified') || '辩明')}</span>`;
+        else statusBadge = `<span class="badge badge-secondary" style="font-size:10px; margin-left:4px;">${escapeHTML(t('statusPending') || '待处理')}</span>`;
+
         const changesNote = row.changes ? `<div style="font-size:11px; color:var(--accent-blue, #0284c7); margin-top:3px; background:rgba(2,132,199,0.06); padding:2px 6px; border-radius:3px;">📝 ${escapeHTML(row.changes)}</div>` : '';
         return `
         <div class="submission-review-preview-row">
-          <strong>${escapeHTML(tf('reviewerCommentLabel', { count: index + 1 }))}${reviewerTag}</strong>
+          <strong>${escapeHTML(tf('reviewerCommentLabel', { count: index + 1 }))}${reviewerTag}${statusBadge}</strong>
           <p>${escapeHTML(row.comment || t('noCommentText'))}</p>
           <span>${escapeHTML(row.response ? t('responseSaved') : t('responsePending'))}</span>
           ${changesNote}
@@ -1014,6 +1044,13 @@ function escapeLatexText(value) {
     .replace(/\r?\n/g, '\\par ');
 }
 
+function safeEscapeLatex(value) {
+  if (typeof escapeLatex === 'function') {
+    return escapeLatex(value);
+  }
+  return escapeLatexText(value).replace(/\\par\s*/g, ' ');
+}
+
 async function copyRebuttalRichText(htmlContent, plainFallback) {
   if (typeof ClipboardItem !== 'undefined' && navigator.clipboard && navigator.clipboard.write) {
     try {
@@ -1071,10 +1108,10 @@ function generateAcademicRebuttalLetter(sub, man, format = 'latex') {
               `\\begin{document}\n\n` +
               `\\begin{center}\n` +
               `  {\\LARGE \\bf Point-by-Point Response to Reviewers} \\\\[0.6em]\n` +
-              `  {\\large \\textbf{Manuscript: } ${escapeLatex(paperTitle)}} \\\\[0.3em]\n` +
-              `  {\\normalsize \\textbf{Journal: } ${escapeLatex(journal)}${escapeLatex(msId)}} \\\\[0.2em]\n` +
-              `  {\\normalsize \\textbf{Authors: } ${escapeLatex(authors)}} \\\\[0.2em]\n` +
-              `  {\\small \\textbf{Date: } ${escapeLatex(dateStr)}}\n` +
+              `  {\\large \\textbf{Manuscript: } ${safeEscapeLatex(paperTitle)}} \\\\[0.3em]\n` +
+              `  {\\normalsize \\textbf{Journal: } ${safeEscapeLatex(journal)}${safeEscapeLatex(msId)}} \\\\[0.2em]\n` +
+              `  {\\normalsize \\textbf{Authors: } ${safeEscapeLatex(authors)}} \\\\[0.2em]\n` +
+              `  {\\small \\textbf{Date: } ${safeEscapeLatex(dateStr)}}\n` +
               `\\end{center}\n\n` +
               `\\vspace{1em}\n` +
               `\\noindent Dear Editor and Reviewers,\\par\\medskip\n` +
@@ -1087,7 +1124,7 @@ function generateAcademicRebuttalLetter(sub, man, format = 'latex') {
       const escapedResp = escapeLatexText(r.response || '');
       const escapedChanges = r.changes ? escapeLatexText(r.changes) : '';
 
-      out += `\\noindent\\textbf{${escapeLatex(reviewerTag)}} \\\\[0.3em]\n` +
+      out += `\\noindent\\textbf{${safeEscapeLatex(reviewerTag)}} \\\\[0.3em]\n` +
              `\\begin{commentbox}\n` +
              `\\textbf{Comment:} ${escapedCmt}\n` +
              `\\end{commentbox}\n\n` +
@@ -1113,16 +1150,16 @@ function generateAcademicRebuttalLetter(sub, man, format = 'latex') {
            `\\endfoot\n`;
 
     rows.forEach((r, idx) => {
-      const rev = escapeLatex(r.reviewer || `Cmt #${idx + 1}`);
-      const cmt = escapeLatex(r.comment || '').slice(0, 150);
-      const resp = escapeLatex(r.response || '').slice(0, 150);
-      const chg = r.changes ? ` \\textit{[Changes: ${escapeLatex(r.changes)}]}` : '';
+      const rev = safeEscapeLatex(r.reviewer || `Cmt #${idx + 1}`);
+      const cmt = safeEscapeLatex(r.comment || '').slice(0, 150);
+      const resp = safeEscapeLatex(r.response || '').slice(0, 150);
+      const chg = r.changes ? ` \\textit{[Changes: ${safeEscapeLatex(r.changes)}]}` : '';
       out += `${rev} & ${cmt} & ${resp}${chg} \\\\ \\midrule\n`;
     });
 
     out += `\\end{longtable}\n\n` +
            `\\vspace{1.5em}\n` +
-           `\\noindent We hope that the revised manuscript now meets the high standards of \\textit{${escapeLatex(journal)}}.\\par\\vspace{1em}\n` +
+           `\\noindent We hope that the revised manuscript now meets the high standards of \\textit{${safeEscapeLatex(journal)}}.\\par\\vspace{1em}\n` +
            `\\noindent Sincerely,\\\\\n` +
            `\\noindent The Authors\n\n` +
            `\\end{document}\n`;
@@ -1268,8 +1305,9 @@ function parseReviewCommentsBatch(rawText = '', defaultReviewer = 'Reviewer #1')
   let currentReviewer = defaultReviewer || 'Reviewer #1';
   let currentBuffer = [];
 
-  const reviewerRegex = /^(?:(?:Reviewer|Referee)\s*#?\s*([0-9]+|[A-Z])|Editor(?:-in-Chief)?|Associate\s+Editor|Guest\s+Editor|Handling\s+Editor|Comments?\s+from\s+(?:the\s+)?(?:Editor|Reviewers?))/i;
-  const pointRegex = /^(?:(?:Point|Comment|Issue|Item|Q)\s*#?\s*([0-9]+)[\s.:)-]|(?:Major|Minor)\s*(?:Comments?|Points?)\s*#?\s*([0-9]+)[\s.:)-]|([0-9]{1,2})[\s.:)-]\s+|(\([0-9]{1,2}\))\s+|([a-z]\))\s+|[-*•]\s+)/i;
+  const reviewerRegex = /^(?:(?:Reviewer|Referee|审稿人|评审人|审稿专家)\s*#?\s*([0-9]+|[A-Z一二三四五六七八九十])|(?:Editor(?:-in-Chief)?|Associate\s+Editor|Guest\s+Editor|Handling\s+Editor|主编|副主编|责任编辑|编辑部?)|Comments?\s+from\s+(?:the\s+)?(?:Editor|Reviewers?)|(?:编辑|审稿人|评审人)意见)/i;
+  const pointRegex = /^(?:(?:Point|Comment|Issue|Item|Q|问题|意见|建议)\s*#?\s*([0-9]+)[\s.:)-：、]|(?:Major|Minor)\s*(?:Comments?|Points?)\s*#?\s*([0-9]+)[\s.:)-：、]|([0-9]{1,2})[\s.:)-、：]\s*|(\([0-9]{1,2}\)|（[0-9]{1,2}）)\s*|([a-z]\))\s*|[-*•·]\s+)/i;
+  const cnNumMap = { '一': '1', '二': '2', '三': '3', '四': '4', '五': '5', '六': '6', '七': '7', '八': '8', '九': '9', '十': '10' };
 
   function flushComment() {
     const text = currentBuffer.join('\n').trim();
@@ -1279,7 +1317,8 @@ function parseReviewCommentsBatch(rawText = '', defaultReviewer = 'Reviewer #1')
         reviewer: currentReviewer,
         comment: text,
         response: '',
-        changes: ''
+        changes: '',
+        status: 'pending'
       });
     }
     currentBuffer = [];
@@ -1297,10 +1336,11 @@ function parseReviewCommentsBatch(rawText = '', defaultReviewer = 'Reviewer #1')
     const revMatch = line.match(reviewerRegex);
     if (revMatch) {
       flushComment();
-      if (/Editor/i.test(line)) {
+      if (/Editor|主编|编辑/i.test(line)) {
         currentReviewer = 'Editor';
       } else {
-        const revNum = revMatch[1] || '1';
+        const rawRevNum = revMatch[1] || '1';
+        const revNum = cnNumMap[rawRevNum] || rawRevNum;
         currentReviewer = `Reviewer #${revNum}`;
       }
       continue;
@@ -1325,7 +1365,8 @@ function parseReviewCommentsBatch(rawText = '', defaultReviewer = 'Reviewer #1')
         reviewer: currentReviewer,
         comment: block,
         response: '',
-        changes: ''
+        changes: '',
+        status: 'pending'
       });
     });
   }
@@ -1338,9 +1379,10 @@ function renderRebuttalProgressTracker(sub = {}) {
   const total = rows.length;
   if (total === 0) return '';
 
-  const addressed = rows.filter(r => r.response && r.response.trim()).length;
-  const pending = total - addressed;
-  const withChanges = rows.filter(r => r.changes && r.changes.trim()).length;
+  const addressed = rows.filter(r => r.status === 'addressed' || (!r.status && r.response && r.response.trim().length > 0)).length;
+  const inProgress = rows.filter(r => r.status === 'in_progress').length;
+  const pending = rows.filter(r => r.status === 'pending' || (!r.status && (!r.response || !r.response.trim().length))).length;
+  const withChanges = rows.filter(r => Boolean(r.changes && r.changes.trim().length > 0)).length;
   const percent = Math.round((addressed / total) * 100);
 
   const reviewerMap = new Map();
@@ -1349,7 +1391,9 @@ function renderRebuttalProgressTracker(sub = {}) {
     if (!reviewerMap.has(rev)) reviewerMap.set(rev, { total: 0, done: 0 });
     const stat = reviewerMap.get(rev);
     stat.total++;
-    if (r.response && r.response.trim()) stat.done++;
+    if (r.status === 'addressed' || (!r.status && r.response && r.response.trim().length > 0)) {
+      stat.done++;
+    }
   });
 
   const reviewerChips = Array.from(reviewerMap.entries()).map(([rev, stat]) => {
@@ -1378,7 +1422,8 @@ function renderRebuttalProgressTracker(sub = {}) {
       <div style="display:flex; gap:16px; font-size:12px; color:var(--text-secondary); flex-wrap:wrap;">
         <span>${escapeHTML(t('rebuttalTotalComments') || '总意见')}: <strong>${total}</strong></span>
         <span style="color:#16a34a;">✔ ${escapeHTML(t('rebuttalAddressed') || '已答复')}: <strong>${addressed}</strong></span>
-        <span style="color:${pending > 0 ? '#ea580c' : '#16a34a'};">⏳ ${escapeHTML(t('rebuttalPending') || '待答复')}: <strong>${pending}</strong></span>
+        ${inProgress > 0 ? `<span style="color:#d97706;">⏳ ${escapeHTML(t('rebuttalInProgress') || '处理中')}: <strong>${inProgress}</strong></span>` : ''}
+        <span style="color:${pending > 0 ? '#ea580c' : '#16a34a'};">⭕ ${escapeHTML(t('rebuttalPending') || '待答复')}: <strong>${pending}</strong></span>
         <span style="color:#0284c7;">📝 ${escapeHTML(t('rebuttalChangesNoted') || '已标定改动')}: <strong>${withChanges}</strong></span>
       </div>
     </div>
@@ -1404,15 +1449,15 @@ function generateRevisionCoverLetter(sub = {}, man = {}, format = 'html') {
       `\\usepackage{microtype}\n` +
       `\\usepackage{hyperref}\n\n` +
       `\\begin{document}\n\n` +
-      `\\noindent ${escapeLatex(dateStr)} \\\\[1.5em]\n` +
+      `\\noindent ${safeEscapeLatex(dateStr)} \\\\[1.5em]\n` +
       `\\noindent To:\\\\ \n` +
       `The Editor-in-Chief / Handling Editor,\\\\ \n` +
-      `\\textit{${escapeLatex(journal)}}\\\\[1.5em]\n\n` +
-      `\\noindent\\textbf{Subject: Submission of Revised Manuscript${escapeLatex(msId)}}\\\\[0.5em]\n` +
-      `\\textbf{Title:} \`\`${escapeLatex(paperTitle)}''\\\\ \n` +
-      `\\textbf{Authors:} ${escapeLatex(authors)}\\\\[1.5em]\n\n` +
+      `\\textit{${safeEscapeLatex(journal)}}\\\\[1.5em]\n\n` +
+      `\\noindent\\textbf{Subject: Submission of Revised Manuscript${safeEscapeLatex(msId)}}\\\\[0.5em]\n` +
+      `\\textbf{Title:} \`\`${safeEscapeLatex(paperTitle)}''\\\\ \n` +
+      `\\textbf{Authors:} ${safeEscapeLatex(authors)}\\\\[1.5em]\n\n` +
       `\\noindent Dear Editor,\\par\\medskip\n\n` +
-      `\\noindent Thank you very much for your letter and the constructive comments from the editorial team and the ${reviewerCount} reviewers regarding our manuscript entitled \`\`\\textbf{${escapeLatex(paperTitle)}}''${escapeLatex(msId)}. We greatly appreciate the time and effort devoted to evaluating our work.\\par\\medskip\n\n` +
+      `\\noindent Thank you very much for your letter and the constructive comments from the editorial team and the ${reviewerCount} reviewers regarding our manuscript entitled \`\`\\textbf{${safeEscapeLatex(paperTitle)}}''${safeEscapeLatex(msId)}. We greatly appreciate the time and effort devoted to evaluating our work.\\par\\medskip\n\n` +
       `\\noindent We have carefully studied all comments and thoroughly revised the manuscript accordingly. In summary, the main revisions include:\\par\n` +
       `\\begin{itemize}\n` +
       `  \\item Fully addressing all ${totalComments} comments raised by the reviewers and editor, with corresponding textual and graphical updates.\n` +
@@ -1420,9 +1465,9 @@ function generateRevisionCoverLetter(sub = {}, man = {}, format = 'html') {
       `  \\item Highlighting all modifications in the revised manuscript and providing a detailed Point-by-Point Response document.\n` +
       `\\end{itemize}\\par\\medskip\n\n` +
       `\\noindent We confirm that all authors have approved this revised version and that the work has not been published or submitted elsewhere.\\par\\medskip\n\n` +
-      `\\noindent We believe the revised manuscript has been substantially improved and now meets the high standards of \\textit{${escapeLatex(journal)}}. We look forward to your favorable consideration.\\par\\vspace{2em}\n\n` +
+      `\\noindent We believe the revised manuscript has been substantially improved and now meets the high standards of \\textit{${safeEscapeLatex(journal)}}. We look forward to your favorable consideration.\\par\\vspace{2em}\n\n` +
       `\\noindent Sincerely,\\\\\n` +
-      `\\noindent ${escapeLatex(firstAuthor || authors)}\\\\ \n` +
+      `\\noindent ${safeEscapeLatex(firstAuthor || authors)}\\\\ \n` +
       `\\noindent on behalf of all co-authors\n\n` +
       `\\end{document}\n`;
   }
@@ -2252,23 +2297,28 @@ function renderSubmissionDetails(sub) {
       URL.revokeObjectURL(url);
     };
 
+    const getExportFilename = (prefix, ext) => {
+      const safeId = String(sub.externalManuscriptId || sub.id).replace(/[^a-zA-Z0-9_-]/g, '_');
+      return `${prefix}_${safeId}.${ext}`;
+    };
+
     document.getElementById('btn-download-tex')?.addEventListener('click', () => {
       const content = currentFormat === 'cover' ? coverLatex : latexCode;
-      const name = currentFormat === 'cover' ? `cover_letter_${sub.id}.tex` : `rebuttal_letter_${sub.id}.tex`;
+      const name = currentFormat === 'cover' ? getExportFilename('cover_letter', 'tex') : getExportFilename('rebuttal_letter', 'tex');
       triggerDownload(content, name, 'text/plain;charset=utf-8');
       showGlobalToast(t('latexDownloaded'), 'success');
     });
 
     document.getElementById('btn-download-md')?.addEventListener('click', () => {
       const content = currentFormat === 'cover' ? coverMd : mdCode;
-      const name = currentFormat === 'cover' ? `cover_letter_${sub.id}.md` : `rebuttal_letter_${sub.id}.md`;
+      const name = currentFormat === 'cover' ? getExportFilename('cover_letter', 'md') : getExportFilename('rebuttal_letter', 'md');
       triggerDownload(content, name, 'text/markdown;charset=utf-8');
       showGlobalToast(currentLanguage === 'zh' ? '已下载学术 Markdown 模版' : 'Downloaded Markdown document', 'success');
     });
 
     document.getElementById('btn-download-doc')?.addEventListener('click', () => {
       const content = currentFormat === 'cover' ? coverHtml : wordHtml;
-      const name = currentFormat === 'cover' ? `cover_letter_${sub.id}.doc` : `rebuttal_letter_${sub.id}.doc`;
+      const name = currentFormat === 'cover' ? getExportFilename('cover_letter', 'doc') : getExportFilename('rebuttal_letter', 'doc');
       triggerDownload(content, name, 'application/msword;charset=utf-8');
       showGlobalToast(currentLanguage === 'zh' ? '已下载 Word 兼容文件' : 'Downloaded Word document', 'success');
     });
