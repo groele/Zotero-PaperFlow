@@ -412,7 +412,7 @@
   Zotero.ResearchFlow = {
     rootURI: typeof rootURI !== 'undefined' ? rootURI : '',
     addonId: ADDON_ID,
-    version: (typeof version !== 'undefined' && version) ? version : '13.0.1',
+    version: (typeof version !== 'undefined' && version) ? version : '13.0.2',
     serializeLiteratureItem,
     getLiteratureAnnotations,
     getLiteratureNotes,

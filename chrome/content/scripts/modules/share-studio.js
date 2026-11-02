@@ -409,16 +409,4 @@ async function openSubmissionSharePreview(submissionId, triggerButton) {
   }
 }
 
-// --- DASHBOARD Lifecycle Filters ---
-
-  research: { color: "#2563eb", labelKey: "eventTypeResearch" },
-  writing: { color: "#7c3aed", labelKey: "eventTypeWriting" },
-  submission: { color: "#f97316", labelKey: "eventTypeSubmission" },
-  review: { color: "#f97316", labelKey: "eventTypeReview" },
-  revision: { color: "#dc2626", labelKey: "eventTypeRevision" },
-  rejection: { color: "#b91c1c", labelKey: "statusRejected" },
-  publication: { color: "#16a34a", labelKey: "eventTypePublication" },
-  special: { color: "#64748b", labelKey: "eventTypeSpecial" }
-};
-
 
