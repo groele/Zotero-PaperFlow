@@ -1,6 +1,6 @@
 {
   "name": "zotero-paperflow",
-  "version": "13.1.0",
+  "version": "13.2.0",
   "description": "Manage manuscripts, submission rounds, and review responses. Part of Zotero Flow.",
   "scripts": {
     "test": "node --test tests/*.test.js && python scripts/test-release-package.py",

@@ -541,6 +541,24 @@ function renderDashboard() {
     return new Date(a.date || '2999-12-31') - new Date(b.date || '2999-12-31');
   });
 
+  // Setup All Deadlines Calendar Export button
+  const btnExportAllIcs = document.getElementById('btn-dashboard-export-all-ics');
+  if (btnExportAllIcs && !btnExportAllIcs.dataset.listenerAttached) {
+    btnExportAllIcs.dataset.listenerAttached = 'true';
+    btnExportAllIcs.addEventListener('click', () => {
+      const activeSubs = (db.submissions || []).filter(s => s.revisionDueDate && s.status !== 'accepted' && s.status !== 'published');
+      if (activeSubs.length === 0) {
+        showGlobalToast(t('noDeadlinesToExport') || (currentLanguage === 'zh' ? '当前未发现已设置修回截止日期的活跃稿件。' : 'No active submissions with revision due dates found.'), 'warning');
+        return;
+      }
+      if (window.RFCalendar?.generateSubmissionCalendarFeed && window.RFCalendar?.triggerCalendarDownload) {
+        const feed = window.RFCalendar.generateSubmissionCalendarFeed(activeSubs, db.manuscripts, { calName: 'PaperFlow All Revision Deadlines' });
+        window.RFCalendar.triggerCalendarDownload(feed, 'paperflow_all_deadlines.ics');
+        showGlobalToast(t('calendarExportedToast') || (currentLanguage === 'zh' ? '修回截止日历 (.ics) 已导出！' : 'Revision deadline calendar (.ics) exported.'), 'success');
+      }
+    });
+  }
+
   if (timelineAlerts.length === 0) {
     window.RFUI.setHTML(reviewMilestones, `<p class="empty-state">${t('noUrgentEvents')}</p>`);
   } else {
@@ -569,6 +587,25 @@ function renderDashboard() {
       item.appendChild(title);
       item.appendChild(badge);
       item.appendChild(date);
+
+      if (alert.sub?.revisionDueDate) {
+        const icsBtn = document.createElement('button');
+        icsBtn.type = 'button';
+        icsBtn.className = 'btn-secondary btn-icon';
+        icsBtn.style.cssText = 'font-size:11px; padding:2px 6px; border-radius:3px; margin-left:4px; height:22px;';
+        icsBtn.title = t('exportCalendarIcs') || '导出修回日历 (.ics)';
+        icsBtn.textContent = '📅';
+        icsBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          if (window.RFCalendar?.generateSubmissionCalendarFeed && window.RFCalendar?.triggerCalendarDownload) {
+            const feed = window.RFCalendar.generateSubmissionCalendarFeed([alert.sub], db.manuscripts, { calName: `${getSubmissionJournalName(alert.sub)} Revision Deadline` });
+            window.RFCalendar.triggerCalendarDownload(feed, `revision_deadline_${alert.sub.id}.ics`);
+            showGlobalToast(t('calendarExportedToast') || '修回截止日历 (.ics) 已导出！', 'success');
+          }
+        });
+        item.appendChild(icsBtn);
+      }
+
       reviewMilestones.appendChild(item);
     });
   }

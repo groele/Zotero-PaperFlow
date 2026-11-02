@@ -112,8 +112,10 @@ function collectSubmissionChecklistKeysFromEditor() {
 function collectSubmissionReviewMatrixFromEditor() {
   return Array.from(document.querySelectorAll('#sub-edit-review-matrix-container .submission-edit-review-row')).map((row, index) => ({
     id: row.dataset.reviewId || `rev_${Date.now()}_${index}`,
+    reviewer: row.querySelector('.sub-edit-review-reviewer')?.value?.trim() || '',
     comment: row.querySelector('.sub-edit-review-comment')?.value || '',
     response: row.querySelector('.sub-edit-review-response')?.value || '',
+    changes: row.querySelector('.sub-edit-review-changes')?.value?.trim() || '',
     recordId: row.dataset.recordId || ''
   }));
 }
@@ -124,9 +126,17 @@ function createSubmissionReviewEditorRow(row = {}, index = 0) {
   rowDiv.className = 'submission-edit-review-row';
   rowDiv.dataset.reviewId = safeId;
   rowDiv.dataset.recordId = row.recordId || '';
+  const reviewerVal = escapeHTML(row.reviewer || '');
+  const changesVal = escapeHTML(row.changes || '');
   window.RFUI.setHTML(rowDiv, `
     <div class="submission-edit-review-field">
-      <div class="submission-edit-review-label">${escapeHTML(tf('reviewerCommentLabel', { count: index + 1 }))}</div>
+      <div class="submission-edit-review-label-row">
+        <div class="submission-edit-review-label">${escapeHTML(tf('reviewerCommentLabel', { count: index + 1 }))}</div>
+        <div style="display:flex; align-items:center; gap:6px;">
+          <span style="font-size:11px; color:var(--text-secondary);">${escapeHTML(t('reviewerFieldLabel') || '审稿人')}:</span>
+          <input type="text" class="sub-edit-review-reviewer" value="${reviewerVal}" placeholder="Reviewer #1..." style="font-size:11px; padding:2px 8px; width:110px; border-radius:4px; border:1px solid var(--input-border); background:var(--input-bg); color:hsl(var(--text-primary));">
+        </div>
+      </div>
       <textarea class="sub-edit-review-comment" placeholder="${escapeHTML(t('reviewerCommentPlaceholder'))}">${escapeHTML(row.comment || '')}</textarea>
       <div class="submission-edit-review-actions">
         <button type="button" class="btn-danger btn-icon btn-delete-review-row" title="${escapeHTML(t('removeComment'))}">
@@ -143,6 +153,12 @@ function createSubmissionReviewEditorRow(row = {}, index = 0) {
         </button>
       </div>
       <textarea class="sub-edit-review-response" placeholder="${escapeHTML(t('authorResponsePlaceholder'))}">${escapeHTML(row.response || '')}</textarea>
+      <div class="sub-edit-review-changes-wrap" style="margin-top:6px;">
+        <div style="display:flex; align-items:center; gap:6px; margin-bottom:2px;">
+          <span style="font-size:11px; font-weight:600; color:var(--accent-blue, #0284c7);">📝 ${escapeHTML(t('changesFieldLabel') || '手稿修订说明与位置')}</span>
+        </div>
+        <input type="text" class="sub-edit-review-changes" value="${changesVal}" placeholder="${escapeHTML(t('changesPlaceholder') || '例如: Page 4, Lines 120-135; 已补充表 S2')}" style="width:100%; box-sizing:border-box; font-size:12px; padding:4px 8px; border-radius:4px; border:1px solid var(--input-border); background:var(--input-bg); color:hsl(var(--text-primary));">
+      </div>
     </div>
   `);
   return rowDiv;
@@ -249,13 +265,18 @@ function renderSubmissionReviewPreview(sub, checklistKeys) {
   const completedChecks = checklistKeys.filter(chk => compliance[chk.key] === true).length;
   const reviewRows = getSubmissionReviewMatrixRows(sub);
   const reviewPreview = reviewRows.length
-    ? reviewRows.map((row, index) => `
+    ? reviewRows.map((row, index) => {
+        const reviewerTag = row.reviewer ? `<span class="badge badge-purple" style="font-size:10px; margin-left:6px; font-weight:normal;">${escapeHTML(row.reviewer)}</span>` : '';
+        const changesNote = row.changes ? `<div style="font-size:11px; color:var(--accent-blue, #0284c7); margin-top:3px; background:rgba(2,132,199,0.06); padding:2px 6px; border-radius:3px;">📝 ${escapeHTML(row.changes)}</div>` : '';
+        return `
         <div class="submission-review-preview-row">
-          <strong>${escapeHTML(tf('reviewerCommentLabel', { count: index + 1 }))}</strong>
+          <strong>${escapeHTML(tf('reviewerCommentLabel', { count: index + 1 }))}${reviewerTag}</strong>
           <p>${escapeHTML(row.comment || t('noCommentText'))}</p>
           <span>${escapeHTML(row.response ? t('responseSaved') : t('responsePending'))}</span>
+          ${changesNote}
         </div>
-      `).join('')
+      `;
+      }).join('')
     : `<p class="empty-state">${escapeHTML(t('emptyReviewPreview'))}</p>`;
   window.RFUI.setHTML(previewBox, `
     <div class="workflow-context-grid submission-review-preview-grid">
@@ -624,6 +645,13 @@ function renderSubmissions({ refreshDetails = true } = {}) {
       const transferText = sub.previousJournal
         ? `<span class="submission-card-meta">${escapeHTML(t('transferToJournal'))}: ${escapeHTML(sub.previousJournal)}</span>`
         : '';
+      let cardCountdownHtml = '';
+      if (sub.revisionDueDate && (sub.status === 'revision' || sub.status === 'under_review')) {
+        const cd = window.RFCalendar?.getRevisionCountdownMeta ? window.RFCalendar.getRevisionCountdownMeta(sub.revisionDueDate) : null;
+        if (cd) {
+          cardCountdownHtml = `<span class="${escapeHTML(cd.badgeClass)}" style="font-size:10px; padding:1px 6px; border-radius:3px;" title="${escapeHTML(cd.title)}">${escapeHTML(cd.icon)} ${escapeHTML(cd.text)}</span>`;
+        }
+      }
 
       window.RFUI.setHTML(card, `
         <div class="submission-card-heading">
@@ -640,6 +668,7 @@ function renderSubmissions({ refreshDetails = true } = {}) {
         </div>
         <div class="submission-card-footer">
           <span class="${window.RFUI.getSubmissionStatusBadgeClass(sub.status)}">${escapeHTML(statusText)}</span>
+          ${cardCountdownHtml}
           ${transferText}
           ${man?.zoteroItemKey ? `
             <span class="zotero-card-badge" data-item-key="${escapeHTML(man.zoteroItemKey)}" title="${escapeHTML(currentLanguage === 'zh' ? '在 Zotero 文献库中选中此条目' : 'Select in Zotero library')}" style="padding:1px 6px; font-size:10px; margin-left:auto;">
@@ -898,6 +927,275 @@ function openLinkSubmissionModal(submission) {
   });
 }
 
+/**
+ * Academic Rebuttal Matrix & Response Letter Generator
+ */
+function escapeLatexText(value) {
+  return String(value ?? '')
+    .replace(/\\/g, '\\textbackslash{}')
+    .replace(/([&%#_{}])/g, '\\$1')
+    .replace(/\$/g, '\\$')
+    .replace(/\^/g, '\\textasciicircum{}')
+    .replace(/~/g, '\\textasciitilde{}')
+    .replace(/\r?\n\r?\n/g, '\\par\\medskip ')
+    .replace(/\r?\n/g, '\\par ');
+}
+
+async function copyRebuttalRichText(htmlContent, plainFallback) {
+  if (typeof ClipboardItem !== 'undefined' && navigator.clipboard && navigator.clipboard.write) {
+    try {
+      const blobHtml = new Blob([htmlContent], { type: 'text/html' });
+      const blobText = new Blob([plainFallback], { type: 'text/plain' });
+      const item = new ClipboardItem({ 'text/html': blobHtml, 'text/plain': blobText });
+      await navigator.clipboard.write([item]);
+      return true;
+    } catch (_) {}
+  }
+  if (typeof ZoteroBridge !== 'undefined' && ZoteroBridge.copyText) {
+    ZoteroBridge.copyText(plainFallback);
+    return true;
+  }
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    await navigator.clipboard.writeText(plainFallback);
+    return true;
+  }
+  return false;
+}
+
+function generateAcademicRebuttalLetter(sub, man, format = 'latex') {
+  const rows = getSubmissionReviewMatrixRows(sub);
+  const paperTitle = man ? man.title : (sub.title || t('untitledManuscript'));
+  const authors = (man && man.authors) ? man.authors : (getSubmissionFirstAuthor(sub, man) || 'Authors');
+  const journal = getSubmissionJournalName(sub);
+  const msId = sub.externalManuscriptId ? ` (ID: ${sub.externalManuscriptId})` : '';
+  const dateStr = sub.revisionDueDate ? sub.revisionDueDate : todayString();
+
+  if (format === 'latex') {
+    let out = `% =========================================================================\n` +
+              `% Point-by-Point Response to Reviewers\n` +
+              `% Generated by Zotero PaperFlow\n` +
+              `% =========================================================================\n` +
+              `\\documentclass[11pt,a4paper]{article}\n` +
+              `\\usepackage[margin=1in]{geometry}\n` +
+              `\\usepackage{xcolor}\n` +
+              `\\usepackage{tcolorbox}\n` +
+              `\\tcbuselibrary{skins,breakable}\n` +
+              `\\usepackage{booktabs}\n` +
+              `\\usepackage{longtable}\n` +
+              `\\usepackage{enumitem}\n` +
+              `\\usepackage{hyperref}\n\n` +
+              `% Color definitions\n` +
+              `\\definecolor{revcolor}{RGB}{239, 246, 255}\n` +
+              `\\definecolor{revframe}{RGB}{59, 130, 246}\n` +
+              `\\definecolor{respcolor}{RGB}{240, 253, 244}\n` +
+              `\\definecolor{respframe}{RGB}{34, 197, 94}\n` +
+              `\\definecolor{changecolor}{RGB}{254, 243, 199}\n` +
+              `\\definecolor{changeframe}{RGB}{217, 119, 6}\n\n` +
+              `% Academic callout boxes\n` +
+              `\\newtcolorbox{commentbox}[1][]{colback=revcolor,colframe=revframe,arc=2mm,boxrule=0.9pt,left=10pt,right=10pt,top=8pt,bottom=8pt,breakable,#1}\n` +
+              `\\newtcolorbox{responsebox}[1][]{colback=respcolor,colframe=respframe,arc=2mm,boxrule=0.9pt,left=10pt,right=10pt,top=8pt,bottom=8pt,breakable,#1}\n` +
+              `\\newtcolorbox{changesbox}[1][]{colback=changecolor,colframe=changeframe,arc=1.5mm,boxrule=0.7pt,left=8pt,right=8pt,top=6pt,bottom=6pt,breakable,#1}\n\n` +
+              `\\begin{document}\n\n` +
+              `\\begin{center}\n` +
+              `  {\\LARGE \\bf Point-by-Point Response to Reviewers} \\\\[0.6em]\n` +
+              `  {\\large \\textbf{Manuscript: } ${escapeLatex(paperTitle)}} \\\\[0.3em]\n` +
+              `  {\\normalsize \\textbf{Journal: } ${escapeLatex(journal)}${escapeLatex(msId)}} \\\\[0.2em]\n` +
+              `  {\\normalsize \\textbf{Authors: } ${escapeLatex(authors)}} \\\\[0.2em]\n` +
+              `  {\\small \\textbf{Date: } ${escapeLatex(dateStr)}}\n` +
+              `\\end{center}\n\n` +
+              `\\vspace{1em}\n` +
+              `\\noindent Dear Editor and Reviewers,\\par\\medskip\n` +
+              `\\noindent We sincerely thank the Editor and the Reviewers for their constructive comments and suggestions regarding our manuscript. We have carefully considered all comments and made corresponding revisions to the manuscript. Below is our detailed point-by-point response.\\par\\vspace{1.5em}\n\n` +
+              `\\section*{Point-by-Point Responses}\n\n`;
+
+    rows.forEach((r, idx) => {
+      const reviewerTag = r.reviewer ? r.reviewer : `Reviewer Comment \\#${idx + 1}`;
+      const escapedCmt = escapeLatexText(r.comment || '');
+      const escapedResp = escapeLatexText(r.response || '');
+      const escapedChanges = r.changes ? escapeLatexText(r.changes) : '';
+
+      out += `\\noindent\\textbf{${escapeLatex(reviewerTag)}} \\\\[0.3em]\n` +
+             `\\begin{commentbox}\n` +
+             `\\textbf{Comment:} ${escapedCmt}\n` +
+             `\\end{commentbox}\n\n` +
+             `\\begin{responsebox}\n` +
+             `\\textbf{Response:} ${escapedResp}\n` +
+             `\\end{responsebox}\n\n`;
+
+      if (escapedChanges) {
+        out += `\\begin{changesbox}\n` +
+               `\\textbf{\\textit{Manuscript Changes:}} ${escapedChanges}\n` +
+               `\\end{changesbox}\n\n`;
+      }
+      out += `\\vspace{0.8em}\n\n`;
+    });
+
+    out += `\\newpage\n` +
+           `\\section*{Rebuttal Matrix Summary Table}\n\n` +
+           `\\begin{longtable}{p{0.12\\textwidth} p{0.45\\textwidth} p{0.37\\textwidth}}\n` +
+           `\\toprule\n` +
+           `\\textbf{\\# / Reviewer} & \\textbf{Reviewer Comment} & \\textbf{Author Response \\& Changes} \\\\ \\midrule\n` +
+           `\\endhead\n` +
+           `\\bottomrule\n` +
+           `\\endfoot\n`;
+
+    rows.forEach((r, idx) => {
+      const rev = escapeLatex(r.reviewer || `Cmt #${idx + 1}`);
+      const cmt = escapeLatex(r.comment || '').slice(0, 150);
+      const resp = escapeLatex(r.response || '').slice(0, 150);
+      const chg = r.changes ? ` \\textit{[Changes: ${escapeLatex(r.changes)}]}` : '';
+      out += `${rev} & ${cmt} & ${resp}${chg} \\\\ \\midrule\n`;
+    });
+
+    out += `\\end{longtable}\n\n` +
+           `\\vspace{1.5em}\n` +
+           `\\noindent We hope that the revised manuscript now meets the high standards of \\textit{${escapeLatex(journal)}}.\\par\\vspace{1em}\n` +
+           `\\noindent Sincerely,\\\\\n` +
+           `\\noindent The Authors\n\n` +
+           `\\end{document}\n`;
+
+    return out;
+  }
+
+  if (format === 'md') {
+    let out = `# Point-by-Point Response to Reviewers\n\n` +
+              `- **Manuscript Title:** ${paperTitle}\n` +
+              `- **Target Journal:** ${journal}${msId}\n` +
+              `- **Authors:** ${authors}\n` +
+              `- **Date:** ${dateStr}\n\n` +
+              `---\n\n` +
+              `### Dear Editor and Reviewers,\n\n` +
+              `We sincerely thank the Editor and the Reviewers for their constructive comments and suggestions regarding our manuscript. We have carefully addressed each comment and revised the manuscript accordingly. A detailed point-by-point response is provided below.\n\n` +
+              `---\n\n` +
+              `## Summary of Revisions\n\n` +
+              `| # | Reviewer | Comment Summary | Author Response & Manuscript Changes |\n` +
+              `|---|---|---|---|\n`;
+
+    rows.forEach((r, idx) => {
+      const rev = (r.reviewer || `Comment #${idx + 1}`).replace(/\|/g, '\\|');
+      const cmt = (r.comment || '').slice(0, 120).replace(/\|/g, '\\|').replace(/\r?\n/g, ' ');
+      const resp = (r.response || '').slice(0, 120).replace(/\|/g, '\\|').replace(/\r?\n/g, ' ');
+      const chg = r.changes ? ` *(Changes: ${r.changes.replace(/\|/g, '\\|')})*` : '';
+      out += `| ${idx + 1} | ${rev} | ${cmt} | ${resp}${chg} |\n`;
+    });
+
+    out += `\n---\n\n` +
+           `## Detailed Point-by-Point Responses\n\n`;
+
+    rows.forEach((r, idx) => {
+      const revTitle = r.reviewer ? `${r.reviewer} — Comment #${idx + 1}` : `Comment #${idx + 1}`;
+      out += `### ${revTitle}\n\n` +
+             `> **Reviewer Comment:**  \n` +
+             `> ${(r.comment || '').split(/\r?\n/).join('\n> ')}\n\n` +
+             `**Author Response:**  \n` +
+             `${r.response || '*Response pending*'}\n\n`;
+
+      if (r.changes) {
+        out += `**Manuscript Changes:**  \n` +
+               `> 📝 *${r.changes}*\n\n`;
+      }
+      out += `---\n\n`;
+    });
+
+    out += `We hope these revisions and clarifications address the reviewers' concerns satisfactorily.\n\n` +
+           `Sincerely,  \n` +
+           `The Authors\n`;
+    return out;
+  }
+
+  if (format === 'word' || format === 'html') {
+    let out = `<!DOCTYPE html>\n` +
+              `<html>\n` +
+              `<head>\n` +
+              `<meta charset="utf-8">\n` +
+              `<title>Response to Reviewers - ${escapeHTML(paperTitle)}</title>\n` +
+              `<style>\n` +
+              `  body { font-family: 'Times New Roman', Times, serif; font-size: 12pt; line-height: 1.5; color: #111827; margin: 40px auto; max-width: 820px; }\n` +
+              `  h1 { font-size: 18pt; text-align: center; margin-bottom: 8px; }\n` +
+              `  .meta-box { border-bottom: 1.5pt solid #333; padding-bottom: 12px; margin-bottom: 24px; font-size: 11pt; }\n` +
+              `  .comment-card { background: #f0f7ff; border-left: 4pt solid #2563eb; padding: 10pt 14pt; margin: 12pt 0 6pt 0; border-radius: 4px; }\n` +
+              `  .response-card { background: #f0fdf4; border-left: 4pt solid #16a34a; padding: 10pt 14pt; margin: 6pt 0 6pt 0; border-radius: 4px; }\n` +
+              `  .changes-card { background: #fefce8; border-left: 3pt solid #d97706; padding: 6pt 12pt; margin: 6pt 0 16pt 0; font-size: 11pt; border-radius: 4px; }\n` +
+              `  table.matrix-table { width: 100%; border-collapse: collapse; margin: 20px 0; font-size: 10.5pt; }\n` +
+              `  table.matrix-table th, table.matrix-table td { border: 1pt solid #cbd5e1; padding: 8pt 10pt; vertical-align: top; text-align: left; }\n` +
+              `  table.matrix-table th { background: #f1f5f9; font-weight: bold; }\n` +
+              `  .reviewer-pill { background: #e0e7ff; color: #3730a3; padding: 2px 6px; border-radius: 3px; font-size: 10pt; font-weight: 600; display: inline-block; }\n` +
+              `</style>\n` +
+              `</head>\n` +
+              `<body>\n` +
+              `<h1>Point-by-Point Response to Reviewers</h1>\n` +
+              `<div class="meta-box">\n` +
+              `  <p><strong>Manuscript Title:</strong> ${escapeHTML(paperTitle)}</p>\n` +
+              `  <p><strong>Target Journal:</strong> ${escapeHTML(journal)}${escapeHTML(msId)}</p>\n` +
+              `  <p><strong>Authors:</strong> ${escapeHTML(authors)}</p>\n` +
+              `  <p><strong>Date:</strong> ${escapeHTML(dateStr)}</p>\n` +
+              `</div>\n` +
+              `<p>Dear Editor and Reviewers,</p>\n` +
+              `<p>We sincerely thank the Editor and the Reviewers for their constructive comments and valuable suggestions on our manuscript. We have carefully addressed each point raised and revised the manuscript accordingly. A point-by-point response is detailed below.</p>\n` +
+              `<h2>Detailed Point-by-Point Responses</h2>\n`;
+
+    rows.forEach((r, idx) => {
+      const rev = r.reviewer ? escapeHTML(r.reviewer) : `Reviewer Comment #${idx + 1}`;
+      const cmt = escapeHTML(r.comment || '').replace(/\r?\n/g, '<br/>');
+      const resp = escapeHTML(r.response || '').replace(/\r?\n/g, '<br/>');
+      const chg = r.changes ? escapeHTML(r.changes) : '';
+
+      out += `<div style="margin-top:16pt;">\n` +
+             `  <div style="font-weight:bold; font-size:12pt; margin-bottom:4pt;">` +
+             `    <span class="reviewer-pill">${rev}</span> <span style="color:#64748b; font-size:11pt;">— Comment #${idx + 1}</span>` +
+             `  </div>\n` +
+             `  <div class="comment-card"><strong>Reviewer Comment:</strong><br/>${cmt || '<em>No comment recorded</em>'}</div>\n` +
+             `  <div class="response-card"><strong>Author Response:</strong><br/>${resp || '<em>Response pending</em>'}</div>\n`;
+
+      if (chg) {
+        out += `  <div class="changes-card"><strong>📝 Manuscript Changes:</strong> ${chg}</div>\n`;
+      }
+      out += `</div>\n`;
+    });
+
+    out += `<h2>Summary Table</h2>\n` +
+           `<table class="matrix-table">\n` +
+           `  <thead><tr><th style="width:15%;">Reviewer</th><th style="width:45%;">Comment</th><th style="width:40%;">Response & Changes</th></tr></thead>\n` +
+           `  <tbody>\n`;
+
+    rows.forEach((r, idx) => {
+      const rev = escapeHTML(r.reviewer || `Comment #${idx + 1}`);
+      const cmt = escapeHTML(r.comment || '').replace(/\r?\n/g, '<br/>');
+      const resp = escapeHTML(r.response || '').replace(/\r?\n/g, '<br/>');
+      const chg = r.changes ? `<br/><small style="color:#b45309;"><strong>📝 Changes:</strong> ${escapeHTML(r.changes)}</small>` : '';
+      out += `    <tr><td><strong>${rev}</strong></td><td>${cmt}</td><td>${resp}${chg}</td></tr>\n`;
+    });
+
+    out += `  </tbody>\n` +
+           `</table>\n` +
+           `<p style="margin-top:24pt;">We hope that these revisions satisfy the reviewers' requirements. Sincerely,<br/><strong>The Authors</strong></p>\n` +
+           `</body>\n` +
+           `</html>\n`;
+
+    return out;
+  }
+
+  // format === 'table'
+  let out = `| # | Reviewer | Comment | Response | Changes |\n` +
+            `|---|---|---|---|---|\n`;
+  rows.forEach((r, idx) => {
+    const rev = (r.reviewer || '').replace(/\|/g, '\\|');
+    const cmt = (r.comment || '').replace(/\|/g, '\\|').replace(/\r?\n/g, '<br/>');
+    const resp = (r.response || '').replace(/\|/g, '\\|').replace(/\r?\n/g, '<br/>');
+    const chg = (r.changes || '').replace(/\|/g, '\\|');
+    out += `| ${idx + 1} | ${rev} | ${cmt} | ${resp} | ${chg} |\n`;
+  });
+  return out;
+}
+
+if (typeof window !== 'undefined') {
+  window.RFAcademicExport = {
+    generateAcademicRebuttalLetter,
+    escapeLatexText,
+    copyRebuttalRichText
+  };
+}
+
 function renderSubmissionDetails(sub) {
   submissionAutoSaveCleanup?.();
   sub.status = normalizeSubmissionStatus(sub.status);
@@ -929,6 +1227,19 @@ function renderSubmissionDetails(sub) {
   // Cycle time duration calculations
   const cycle = getSubmissionCycleTime(sub);
   let cycleTimeHtml = '';
+
+  let countdownPillHtml = '';
+  if (sub.revisionDueDate) {
+    const cd = window.RFCalendar?.getRevisionCountdownMeta ? window.RFCalendar.getRevisionCountdownMeta(sub.revisionDueDate) : null;
+    if (cd) {
+      countdownPillHtml = `
+        <span class="${escapeHTML(cd.badgeClass)}" id="btn-export-submission-ics" style="display:inline-flex; align-items:center; gap:5px; font-weight:600; cursor:pointer; padding:2px 8px; border-radius:4px;" title="${escapeHTML(currentLanguage === 'zh' ? '点击导出修回截止日历提醒 (.ics)' : 'Click to export revision deadline (.ics)')}">
+          <span>${escapeHTML(cd.icon)} ${escapeHTML(cd.text)}</span>
+          <span style="font-size:10px; opacity:0.85; text-decoration:underline;">📅 .ics</span>
+        </span>
+      `;
+    }
+  }
 
   if (cycle.isCompleted) {
     cycleTimeHtml = `
@@ -968,8 +1279,9 @@ function renderSubmissionDetails(sub) {
     </div>
 
     <!-- Timeline indicators -->
-    <div class="submission-detail-meta">
+    <div class="submission-detail-meta" style="display:flex; align-items:center; flex-wrap:wrap; gap:8px;">
       <span class="${statusBadgeClass}" data-submission-status-badge="stage">${escapeHTML(t('currentStageLabel'))}: ${escapeHTML(statusText)}</span>
+      ${countdownPillHtml}
       <span class="recent-item-date">${escapeHTML(t('trackedSinceLabel'))}: ${sub.createdAt ? new Date(sub.createdAt).toLocaleDateString() : t('noDate')}</span>
     </div>
 
@@ -1102,7 +1414,10 @@ function renderSubmissionDetails(sub) {
             <input type="date" id="sub-edit-r1-date" value="${escapeHTML(timelineFirstDecisionDate)}">
           </div>
           <div class="form-group">
-            <label>${t('revisionDueDateLabel')}</label>
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+              <label for="sub-edit-revision-due">${t('revisionDueDateLabel')}</label>
+              ${timelineRevisionDueDate ? `<button type="button" class="btn-secondary" id="btn-editor-due-ics" style="font-size:11px; padding:1px 6px; border-radius:3px; height:20px;" title="${escapeHTML(t('exportCalendarIcs') || '导出修回日历 (.ics)')}">📅 .ics</button>` : ''}
+            </div>
             <input type="date" id="sub-edit-revision-due" value="${escapeHTML(timelineRevisionDueDate)}">
           </div>
           <div class="form-group">
@@ -1351,7 +1666,22 @@ function renderSubmissionDetails(sub) {
     });
   }
 
-  // Action: Export LaTeX & Markdown Rebuttal Table
+  // Action: Export Submission Revision Deadline .ics
+  const triggerSubIcs = () => {
+    if (!sub.revisionDueDate) {
+      showGlobalToast(currentLanguage === 'zh' ? '请先设置修回截止日期' : 'Please set revision due date first', 'warning');
+      return;
+    }
+    if (window.RFCalendar?.generateSubmissionCalendarFeed && window.RFCalendar?.triggerCalendarDownload) {
+      const feed = window.RFCalendar.generateSubmissionCalendarFeed([sub], db.manuscripts, { calName: `${journalName} Revision Deadline` });
+      window.RFCalendar.triggerCalendarDownload(feed, `revision_deadline_${sub.id}.ics`);
+      showGlobalToast(t('calendarExportedToast') || (currentLanguage === 'zh' ? '修回截止日历 (.ics) 已导出！' : 'Revision deadline calendar (.ics) exported.'), 'success');
+    }
+  };
+  detailPanel.querySelector('#btn-export-submission-ics')?.addEventListener('click', triggerSubIcs);
+  detailPanel.querySelector('#btn-editor-due-ics')?.addEventListener('click', triggerSubIcs);
+
+  // Action: Export Standard Academic Rebuttal Matrix & Response Letter
   document.getElementById('btn-export-rebuttal-table')?.addEventListener('click', () => {
     const savedReviewRows = getSubmissionReviewMatrixRows(sub);
     if (savedReviewRows.length === 0) {
@@ -1359,111 +1689,117 @@ function renderSubmissionDetails(sub) {
       return;
     }
 
-    // Generate Markdown table
-    let mdCode = `# Rebuttal Matrix: ${manuscriptTitle}\n\n`;
-    mdCode += `| # | Reviewer Comment | Author Response |\n`;
-    mdCode += `|---|---|---|\n`;
-    savedReviewRows.forEach((r, idx) => {
-      const cmt = (r.comment || '').replace(/\|/g, '\\|').replace(/\n/g, '<br/>');
-      const resp = (r.response || '').replace(/\|/g, '\\|').replace(/\n/g, '<br/>');
-      mdCode += `| ${idx + 1} | ${cmt} | ${resp} |\n`;
-    });
-
-    // Generate LaTeX Code
-    let latexCode = `\\documentclass{article}\n` +
-                    `\\usepackage{booktabs} % For formal lines\n` +
-                    `\\usepackage{longtable} % For multi-page tables\n` +
-                    `\\usepackage{xcolor} % For row shading\n` +
-                    `\\definecolor{commentgray}{HTML}{F6F8FA}\n\n` +
-                    `\\begin{document}\n\n` +
-                    `\\begin{longtable}{p{0.46\\textwidth} p{0.46\\textwidth}}\n` +
-                    `\\caption{Reviewer Comments and Author Rebuttals} \\\\ \n` +
-                    `\\toprule\n` +
-                    `\\textbf{Reviewer Comment} & \\textbf{Author Response Rebuttal} \\\\ \n` +
-                    `\\midrule\n` +
-                    `\\end{firsthead}\n` +
-                    `\\toprule\n` +
-                    `\\textbf{Reviewer Comment} & \\textbf{Author Response Rebuttal} \\\\ \n` +
-                    `\\midrule\n` +
-                    `\\end{head}\n` +
-                    `\\bottomrule\n` +
-                    `\\end{foot}\n` +
-                    `\\bottomrule\n` +
-                    `\\end{lastfoot}\n`;
-
-    savedReviewRows.forEach((matrixRow, idx) => {
-      const escapedCmt = escapeLatex(matrixRow.comment || '');
-      const escapedResp = escapeLatex(matrixRow.response || '');
-
-      latexCode += `\\rowcolor{commentgray}\n` +
-                   `{\\bf Reviewer Comment \\#${idx + 1}:} ${escapedCmt} &\n` +
-                   `{\\bf Response:} ${escapedResp} \\\\ \\midrule\n`;
-    });
-
-    latexCode += `\\end{longtable}\n\n` +
-                 `\\end{document}`;
+    const wordHtml = generateAcademicRebuttalLetter(sub, man, 'word');
+    const mdCode = generateAcademicRebuttalLetter(sub, man, 'md');
+    const latexCode = generateAcademicRebuttalLetter(sub, man, 'latex');
+    const tableCode = generateAcademicRebuttalLetter(sub, man, 'table');
 
     openModal(`
       <div class="modal-header">
-        <h2>📋 ${escapeHTML(currentLanguage === 'zh' ? '导出审稿修回矩阵' : 'Export Rebuttal Matrix')}</h2>
+        <h2>📋 ${escapeHTML(t('exportAcademicMatrixTitle') || (currentLanguage === 'zh' ? '导出标准学术审稿回复信与修回矩阵' : 'Export Response Letter & Rebuttal Matrix'))}</h2>
         <button class="btn-secondary btn-icon" id="btn-close-modal">✕</button>
       </div>
       <div style="font-size:12px; color:var(--text-secondary); margin-bottom:12px;">
-        ${escapeHTML(currentLanguage === 'zh' ? `共检测到 ${savedReviewRows.length} 条审稿意见与回复，可直接复制或下载对应格式文件。` : `Detected ${savedReviewRows.length} comments and responses. Copy or download below.`)}
+        ${escapeHTML(currentLanguage === 'zh' ? `共检测到 ${savedReviewRows.length} 条审稿意见与回复。支持直接复制 Word 富文本 (保留格式、排版与表格)、学术 Markdown 模版或完整编译版 LaTeX 答复信。` : `Detected ${savedReviewRows.length} comments and responses. Export formatted Word text, academic Markdown, or full LaTeX response letter.`)}
       </div>
-      <div style="display:flex; gap:8px; margin-bottom:12px;">
-        <button type="button" class="btn-secondary" id="modal-tab-md" style="font-size:12px; font-weight:600; padding:4px 12px; border-color:#e11d48; color:#e11d48;">Markdown 表格</button>
-        <button type="button" class="btn-secondary" id="modal-tab-latex" style="font-size:12px; font-weight:600; padding:4px 12px;">LaTeX 表格</button>
+      <div style="display:flex; gap:8px; margin-bottom:12px; flex-wrap:wrap;">
+        <button type="button" class="btn-secondary modal-format-tab" id="modal-tab-word" style="font-size:12px; font-weight:600; padding:5px 12px; border-color:#e11d48; color:#e11d48;">📄 ${escapeHTML(t('exportTabWord') || 'Word / 富文本 (带格式)')}</button>
+        <button type="button" class="btn-secondary modal-format-tab" id="modal-tab-md" style="font-size:12px; font-weight:600; padding:5px 12px;">📝 ${escapeHTML(t('exportTabMarkdown') || '学术 Markdown 模版')}</button>
+        <button type="button" class="btn-secondary modal-format-tab" id="modal-tab-latex" style="font-size:12px; font-weight:600; padding:5px 12px;">📑 ${escapeHTML(t('exportTabLatex') || 'LaTeX 宏包答复信 (.tex)')}</button>
+        <button type="button" class="btn-secondary modal-format-tab" id="modal-tab-table" style="font-size:12px; font-weight:600; padding:5px 12px;">📊 ${escapeHTML(t('exportTabTable') || '意见矩阵汇总表')}</button>
       </div>
-      <div class="form-group">
-        <textarea id="rebuttal-export-preview" rows="11" readonly style="font-family:monospace; font-size:11px; line-height:1.5; width:100%; box-sizing:border-box; background:var(--input-bg); color:hsl(var(--text-primary)); border:1px solid var(--input-border); border-radius:6px; resize:vertical;"></textarea>
+      <div class="form-group" style="margin-bottom:12px;">
+        <div id="rebuttal-word-preview-box" style="display:block; max-height:280px; overflow-y:auto; border:1px solid var(--input-border); border-radius:6px; padding:14px; background:#ffffff; color:#111827;"></div>
+        <textarea id="rebuttal-export-preview" rows="12" readonly style="display:none; font-family:monospace; font-size:11px; line-height:1.5; width:100%; box-sizing:border-box; background:var(--input-bg); color:hsl(var(--text-primary)); border:1px solid var(--input-border); border-radius:6px; resize:vertical;"></textarea>
       </div>
       <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px; margin-top:14px;">
-        <div style="display:flex; gap:8px;">
-          <button type="button" class="btn-primary" id="btn-copy-rebuttal-content" style="font-size:12px;">
-            <span>📋 ${escapeHTML(currentLanguage === 'zh' ? '复制到剪贴板' : 'Copy to Clipboard')}</span>
+        <div style="display:flex; gap:8px; flex-wrap:wrap;">
+          <button type="button" class="btn-primary" id="btn-copy-rebuttal-word" style="font-size:12px;">
+            <span>📋 ${escapeHTML(currentLanguage === 'zh' ? '复制富文本 (直接粘贴至 Word / WPS)' : 'Copy Rich Text (Paste to Word)')}</span>
+          </button>
+          <button type="button" class="btn-secondary" id="btn-copy-rebuttal-code" style="font-size:12px;">
+            <span>📋 ${escapeHTML(currentLanguage === 'zh' ? '复制当前代码' : 'Copy Code')}</span>
           </button>
         </div>
-        <div style="display:flex; gap:8px;">
+        <div style="display:flex; gap:8px; flex-wrap:wrap;">
           <button type="button" class="btn-secondary" id="btn-download-tex" style="font-size:12px;">
-            <span>💾 ${escapeHTML(currentLanguage === 'zh' ? '下载 .tex 文件' : 'Download .tex')}</span>
+            <span>💾 ${escapeHTML(t('downloadTex') || '下载 .tex 文件')}</span>
           </button>
           <button type="button" class="btn-secondary" id="btn-download-md" style="font-size:12px;">
-            <span>💾 ${escapeHTML(currentLanguage === 'zh' ? '下载 .md 文件' : 'Download .md')}</span>
+            <span>💾 ${escapeHTML(t('downloadMd') || '下载 .md 文件')}</span>
+          </button>
+          <button type="button" class="btn-secondary" id="btn-download-doc" style="font-size:12px;">
+            <span>💾 ${escapeHTML(t('downloadDoc') || '下载 Word 兼容文件')}</span>
           </button>
         </div>
       </div>
     `);
 
-    let currentFormat = 'md';
+    let currentFormat = 'word';
     const previewArea = document.getElementById('rebuttal-export-preview');
+    const wordBox = document.getElementById('rebuttal-word-preview-box');
+    const tabWord = document.getElementById('modal-tab-word');
     const tabMd = document.getElementById('modal-tab-md');
     const tabLatex = document.getElementById('modal-tab-latex');
+    const tabTable = document.getElementById('modal-tab-table');
+    const tabs = [
+      { id: 'word', el: tabWord },
+      { id: 'md', el: tabMd },
+      { id: 'latex', el: tabLatex },
+      { id: 'table', el: tabTable }
+    ];
 
     const updatePreview = () => {
-      if (!previewArea) return;
-      if (currentFormat === 'md') {
-        previewArea.value = mdCode;
-        if (tabMd) { tabMd.style.borderColor = '#e11d48'; tabMd.style.color = '#e11d48'; }
-        if (tabLatex) { tabLatex.style.borderColor = 'var(--input-border)'; tabLatex.style.color = 'hsl(var(--text-primary))'; }
+      tabs.forEach(tItem => {
+        if (!tItem.el) return;
+        if (tItem.id === currentFormat) {
+          tItem.el.style.borderColor = '#e11d48';
+          tItem.el.style.color = '#e11d48';
+        } else {
+          tItem.el.style.borderColor = 'var(--input-border)';
+          tItem.el.style.color = 'hsl(var(--text-primary))';
+        }
+      });
+
+      if (currentFormat === 'word') {
+        if (wordBox) {
+          wordBox.style.display = 'block';
+          window.RFUI.setHTML(wordBox, wordHtml);
+        }
+        if (previewArea) previewArea.style.display = 'none';
       } else {
-        previewArea.value = latexCode;
-        if (tabLatex) { tabLatex.style.borderColor = '#e11d48'; tabLatex.style.color = '#e11d48'; }
-        if (tabMd) { tabMd.style.borderColor = 'var(--input-border)'; tabMd.style.color = 'hsl(var(--text-primary))'; }
+        if (wordBox) wordBox.style.display = 'none';
+        if (previewArea) {
+          previewArea.style.display = 'block';
+          if (currentFormat === 'md') previewArea.value = mdCode;
+          else if (currentFormat === 'latex') previewArea.value = latexCode;
+          else if (currentFormat === 'table') previewArea.value = tableCode;
+        }
       }
     };
     updatePreview();
 
+    tabWord?.addEventListener('click', () => { currentFormat = 'word'; updatePreview(); });
     tabMd?.addEventListener('click', () => { currentFormat = 'md'; updatePreview(); });
     tabLatex?.addEventListener('click', () => { currentFormat = 'latex'; updatePreview(); });
+    tabTable?.addEventListener('click', () => { currentFormat = 'table'; updatePreview(); });
 
-    document.getElementById('btn-copy-rebuttal-content')?.addEventListener('click', () => {
-      const textToCopy = currentFormat === 'md' ? mdCode : latexCode;
+    document.getElementById('btn-copy-rebuttal-word')?.addEventListener('click', async () => {
+      await copyRebuttalRichText(wordHtml, mdCode);
+      showGlobalToast(t('copyWordSuccess') || (currentLanguage === 'zh' ? '已复制 Word 富文本至剪贴板！可直接粘贴至 Word / WPS。' : 'Copied rich text to clipboard! Ready to paste into Word.'), 'success');
+    });
+
+    document.getElementById('btn-copy-rebuttal-code')?.addEventListener('click', () => {
+      let codeToCopy = mdCode;
+      if (currentFormat === 'latex') codeToCopy = latexCode;
+      else if (currentFormat === 'word') codeToCopy = wordHtml;
+      else if (currentFormat === 'table') codeToCopy = tableCode;
+
       if (typeof ZoteroBridge !== 'undefined') {
-        ZoteroBridge.copyText(textToCopy, currentLanguage === 'zh' ? `已复制 ${currentFormat === 'md' ? 'Markdown' : 'LaTeX'} 内容！` : `Copied ${currentFormat.toUpperCase()} to clipboard!`);
+        ZoteroBridge.copyText(codeToCopy, t('copyCodeSuccess') || (currentLanguage === 'zh' ? '已复制到剪贴板！' : 'Copied to clipboard!'));
       } else {
-        navigator.clipboard?.writeText(textToCopy);
-        showGlobalToast(currentLanguage === 'zh' ? `已复制 ${currentFormat === 'md' ? 'Markdown' : 'LaTeX'} 内容！` : `Copied ${currentFormat.toUpperCase()} to clipboard!`, 'success');
+        navigator.clipboard?.writeText(codeToCopy);
+        showGlobalToast(t('copyCodeSuccess') || (currentLanguage === 'zh' ? '已复制到剪贴板！' : 'Copied to clipboard!'), 'success');
       }
     });
 
@@ -1480,13 +1816,18 @@ function renderSubmissionDetails(sub) {
     };
 
     document.getElementById('btn-download-tex')?.addEventListener('click', () => {
-      triggerDownload(latexCode, `rebuttal_matrix_${sub.id}.tex`, 'text/plain;charset=utf-8');
+      triggerDownload(latexCode, `rebuttal_letter_${sub.id}.tex`, 'text/plain;charset=utf-8');
       showGlobalToast(t('latexDownloaded'), 'success');
     });
 
     document.getElementById('btn-download-md')?.addEventListener('click', () => {
-      triggerDownload(mdCode, `rebuttal_matrix_${sub.id}.md`, 'text/markdown;charset=utf-8');
-      showGlobalToast(currentLanguage === 'zh' ? '已下载 Markdown 修回表格' : 'Downloaded Markdown table', 'success');
+      triggerDownload(mdCode, `rebuttal_letter_${sub.id}.md`, 'text/markdown;charset=utf-8');
+      showGlobalToast(currentLanguage === 'zh' ? '已下载学术 Markdown 答复信模版' : 'Downloaded Markdown response letter', 'success');
+    });
+
+    document.getElementById('btn-download-doc')?.addEventListener('click', () => {
+      triggerDownload(wordHtml, `rebuttal_letter_${sub.id}.doc`, 'application/msword;charset=utf-8');
+      showGlobalToast(currentLanguage === 'zh' ? '已下载 Word 兼容答复信文件' : 'Downloaded Word response letter', 'success');
     });
   });
 }
@@ -1823,8 +2164,14 @@ document.getElementById('btn-add-submission')?.addEventListener('click', () => {
   });
 });
 
-
 // --- VIEW 6: MULTI-CLOUD SETTINGS ---
 
-
-
+if (typeof module !== 'undefined' && module.exports) {
+  module.exports = {
+    ...(module.exports || {}),
+    generateAcademicRebuttalLetter,
+    escapeLatexText,
+    copyRebuttalRichText,
+    getSubmissionReviewMatrixRows
+  };
+}

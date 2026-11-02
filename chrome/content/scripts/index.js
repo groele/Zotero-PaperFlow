@@ -1532,7 +1532,9 @@
             const r = reviewRows[i];
             const cmt = escapeHtml(r.comment || '').replace(/\n/g, '<br/>');
             const resp = escapeHtml(r.response || '').replace(/\n/g, '<br/>');
-            noteHtml += `<tr><td style="vertical-align:top; background:#f8fafc;"><strong>#${i + 1}</strong><br/>${cmt || '<em style="color:#94a3b8;">暂无内容</em>'}</td><td style="vertical-align:top;">${resp || '<em style="color:#94a3b8;">待撰写回复</em>'}</td></tr>`;
+            const reviewerBadge = r.reviewer ? ` <span style="background:#e0e7ff; color:#3730a3; padding:1px 5px; border-radius:3px; font-size:10px;">${escapeHtml(r.reviewer)}</span>` : '';
+            const changesRow = r.changes ? `<div style="margin-top:4px; font-size:11px; color:#0369a1;"><strong>📝 修改说明:</strong> ${escapeHtml(r.changes)}</div>` : '';
+            noteHtml += `<tr><td style="vertical-align:top; background:#f8fafc;"><strong>#${i + 1}</strong>${reviewerBadge}<br/>${cmt || '<em style="color:#94a3b8;">暂无内容</em>'}</td><td style="vertical-align:top;">${resp || '<em style="color:#94a3b8;">待撰写回复</em>'}${changesRow}</td></tr>`;
           }
           noteHtml += `</table>`;
         }

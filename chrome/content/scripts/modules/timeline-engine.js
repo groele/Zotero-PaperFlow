@@ -1008,4 +1008,203 @@ function formatShortDate(dateStr) {
   }
 }
 
+/**
+ * Revision Deadline Countdown & iCalendar (.ics) Generator
+ */
+function getRevisionCountdownMeta(dueDate) {
+  if (!dueDate) return null;
+  const due = new Date(dueDate);
+  if (isNaN(due.getTime())) return null;
+  const now = new Date();
+  const utcDue = Date.UTC(due.getFullYear(), due.getMonth(), due.getDate());
+  const utcNow = Date.UTC(now.getFullYear(), now.getMonth(), now.getDate());
+  const diffDays = Math.round((utcDue - utcNow) / 86400000);
+  const isZh = typeof currentLanguage !== 'undefined' ? currentLanguage === 'zh' : true;
 
+  if (diffDays < 0) {
+    const overdueDays = Math.abs(diffDays);
+    return {
+      days: diffDays,
+      level: 'overdue',
+      badgeClass: 'badge-danger',
+      icon: '🚨',
+      text: isZh ? `已逾期 ${overdueDays} 天` : `${overdueDays}d overdue`,
+      title: isZh
+        ? `该稿件修回已超出截止日期 ${overdueDays} 天，建议尽快提交或联系编辑申请延期`
+        : `Revision is ${overdueDays} days past due. Submit ASAP or request an extension.`
+    };
+  }
+  if (diffDays === 0) {
+    return {
+      days: 0,
+      level: 'due_today',
+      badgeClass: 'badge-danger',
+      icon: '🚨',
+      text: isZh ? '今天截止' : 'Due today',
+      title: isZh
+        ? '今天是修回最后截止日！请确认修订稿与回复信已准备就绪'
+        : 'Revision deadline is TODAY! Ensure revisions and rebuttals are ready.'
+    };
+  }
+  if (diffDays <= 7) {
+    return {
+      days: diffDays,
+      level: 'due_soon',
+      badgeClass: 'badge-warning',
+      icon: '⚠️',
+      text: isZh ? `仅剩 ${diffDays} 天` : `${diffDays}d left`,
+      title: isZh
+        ? `距离修回截止仅剩 ${diffDays} 天，请抓紧完善审稿回复与修改`
+        : `${diffDays} days left until revision deadline. Finalize responses promptly.`
+    };
+  }
+  return {
+    days: diffDays,
+    level: 'upcoming',
+    badgeClass: 'badge-info',
+    icon: '📅',
+    text: isZh ? `剩 ${diffDays} 天` : `${diffDays}d left`,
+    title: isZh
+      ? `修回截止日期：${dueDate}（还剩 ${diffDays} 天）`
+      : `Revision due date: ${dueDate} (${diffDays} days remaining)`
+  };
+}
+
+function formatIcsDate(dateStr) {
+  if (!dateStr) return '';
+  const d = new Date(dateStr);
+  if (isNaN(d.getTime())) return '';
+  const year = d.getUTCFullYear();
+  const month = String(d.getUTCMonth() + 1).padStart(2, '0');
+  const day = String(d.getUTCDate()).padStart(2, '0');
+  return `${year}${month}${day}`;
+}
+
+function formatIcsDateTime(date) {
+  const d = date || new Date();
+  return d.toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
+}
+
+function escapeIcsText(str) {
+  if (!str) return '';
+  return String(str)
+    .replace(/\\/g, '\\\\')
+    .replace(/;/g, '\\;')
+    .replace(/,/g, '\\,')
+    .replace(/\r?\n/g, '\\n');
+}
+
+function generateSubmissionCalendarFeed(submissions, manuscripts = [], options = {}) {
+  const subs = Array.isArray(submissions) ? submissions : [submissions].filter(Boolean);
+  const nowStamp = formatIcsDateTime(new Date());
+
+  const lines = [
+    'BEGIN:VCALENDAR',
+    'VERSION:2.0',
+    'PRODID:-//Zotero Flow//Zotero PaperFlow//EN',
+    'CALSCALE:GREGORIAN',
+    'METHOD:PUBLISH',
+    'X-WR-CALNAME:' + escapeIcsText(options.calName || 'PaperFlow Revision Deadlines'),
+    'X-WR-TIMEZONE:UTC'
+  ];
+
+  subs.forEach(sub => {
+    const dueDate = sub.revisionDueDate || sub.revisionDeadline;
+    if (!dueDate) return;
+
+    const startDate = formatIcsDate(dueDate);
+    if (!startDate) return;
+
+    const dueObj = new Date(dueDate);
+    dueObj.setUTCDate(dueObj.getUTCDate() + 1);
+    const endDate = formatIcsDate(dueObj);
+
+    const man = manuscripts.find(m => m.id === sub.manuscriptId);
+    const paperTitle = man?.title || sub.title || 'Untitled Manuscript';
+    const journal = typeof getSubmissionJournalName === 'function' ? getSubmissionJournalName(sub) : (sub.targetJournal || sub.journal || 'Target Journal');
+    const reviewRows = typeof getSubmissionReviewMatrixRows === 'function' ? getSubmissionReviewMatrixRows(sub) : (sub.reviewMatrix || []);
+    const commentsCount = reviewRows.length;
+    const answeredCount = reviewRows.filter(r => (r.response || '').trim()).length;
+
+    const uid = `paperflow-${sub.id}-${startDate}@zoteroflow`;
+    const summary = `[PaperFlow 修回截止] ${journal}: ${paperTitle}`;
+
+    let desc = `手稿: ${paperTitle}\n` +
+               `目标期刊: ${journal}\n` +
+               `当前状态: ${sub.status || 'revision'}\n` +
+               `修回截止日期: ${dueDate}\n` +
+               `审稿意见进度: 已回复 ${answeredCount}/${commentsCount} 条\n\n` +
+               `请在 Zotero PaperFlow 中查阅同行评审回复矩阵与手稿修订时间轴。`;
+
+    lines.push(
+      'BEGIN:VEVENT',
+      `UID:${uid}`,
+      `DTSTAMP:${nowStamp}`,
+      `DTSTART;VALUE=DATE:${startDate}`,
+      `DTEND;VALUE=DATE:${endDate}`,
+      `SUMMARY:${escapeIcsText(summary)}`,
+      `DESCRIPTION:${escapeIcsText(desc)}`,
+      `LOCATION:${escapeIcsText(journal)}`,
+      'STATUS:CONFIRMED',
+      'CATEGORIES:Academic,PaperFlow,Revision',
+      'BEGIN:VALARM',
+      'TRIGGER:-P7D',
+      'ACTION:DISPLAY',
+      `DESCRIPTION:${escapeIcsText(`[PaperFlow] 距离 ${journal} 修回截止还剩 7 天！`)}`,
+      'END:VALARM',
+      'BEGIN:VALARM',
+      'TRIGGER:-P3D',
+      'ACTION:DISPLAY',
+      `DESCRIPTION:${escapeIcsText(`[PaperFlow 紧急] 距离 ${journal} 修回截止仅剩 3 天！`)}`,
+      'END:VALARM',
+      'BEGIN:VALARM',
+      'TRIGGER:-P1D',
+      'ACTION:DISPLAY',
+      `DESCRIPTION:${escapeIcsText(`[PaperFlow 紧急] 明天是 ${journal} 修回最终截止日！`)}`,
+      'END:VALARM',
+      'END:VEVENT'
+    );
+  });
+
+  lines.push('END:VCALENDAR');
+  return lines.join('\r\n');
+}
+
+function triggerCalendarDownload(icsContent, filename = 'paperflow_deadlines.ics') {
+  if (typeof Blob === 'undefined' || typeof URL === 'undefined' || typeof document === 'undefined') {
+    return;
+  }
+  const blob = new Blob([icsContent], { type: 'text/calendar;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+if (typeof window !== 'undefined') {
+  window.RFCalendar = {
+    getRevisionCountdownMeta,
+    formatIcsDate,
+    formatIcsDateTime,
+    escapeIcsText,
+    generateSubmissionCalendarFeed,
+    triggerCalendarDownload
+  };
+}
+
+if (typeof module !== 'undefined' && module.exports) {
+  module.exports = {
+    ...(module.exports || {}),
+    getRevisionCountdownMeta,
+    formatIcsDate,
+    formatIcsDateTime,
+    escapeIcsText,
+    generateSubmissionCalendarFeed,
+    triggerCalendarDownload,
+    escapeLatex
+  };
+}

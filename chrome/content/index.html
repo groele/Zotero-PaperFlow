@@ -43,7 +43,7 @@
         <div class="logo-orb" aria-hidden="true"></div>
         <div>
           <h2>Zotero PaperFlow</h2>
-          <span class="version">v13.1.0 Zotero</span>
+          <span class="version">v13.2.0 Zotero</span>
         </div>
       </div>
     </aside>
@@ -106,7 +106,10 @@
         <div class="dashboard-attention">
           <!-- Timeline alerts -->
           <div class="glass-card recent-box">
-            <h3>🔔 Timeline Alerts</h3>
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+              <h3 style="margin:0;">🔔 Timeline Alerts</h3>
+              <button type="button" class="btn-secondary" id="btn-dashboard-export-all-ics" style="font-size:11px; padding:2px 8px; border-radius:4px;" title="导出全部修回截止日历 (.ics)">📅 .ics</button>
+            </div>
             <div class="recent-list" id="dashboard-pending-milestones">
               <!-- Rendered dynamically -->
             </div>
