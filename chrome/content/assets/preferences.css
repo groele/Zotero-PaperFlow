@@ -133,7 +133,7 @@
   margin: 3px 0 0;
   accent-color: var(--flow-pref-accent);
 }
-.rf-check-title { font-size: 14px; font-weight: 500; line-height: 1.6; }
+.rf-check-title { font-size: 14px; font-weight: 400; line-height: 1.6; }
 /* Level 3 subordinate description strictly aligned at 40px line (16px + 24px) */
 .rf-setting-desc { margin: 2px 0 0 24px; color: var(--flow-pref-muted); font-size: 13px; line-height: 1.6; }
 .rf-control-label { font-size: 14px; font-weight: 500; }

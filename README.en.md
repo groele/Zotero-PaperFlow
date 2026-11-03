@@ -1,4 +1,4 @@
-> **13.0.4 Manuscript Deletion & Architectural Decoupling**: Adds safe deletion controls to manuscript kanban cards and the editing modal with cascading submissions pruning and tombstone syncing; modularizes core host and UI architecture for cleaner maintainability; preserving full Zotero 10+ (10.0–12.*) compatibility. [Release notes](docs/releases/v13.0.4.md).
+> **13.6.0 Modular Settings Architecture & Full Feature Switch Governance**: Rebuilt settings into 5 top-down lifecycle modules, completed granular preference switches across all 22 feature areas (reader excerpt menu, tag sync, empty stage folding, journal portals, export formats, import mode), unified `Zotero.PaperFlow` alias and `PaperFlow/*` tag standards, and established dynamic pref observers; preserving full Zotero 10+ (10.0–12.*) compatibility. [Release notes](docs/releases/v13.6.0.md).
 
 # Zotero PaperFlow
 
@@ -11,7 +11,7 @@ Manage manuscripts, submission rounds, and review responses.
 
 [简体中文](README.md) · [English](README.en.md)
 
-[![Release](https://img.shields.io/badge/version-13.0.4-245ac7?style=flat-square)](https://github.com/groele/Zotero-PaperFlow/releases/tag/v13.0.4) · [Download XPI](https://github.com/groele/Zotero-PaperFlow/releases/download/v13.0.4/zotero-paperflow-13.0.4.xpi) · [Report an issue](https://github.com/groele/Zotero-PaperFlow/issues)
+[![Release](https://img.shields.io/badge/version-13.6.0-245ac7?style=flat-square)](https://github.com/groele/Zotero-PaperFlow/releases/tag/v13.5.0) · [Download XPI](https://github.com/groele/Zotero-PaperFlow/releases/download/v13.6.0/zotero-paperflow-13.6.0.xpi) · [Report an issue](https://github.com/groele/Zotero-PaperFlow/issues)
 
 [Overview](#overview) · [Installation and updates](#installation) · [Quick start](#quick-start) · [Key features](#features) · [Settings](#settings) · [Data, sync, and services](#data) · [Compatibility and validation](#compatibility) · [Troubleshooting](#troubleshooting) · [Development and documentation](#development) · [The Flow series](#series) · [Origin and license](#license)
 
@@ -27,7 +27,7 @@ Install this add-on independently and combine it with other Flow products as nee
 
 ## Installation and updates
 
-1. Download [zotero-paperflow-13.0.4.xpi](https://github.com/groele/Zotero-PaperFlow/releases/download/v13.0.4/zotero-paperflow-13.0.4.xpi) (add-on version **13.0.4**), not the Source code ZIP.
+1. Download [zotero-paperflow-13.6.0.xpi](https://github.com/groele/Zotero-PaperFlow/releases/download/v13.6.0/zotero-paperflow-13.6.0.xpi) (add-on version **13.6.0**), not the Source code ZIP.
 2. In Zotero, open **Tools → Plugins/Add-ons**, then choose **Install Add-on From File** from the gear menu.
 3. Select the XPI, complete installation, and restart if requested.
 
@@ -82,9 +82,9 @@ Zotero preferences configure window behavior and data maintenance; use workspace
 
 | Item | Scope |
 |---|---|
-| Current add-on version | 13.0.3 |
+| Current add-on version | 13.6.0 |
 | Declared Zotero range | `10.0` through `12.*` (for modern Zotero 10+ Web Components architecture) |
-| Evidence boundary | Version 13.0.3 restores save error event handling, defensively guards all DOM element listeners, provides safe defaults for all database collections, and passes 100% of the 103 test cases and package validations. |
+| Evidence boundary | Version 13.6.0 reconstructs a 5-module settings pane, completes granular preference switches for all 22 features, unifies Zotero.PaperFlow aliases and PaperFlow/* tags with dynamic menu observers, and passes 100% of unit and packaging validations. |
 
 Add-on and Zotero versions are separate. Manifest compatibility does not establish testing on every host, operating system, or service. This release passed the full Node regression test suite, installer packaging verification, tag self-tests, and isolated Windows Zotero 10 environment checks.
 

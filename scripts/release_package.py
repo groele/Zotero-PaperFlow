@@ -15,7 +15,7 @@ def require(condition, message):
 def metadata(root):
     manifest = read_json(root / "manifest.json")
     version = manifest["version"]
-    for name in ("zotero/manifest.json", "source/package.json", "docs/brand/product.json"):
+    for name in ("zotero/manifest.json", "source/package.json", "package.json", "docs/brand/product.json"):
         file = root / name
         if file.is_file():
             require(read_json(file)["version"] == version, f"{name}: version mismatch")
@@ -31,6 +31,16 @@ def metadata(root):
         if file.is_file():
             require(f'>v{version} Zotero<' in file.read_text(encoding='utf-8'),
                     f'{name}: workspace version mismatch')
+    options_js = root / "chrome/content/scripts/options.js"
+    if options_js.is_file():
+        require(f"const RF_OPTIONS_RENDER_VERSION = '{version}';" in options_js.read_text(encoding="utf-8"),
+                "chrome/content/scripts/options.js: render version mismatch")
+    for name in ("README.md", "README.en.md"):
+        file = root / name
+        if file.is_file():
+            text = file.read_text(encoding="utf-8")
+            require(f"version-{version}-" in text and f"zotero-paperflow-{version}.xpi" in text,
+                    f"{name}: README version mismatch")
     for name in ("applications", "browser_specific_settings"):
         if name in manifest:
             require(manifest[name]["zotero"]["id"] == manifest["applications"]["zotero"]["id"],

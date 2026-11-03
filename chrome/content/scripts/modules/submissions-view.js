@@ -1380,10 +1380,12 @@ function renderRebuttalProgressTracker(sub = {}) {
   if (total === 0) return '';
 
   const addressed = rows.filter(r => r.status === 'addressed' || (!r.status && r.response && r.response.trim().length > 0)).length;
+  const clarified = rows.filter(r => r.status === 'clarified').length;
+  const resolved = addressed + clarified;
   const inProgress = rows.filter(r => r.status === 'in_progress').length;
   const pending = rows.filter(r => r.status === 'pending' || (!r.status && (!r.response || !r.response.trim().length))).length;
   const withChanges = rows.filter(r => Boolean(r.changes && r.changes.trim().length > 0)).length;
-  const percent = Math.round((addressed / total) * 100);
+  const percent = Math.round((resolved / total) * 100);
 
   const reviewerMap = new Map();
   rows.forEach(r => {
@@ -1391,7 +1393,7 @@ function renderRebuttalProgressTracker(sub = {}) {
     if (!reviewerMap.has(rev)) reviewerMap.set(rev, { total: 0, done: 0 });
     const stat = reviewerMap.get(rev);
     stat.total++;
-    if (r.status === 'addressed' || (!r.status && r.response && r.response.trim().length > 0)) {
+    if (r.status === 'addressed' || r.status === 'clarified' || (!r.status && r.response && r.response.trim().length > 0)) {
       stat.done++;
     }
   });
@@ -1422,6 +1424,7 @@ function renderRebuttalProgressTracker(sub = {}) {
       <div style="display:flex; gap:16px; font-size:12px; color:var(--text-secondary); flex-wrap:wrap;">
         <span>${escapeHTML(t('rebuttalTotalComments') || '总意见')}: <strong>${total}</strong></span>
         <span style="color:#16a34a;">✔ ${escapeHTML(t('rebuttalAddressed') || '已答复')}: <strong>${addressed}</strong></span>
+        ${clarified > 0 ? `<span style="color:#0d9488;">💬 ${escapeHTML(t('rebuttalClarified') || '已辩明')}: <strong>${clarified}</strong></span>` : ''}
         ${inProgress > 0 ? `<span style="color:#d97706;">⏳ ${escapeHTML(t('rebuttalInProgress') || '处理中')}: <strong>${inProgress}</strong></span>` : ''}
         <span style="color:${pending > 0 ? '#ea580c' : '#16a34a'};">⭕ ${escapeHTML(t('rebuttalPending') || '待答复')}: <strong>${pending}</strong></span>
         <span style="color:#0284c7;">📝 ${escapeHTML(t('rebuttalChangesNoted') || '已标定改动')}: <strong>${withChanges}</strong></span>

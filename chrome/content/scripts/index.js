@@ -70,17 +70,17 @@
 
   
   const STATUS_TAG_MAP = {
-    idea: 'ResearchFlow/01-选题大纲',
-    outline: 'ResearchFlow/01-选题大纲',
-    data_collection: 'ResearchFlow/01-选题大纲',
-    figure_preparation: 'ResearchFlow/02-图表初稿',
-    drafting: 'ResearchFlow/02-图表初稿',
-    internal_review: 'ResearchFlow/02-组内评审',
-    submitted: 'ResearchFlow/03-已正式投稿',
-    under_review: 'ResearchFlow/04-同行审稿中',
-    revision: 'ResearchFlow/05-修回修订中',
-    accepted: 'ResearchFlow/06-已录用Accepted',
-    published: 'ResearchFlow/07-已正式发表'
+    idea: 'PaperFlow/01-选题大纲',
+    outline: 'PaperFlow/01-选题大纲',
+    data_collection: 'PaperFlow/01-选题大纲',
+    figure_preparation: 'PaperFlow/02-图表初稿',
+    drafting: 'PaperFlow/02-图表初稿',
+    internal_review: 'PaperFlow/02-组内评审',
+    submitted: 'PaperFlow/03-已正式投稿',
+    under_review: 'PaperFlow/04-同行审稿中',
+    revision: 'PaperFlow/05-修回修订中',
+    accepted: 'PaperFlow/06-已录用Accepted',
+    published: 'PaperFlow/07-已正式发表'
   };
 
   const extractCiteKey = (target) => {
@@ -412,7 +412,7 @@
   Zotero.ResearchFlow = {
     rootURI: typeof rootURI !== 'undefined' ? rootURI : '',
     addonId: ADDON_ID,
-    version: (typeof version !== 'undefined' && version) ? version : '13.0.4',
+    version: (typeof version !== 'undefined' && version) ? version : '13.6.0',
     serializeLiteratureItem,
     getLiteratureAnnotations,
     getLiteratureNotes,
@@ -532,6 +532,9 @@
 
     
     async syncStatusTagToItem(item, status) {
+      if (!this.getPref('syncStatusTags', false)) {
+        return true;
+      }
       const target = getLiteratureItem(item);
       if (!target) return false;
       if (target.deleted || (typeof target.isEditable === 'function' && !target.isEditable())) {
@@ -654,6 +657,9 @@
           Zotero.Prefs.registerObserver('extensions.researchflow.enableItemPane', () => {
             this.updateItemPaneSection();
           }, this._prefObserverSymbol);
+          Zotero.Prefs.registerObserver('extensions.researchflow.enableReaderIntegration', () => {
+            this.updateReaderContextMenu();
+          }, this._prefObserverSymbol);
         } catch (_) {}
       }
     },
@@ -672,8 +678,19 @@
     // =======================================================================
     registerMenus() {
       this.updateItemContextMenu();
+      this.updateReaderContextMenu();
+    },
 
-      if (Zotero.MenuManager && typeof Zotero.MenuManager.registerMenu === 'function') {
+    updateReaderContextMenu() {
+      if (this._menuManagerReader && Zotero.MenuManager?.unregisterMenu) {
+        try {
+          Zotero.MenuManager.unregisterMenu(this._menuManagerReader);
+        } catch (_) {}
+        this._menuManagerReader = null;
+      }
+
+      const enableReader = Boolean(this.getPref('enableReaderIntegration', true));
+      if (enableReader && Zotero.MenuManager && typeof Zotero.MenuManager.registerMenu === 'function') {
         try {
           this._menuManagerReader = Zotero.MenuManager.registerMenu({
             menuID: 'researchflow-reader-context',
@@ -688,14 +705,14 @@
                   try {
                     this.createRecordFromReader(event?.target?.ownerGlobal);
                   } catch (err) {
-                    Zotero.logError?.('[ResearchFlow] Reader context error: ' + err);
+                    Zotero.logError?.('[PaperFlow] Reader context error: ' + err);
                   }
                 }
               }
             ]
           });
         } catch (err) {
-          Zotero.logError?.('[ResearchFlow] MenuManager register failed: ' + err);
+          Zotero.logError?.('[PaperFlow] MenuManager register failed: ' + err);
         }
       }
     },
@@ -1484,13 +1501,22 @@
         };
         const statusText = statusMap[targetMan.status] || targetMan.status || '撰写中';
 
-        // Check if there are linked submissions
+        // Select active/latest submission round (mirrors RFCore.getCurrentSubmission)
         const linkedSubmissions = (db.submissions || []).filter((s) => s.manuscriptId === targetMan.id);
-        const sub = linkedSubmissions[0] || null;
+        const predecessorIds = new Set(linkedSubmissions.map((s) => s.previousSubmissionId).filter(Boolean));
+        const activeCandidates = linkedSubmissions.filter((s) => !predecessorIds.has(s.id));
+        const parseSubTime = (v) => Date.parse(v || '') || 0;
+        const sub = [...(activeCandidates.length ? activeCandidates : linkedSubmissions)].sort((a, b) =>
+          (Number(b.roundIndex) || 1) - (Number(a.roundIndex) || 1)
+          || parseSubTime(b.submissionDate || b.submittedAt || b.createdAt) - parseSubTime(a.submissionDate || a.submittedAt || a.createdAt)
+          || parseSubTime(b.createdAt) - parseSubTime(a.createdAt)
+          || String(a.id || '').localeCompare(String(b.id || ''))
+        )[0] || null;
 
+        const targetJournalName = sub?.targetJournal || sub?.journalName || targetMan.targetJournal || targetMan.targetJournals?.[0] || '待定';
         let noteHtml = `<h1>🚀 [Zotero PaperFlow] 论文稿件与审稿跟踪快报</h1>`;
         noteHtml += `<p><strong>稿件标题：</strong>${escapeHtml(targetMan.title)}</p>`;
-        noteHtml += `<p><strong>目标期刊：</strong>${escapeHtml(targetMan.targetJournal || targetMan.targetJournals?.[0] || '待定')} | <strong>当前状态：</strong><span style="color:#e11d48; font-weight:700;">${escapeHtml(statusText)}</span></p>`;
+        noteHtml += `<p><strong>目标期刊：</strong>${escapeHtml(targetJournalName)} | <strong>当前状态：</strong><span style="color:#e11d48; font-weight:700;">${escapeHtml(statusText)}</span></p>`;
         if (sub?.externalManuscriptId) {
           noteHtml += `<p><strong>期刊稿号 (Manuscript ID)：</strong><code>${escapeHtml(sub.externalManuscriptId)}</code></p>`;
         }
@@ -1511,8 +1537,10 @@
         if (sub && Array.isArray(sub.timelineNodes) && sub.timelineNodes.length > 0) {
           noteHtml += `<h3>📅 稿件管线里程碑时间轴</h3><ul>`;
           for (const node of sub.timelineNodes) {
-            const completedMark = node.completed ? '✅' : '⏳';
-            const dateStr = node.date ? ` (${escapeHtml(node.date)})` : '';
+            const isCompleted = Boolean(node.completed || node.completeDate || node.status === 'completed' || node.status === 'done');
+            const completedMark = isCompleted ? '✅' : '⏳';
+            const rawDate = node.completeDate || node.date || node.planDate || node.dueDate || '';
+            const dateStr = rawDate ? ` (${escapeHtml(String(rawDate).slice(0, 10))})` : '';
             noteHtml += `<li>${completedMark} <strong>${escapeHtml(node.name)}</strong>${dateStr}</li>`;
           }
           noteHtml += `</ul>`;
@@ -1531,13 +1559,22 @@
           noteHtml += `<h3>📋 审稿人逐条意见与修回回复矩阵 (Response Matrix)</h3>`;
           noteHtml += `<table border="1" cellpadding="6" cellspacing="0" style="border-collapse:collapse; width:100%; font-size:12px; border-color:#cbd5e1;">`;
           noteHtml += `<tr style="background:#f1f5f9; font-weight:600;"><th style="width:45%; text-align:left;">审稿人意见 (Reviewer Comment)</th><th style="width:55%; text-align:left;">作者修回回复 (Author Response)</th></tr>`;
+          const statusBadgeMap = {
+            addressed: { text: '✔ 已答复', bg: '#dcfce7', color: '#166534' },
+            clarified: { text: '💬 已辩明', bg: '#ccfbf1', color: '#115e59' },
+            in_progress: { text: '⏳ 处理中', bg: '#fef3c7', color: '#92400e' },
+            pending: { text: '⭕ 待处理', bg: '#f1f5f9', color: '#475569' }
+          };
           for (let i = 0; i < reviewRows.length; i++) {
             const r = reviewRows[i];
             const cmt = escapeHtml(r.comment || '').replace(/\n/g, '<br/>');
             const resp = escapeHtml(r.response || '').replace(/\n/g, '<br/>');
             const reviewerBadge = r.reviewer ? ` <span style="background:#e0e7ff; color:#3730a3; padding:1px 5px; border-radius:3px; font-size:10px;">${escapeHtml(r.reviewer)}</span>` : '';
+            const resolvedStatusKey = r.status || (r.response && String(r.response).trim() ? 'addressed' : 'pending');
+            const statusMeta = statusBadgeMap[resolvedStatusKey] || statusBadgeMap.pending;
+            const statusBadge = ` <span style="background:${statusMeta.bg}; color:${statusMeta.color}; padding:1px 5px; border-radius:3px; font-size:10px;">${statusMeta.text}</span>`;
             const changesRow = r.changes ? `<div style="margin-top:4px; font-size:11px; color:#0369a1;"><strong>📝 修改说明:</strong> ${escapeHtml(r.changes)}</div>` : '';
-            noteHtml += `<tr><td style="vertical-align:top; background:#f8fafc;"><strong>#${i + 1}</strong>${reviewerBadge}<br/>${cmt || '<em style="color:#94a3b8;">暂无内容</em>'}</td><td style="vertical-align:top;">${resp || '<em style="color:#94a3b8;">待撰写回复</em>'}${changesRow}</td></tr>`;
+            noteHtml += `<tr><td style="vertical-align:top; background:#f8fafc;"><strong>#${i + 1}</strong>${reviewerBadge}${statusBadge}<br/>${cmt || '<em style="color:#94a3b8;">暂无内容</em>'}</td><td style="vertical-align:top;">${resp || '<em style="color:#94a3b8;">待撰写回复</em>'}${changesRow}</td></tr>`;
           }
           noteHtml += `</table>`;
         }

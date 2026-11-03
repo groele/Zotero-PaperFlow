@@ -87,6 +87,10 @@ class ReleaseTests(unittest.TestCase):
         (self.root / "chrome/content/preferences.xhtml").write_text(">v1.2.2<")
         with self.assertRaisesRegex(ValueError, "badge mismatch"):
             metadata(self.root)
+        (self.root / "chrome/content/preferences.xhtml").write_text(">v1.2.3<")
+        (self.root / "README.md").write_text("version-1.2.2-blue zotero-paperflow-1.2.2.xpi", encoding="utf-8")
+        with self.assertRaisesRegex(ValueError, "README version mismatch"):
+            metadata(self.root)
 
     def test_invalid_later_feed_never_partially_updates_earlier_feed(self):
         build(self.root, self.output)

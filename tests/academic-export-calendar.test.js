@@ -435,6 +435,20 @@ test('renderRebuttalProgressTracker computes metrics and progress percentages co
   assert.ok(html.includes('0/2'));
   assert.ok(html.includes('<strong>4</strong>')); // total comments
   assert.ok(html.includes('rebuttalInProgress') || html.includes('处理中') || html.includes('In Progress'));
+
+  // Verify that clarified comments count toward completion percentage and reviewer chips
+  const clarifiedSub = {
+    reviewMatrix: [
+      { reviewer: 'Reviewer #1', comment: 'C1', response: 'R1', changes: 'p. 1', status: 'addressed' },
+      { reviewer: 'Reviewer #2', comment: 'C2', response: 'Clarified in response', changes: '', status: 'clarified' }
+    ]
+  };
+  const clarifiedHtml = renderTracker(clarifiedSub);
+  assert.ok(clarifiedHtml.includes('100% Completed'));
+  assert.ok(clarifiedHtml.includes('Reviewer #1:'));
+  assert.ok(clarifiedHtml.includes('Reviewer #2:'));
+  assert.ok(clarifiedHtml.includes('1/1'));
+  assert.ok(clarifiedHtml.includes('rebuttalClarified') || clarifiedHtml.includes('已辩明') || clarifiedHtml.includes('Clarified'));
 });
 
 test('buildSubmissionEditSyncPlan preserves externalManuscriptId', () => {
