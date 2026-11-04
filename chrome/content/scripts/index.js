@@ -229,7 +229,7 @@
         }
       }
     } catch (err) {
-      Zotero.logError?.('[ResearchFlow] getLiteratureAnnotations error: ' + err);
+      Zotero.logError?.('[PaperFlow] getLiteratureAnnotations error: ' + err);
     }
     return annotations;
   };
@@ -306,7 +306,7 @@
           const nItem = Zotero.Items?.get?.(nId);
           if (nItem && typeof nItem.isNote === 'function' && nItem.isNote()) {
             const rawNote = (typeof nItem.getNote === 'function' ? nItem.getNote() : '') || '';
-            if (rawNote.includes('[ResearchFlow]') || rawNote.includes('ResearchFlow for Zotero')) {
+            if (rawNote.includes('[ResearchFlow]') || rawNote.includes('ResearchFlow for Zotero') || rawNote.includes('[PaperFlow]') || rawNote.includes('Zotero PaperFlow')) {
               continue;
             }
             const snippet = rawNote.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
@@ -327,7 +327,7 @@
         }
       }
     } catch (err) {
-      Zotero.logError?.('[ResearchFlow] getLiteratureNotes error: ' + err);
+      Zotero.logError?.('[PaperFlow] getLiteratureNotes error: ' + err);
     }
     return notes;
   };
@@ -447,7 +447,7 @@
   Zotero.ResearchFlow = {
     rootURI: typeof rootURI !== 'undefined' ? rootURI : '',
     addonId: ADDON_ID,
-    version: (typeof version !== 'undefined' && version) ? version : '13.7.0',
+    version: (typeof version !== 'undefined' && version) ? version : '13.8.0',
     serializeLiteratureItem,
     getLiteratureAnnotations,
     getLiteratureNotes,
@@ -479,7 +479,7 @@
           this.localizedDocs.add(doc);
         }
       } catch (error) {
-        Zotero.logError?.('[ResearchFlow] Could not load translations: ' + error);
+        Zotero.logError?.('[PaperFlow] Could not load translations: ' + error);
       }
     },
 
@@ -526,6 +526,9 @@
       s.autoSync = Boolean(get('autoSync', true));
       s.autoBackupOnSave = Boolean(get('autoBackupOnSave', true));
       s.importMode = get('importMode', 'merge');
+      s.autoSyncChildNotes = Boolean(get('autoSyncChildNotes', true));
+      s.autoAddToPipelineCollection = Boolean(get('autoAddToPipelineCollection', true));
+      s.enableAcceptanceCelebration = Boolean(get('enableAcceptanceCelebration', true));
       return s;
     },
 
@@ -624,6 +627,9 @@
     },
 
     async addItemToPipelineCollection(item) {
+      if (!this.getPref('autoAddToPipelineCollection', true)) {
+        return null;
+      }
       const target = getLiteratureItem(item);
       if (!target) return null;
       if (target.deleted || (typeof target.isEditable === 'function' && !target.isEditable())) {
@@ -698,7 +704,7 @@
           }
         }, ['item', 'collection'], ADDON_ID);
       } catch (err) {
-        Zotero.logError?.('[ResearchFlow] Notifier registration failed: ' + err);
+        Zotero.logError?.('[PaperFlow] Notifier registration failed: ' + err);
       }
     },
 
@@ -807,7 +813,7 @@
                   try {
                     this.createManuscriptFromSelection();
                   } catch (err) {
-                    Zotero.logError?.('[ResearchFlow] MenuManager create error: ' + err);
+                    Zotero.logError?.('[PaperFlow] MenuManager create error: ' + err);
                   }
                 }
               },
@@ -819,14 +825,14 @@
                   try {
                     this.linkSelectionToManuscript();
                   } catch (err) {
-                    Zotero.logError?.('[ResearchFlow] MenuManager link error: ' + err);
+                    Zotero.logError?.('[PaperFlow] MenuManager link error: ' + err);
                   }
                 }
               }
             ]
           });
         } catch (err) {
-          Zotero.logError?.('[ResearchFlow] MenuManager register failed: ' + err);
+          Zotero.logError?.('[PaperFlow] MenuManager register failed: ' + err);
         }
       }
     },
@@ -922,7 +928,7 @@
         }
         return results;
       } catch (err) {
-        Zotero.logError?.('[ResearchFlow] searchLibrary error: ' + err);
+        Zotero.logError?.('[PaperFlow] searchLibrary error: ' + err);
         return [];
       }
     },
@@ -1250,7 +1256,7 @@
           this.rememberDatabaseSnapshot(parsed);
           return this.cloneDatabase(parsed);
         } catch (e) {
-          Zotero.logError?.('[ResearchFlow] Failed to read researchflow-data.json: ' + e);
+          Zotero.logError?.('[PaperFlow] Failed to read researchflow-data.json: ' + e);
           throw e; // Preserve an unreadable or corrupt user file for recovery.
         }
       }
@@ -1261,7 +1267,7 @@
         const response = await fetch(`${CHROME_ROOT}data/preloaded_db.json`);
         if (response.ok) preloaded = await response.json();
       } catch (error) {
-        Zotero.logError?.('[ResearchFlow] Bundled database unavailable: ' + error);
+        Zotero.logError?.('[PaperFlow] Bundled database unavailable: ' + error);
       }
       if (preloaded) {
         this.validateDatabase(preloaded);
@@ -1335,7 +1341,7 @@
         this.notifyDataChanged();
         return this.cloneDatabase(snapshot);
       } catch (error) {
-        Zotero.logError?.('[ResearchFlow] Failed to write researchflow-data.json: ' + error);
+        Zotero.logError?.('[PaperFlow] Failed to write researchflow-data.json: ' + error);
         throw error;
       }
     },
@@ -1403,7 +1409,7 @@
         try { await this.readDatabaseSnapshot(); }
         catch (error) {
           // A validated recovery backup must remain usable when the main file is corrupt.
-          Zotero.logError?.('[ResearchFlow] Restoring backup over unreadable database: ' + error);
+          Zotero.logError?.('[PaperFlow] Restoring backup over unreadable database: ' + error);
           fallbackRevision = Number(restored.revision) || 0;
         }
         const saved = await this.writeDatabaseSnapshot(restored, fallbackRevision);
@@ -1441,7 +1447,7 @@
         await IOUtils.write(filePath, bytes);
         return { success: true, filePath };
       } catch (error) {
-        Zotero.logError?.('[ResearchFlow] saveShareImageFile error: ' + error);
+        Zotero.logError?.('[PaperFlow] saveShareImageFile error: ' + error);
         return { success: false, error: String(error?.message || error) };
       } finally {
         this._shareImageSavePending = false;
@@ -1470,7 +1476,7 @@
           return { success: true, filePath };
         }
       } catch (err) {
-        Zotero.logError?.('[ResearchFlow] exportDatabaseFile error: ' + err);
+        Zotero.logError?.('[PaperFlow] exportDatabaseFile error: ' + err);
         this.showToast('导出失败', String(err.message || err), 'error');
         return { success: false, error: err.message };
       }
@@ -1502,7 +1508,7 @@
           return { success: true, data: saved };
         }
       } catch (err) {
-        Zotero.logError?.('[ResearchFlow] importDatabaseFile error: ' + err);
+        Zotero.logError?.('[PaperFlow] importDatabaseFile error: ' + err);
         this.showToast('导入失败', String(err.message || err), 'error');
         return { success: false, error: err.message };
       }
@@ -1530,7 +1536,7 @@
           return { success: true, filePath };
         }
       } catch (err) {
-        Zotero.logError?.('[ResearchFlow] exportDiagnosticsFile error: ' + err);
+        Zotero.logError?.('[PaperFlow] exportDiagnosticsFile error: ' + err);
         this.showToast('导出失败', String(err.message || err), 'error');
         return { success: false, error: err.message };
       }
@@ -1693,7 +1699,7 @@
 
         return targetNote;
       } catch (e) {
-        Zotero.logError?.('[ResearchFlow] syncManuscriptToChildNote error: ' + e);
+        Zotero.logError?.('[PaperFlow] syncManuscriptToChildNote error: ' + e);
         return null;
       }
     },
@@ -1710,7 +1716,7 @@
     },
 
     async init() {
-      Zotero.log('[ResearchFlow] Initializing host runtime...');
+      Zotero.log('[PaperFlow] Initializing host runtime...');
       await this.loadDatabase();
 
       this.initNotifier();
@@ -1751,13 +1757,13 @@
             stylesheets: [prefCss],
           });
         } catch (prefErr) {
-          Zotero.log?.('[ResearchFlow] PreferencePanes registration note: ' + prefErr);
+          Zotero.log?.('[PaperFlow] PreferencePanes registration note: ' + prefErr);
         }
       }
 
       this.updateItemPaneSection();
 
-      Zotero.log('[ResearchFlow] Initialized successfully in Zotero');
+      Zotero.log('[PaperFlow] Initialized successfully in Zotero');
     },
 
     updateItemPaneSection() {
@@ -2192,7 +2198,7 @@
             return;
           }
         } catch (err) {
-          Zotero.logError?.('[ResearchFlow] handleHostMessage error: ' + err);
+          Zotero.logError?.('[PaperFlow] handleHostMessage error: ' + err);
         }
       };
 
@@ -2420,7 +2426,7 @@
           }
         }
       } catch (err) {
-        Zotero.logError?.('[ResearchFlow] openPdfAttachment error: ' + err);
+        Zotero.logError?.('[PaperFlow] openPdfAttachment error: ' + err);
       }
     },
 
@@ -2470,7 +2476,7 @@
           items: childMetas
         });
       } catch (err) {
-        Zotero.logError?.('[ResearchFlow] createManuscriptFromCollection error: ' + err);
+        Zotero.logError?.('[PaperFlow] createManuscriptFromCollection error: ' + err);
       }
     },
 
@@ -2537,7 +2543,7 @@
           pdfLink: pageLink
         });
       } catch (err) {
-        Zotero.logError?.('[ResearchFlow] createRecordFromReader error: ' + err);
+        Zotero.logError?.('[PaperFlow] createRecordFromReader error: ' + err);
       }
     },
 
@@ -2588,7 +2594,7 @@
             select: true,
             data: options,
             onClose: () => {
-              Zotero.log?.('[ResearchFlow] Tab closed');
+              Zotero.log?.('[PaperFlow] Tab closed');
             }
           });
 
@@ -2631,7 +2637,7 @@
           return;
         }
       } catch (e) {
-        Zotero.logError?.('[ResearchFlow] openResearchFlow error: ' + e);
+        Zotero.logError?.('[PaperFlow] openResearchFlow error: ' + e);
       }
 
       this.openStandaloneWindow(options, targetWindow, 'window');
@@ -2684,7 +2690,7 @@
         }
         if (win && win.focus) win.focus();
       } catch (err) {
-        Zotero.logError?.('[ResearchFlow] openStandaloneWindow error: ' + err);
+        Zotero.logError?.('[PaperFlow] openStandaloneWindow error: ' + err);
       }
     },
 
@@ -2699,7 +2705,7 @@
           win?.openDialog?.('chrome://zotero/content/preferences/preferences.xhtml', 'Preferences', 'chrome,titlebar,toolbar,centerscreen,dialog=yes');
         }
       } catch (e) {
-        Zotero.logError?.('[ResearchFlow] Could not open preferences: ' + e);
+        Zotero.logError?.('[PaperFlow] Could not open preferences: ' + e);
       }
     },
 
@@ -2731,7 +2737,7 @@
               refresh,
               onDataChanged: () => {
                 Promise.resolve(refresh?.()).catch((err) => {
-                  Zotero.logError?.('[ResearchFlow] ItemPane refresh failed: ' + err);
+                  Zotero.logError?.('[PaperFlow] ItemPane refresh failed: ' + err);
                 });
               }
             };
@@ -2987,7 +2993,7 @@
           }
         });
       } catch (err) {
-        Zotero.logError?.('[ResearchFlow] registerItemPaneSection error: ' + err);
+        Zotero.logError?.('[PaperFlow] registerItemPaneSection error: ' + err);
       }
     },
 
@@ -3027,7 +3033,7 @@
         } catch (_) {}
         this.itemPaneSectionID = null;
       }
-      Zotero.log('[ResearchFlow] Shutdown complete');
+      Zotero.log('[PaperFlow] Shutdown complete');
     }
   };
 
@@ -3035,6 +3041,6 @@
 
   // Kickstart initialization
   Zotero.ResearchFlow.init().catch((err) => {
-    Zotero.logError?.('[ResearchFlow] init error: ' + err);
+    Zotero.logError?.('[PaperFlow] init error: ' + err);
   });
 })();

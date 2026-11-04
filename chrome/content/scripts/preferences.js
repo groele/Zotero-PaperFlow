@@ -20,11 +20,14 @@ window.ResearchFlow_Preferences = (() => {
     syncStatusTags: false,
     locateOnManuscriptClick: true,
     autoLinkSelectedPaper: true,
+    autoSyncChildNotes: true,
+    autoAddToPipelineCollection: true,
 
     // 模块 3: 写作与审稿工作流
     showJournalPortals: true,
     collapseEmptyKanbanStages: false,
     defaultRebuttalExportFormat: 'latex',
+    enableAcceptanceCelebration: true,
 
     // 模块 4: 数据存储与多云同步
     autoSync: true,
@@ -127,6 +130,18 @@ window.ResearchFlow_Preferences = (() => {
         label: '跟踪新投稿时自动检测并载入 Zotero 当前选中文献',
         desc: '点击「+ 跟踪新投稿」时，自动检测 Zotero 当前选中的文献条目并提供一键载入元数据快捷浮条。',
         type: 'check'
+      },
+      {
+        key: 'autoSyncChildNotes',
+        label: '手稿流程更新或关联文献时自动同步更新 Zotero 子笔记',
+        desc: '开启后自动将稿件进展与审稿矩阵同步写入文献条目的专属子笔记中。关闭后仅在用户手动点击「同步」时写入。',
+        type: 'check'
+      },
+      {
+        key: 'autoAddToPipelineCollection',
+        label: '关联手稿时自动将文献条目归入「论文管线」分类集合',
+        desc: '开启后自动在当前库中维护「🚀 Zotero PaperFlow 论文管线」分类目录并将关联文献归入其中。',
+        type: 'check'
       }
     ],
 
@@ -154,6 +169,12 @@ window.ResearchFlow_Preferences = (() => {
           ['md', '📑 学术 Markdown 模版 (.md)'],
           ['table', '📊 意见与修改汇总表 (Markdown Table)']
         ]
+      },
+      {
+        key: 'enableAcceptanceCelebration',
+        label: '论文正式录用接收时播放全屏彩带动画与庆祝卡片',
+        desc: '当稿件或投稿轮次状态变更为「已录用接收」时，弹出喜报卡片并播放彩带礼花动效。',
+        type: 'check'
       }
     ],
 
@@ -162,6 +183,12 @@ window.ResearchFlow_Preferences = (() => {
         key: 'autoSync',
         label: '本地科研数据保存后自动执行云端同步',
         desc: '在已配置有效 WebDAV 或 GitHub 私有仓库凭据的前提下，本地每次保存后自动在后台静默发起远端同步。',
+        type: 'check'
+      },
+      {
+        key: 'autoBackupOnSave',
+        label: '本地科研数据保存时自动轮转生成安全灾备快照',
+        desc: '本地每次提交保存时，自动在 Zotero 数据目录维护多份滚动版本历史快照，防止断电等意外导致数据损坏。',
         type: 'check'
       }
     ]
@@ -385,7 +412,7 @@ window.ResearchFlow_Preferences = (() => {
           const diag = {
             exportedAt: new Date().toISOString(),
             zoteroVersion: Zotero.version,
-            paperflowVersion: Zotero?.ResearchFlow?.version || '13.7.0',
+            paperflowVersion: Zotero?.ResearchFlow?.version || '13.8.0',
             schemaVersion: db?.schemaVersion,
             counts: {
               manuscripts: db?.manuscripts?.length || 0,

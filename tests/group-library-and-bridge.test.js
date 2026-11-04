@@ -7,6 +7,7 @@ const { test } = require('node:test');
 const root = path.resolve(__dirname, '..');
 const bridgeSource = fs.readFileSync(path.join(root, 'chrome/content/scripts/zotero-bridge.js'), 'utf8');
 const optionsSource = fs.readFileSync(path.join(root, 'chrome/content/scripts/options.js'), 'utf8');
+const indexSource = fs.readFileSync(path.join(root, 'chrome/content/scripts/index.js'), 'utf8');
 
 test('resolveZoteroItem resolves item by explicit libraryID', () => {
   const mockItem = { id: 101, key: 'ABCDEFGH', libraryID: 42, isEditable: () => true };
@@ -73,6 +74,7 @@ test('ZoteroBridge.getPref reads directly from host Zotero.ResearchFlow and fall
       getPref(key, def) {
         if (key === 'locateOnManuscriptClick') return false;
         if (key === 'showJournalPortals') return true;
+        if (key === 'autoSyncChildNotes') return false;
         return def;
       }
     }
@@ -88,6 +90,7 @@ test('ZoteroBridge.getPref reads directly from host Zotero.ResearchFlow and fall
   const ZoteroBridge = sandbox.globalThis.ZoteroBridge;
   assert.equal(ZoteroBridge.getPref('locateOnManuscriptClick', true), false);
   assert.equal(ZoteroBridge.getPref('showJournalPortals', false), true);
+  assert.equal(ZoteroBridge.getPref('autoSyncChildNotes', true), false);
   assert.equal(ZoteroBridge.getPref('nonexistentPref', 'fallbackVal'), 'fallbackVal');
 });
 
@@ -143,4 +146,112 @@ test('registerModalCleanup registers cleanup callbacks and closeModal executes a
 
   assert.equal(cleaned1, true, 'First cleanup callback must have executed');
   assert.equal(cleaned2, true, 'Second cleanup callback must have executed');
+});
+
+test('addItemToPipelineCollection respects autoAddToPipelineCollection preference', async () => {
+  let createdCollection = false;
+  const mockItem = {
+    isEditable: () => true,
+    deleted: false,
+    libraryID: 1,
+    inCollection: () => false,
+    addToCollection() {},
+    saveTx: async () => {}
+  };
+
+  const sandbox = {
+    getLiteratureItem: it => it,
+    Zotero: {
+      logError: () => {},
+      Libraries: { userLibraryID: 1 },
+      Collections: { getByLibrary: () => [] },
+      Collection: class {
+        constructor() { createdCollection = true; }
+        saveTx() { return Promise.resolve(); }
+      }
+    }
+  };
+
+  const runtime = {
+    getPref(key, def) {
+      if (key === 'autoAddToPipelineCollection') return false;
+      return def;
+    }
+  };
+
+  const codeStart = indexSource.indexOf('    async addItemToPipelineCollection(item) {');
+  const codeEnd = indexSource.indexOf('    showToast(title, message, type = \'info\', duration = 3500) {');
+  assert.ok(codeStart > 0 && codeEnd > codeStart, 'addItemToPipelineCollection must be found');
+  const methodCode = indexSource.slice(codeStart, codeEnd);
+
+  const context = vm.createContext(sandbox);
+  const fn = vm.runInContext(`({ ${methodCode} }).addItemToPipelineCollection`, context);
+
+  const res = await fn.call(runtime, mockItem);
+  assert.equal(res, null, 'addItemToPipelineCollection must return null when preference is disabled');
+  assert.equal(createdCollection, false, 'No collection should be created when preference is disabled');
+});
+
+test('showAcceptanceCelebration respects enableAcceptanceCelebration preference', () => {
+  let celebrationRendered = false;
+  const mockDoc = {
+    getElementById(id) {
+      return {
+        classList: { add() {}, remove() {}, contains() { return true; } },
+        setAttribute() {},
+        removeAttribute() {},
+        focus() {}
+      };
+    },
+    createElement(tag) {
+      if (tag === 'div') celebrationRendered = true;
+      return {
+        classList: { add() {}, remove() {} },
+        setAttribute() {},
+        dataset: {},
+        style: { setProperty() {} },
+        appendChild() {}
+      };
+    },
+    createDocumentFragment() {
+      return { appendChild() {} };
+    },
+    querySelector() { return null; },
+    querySelectorAll() { return []; },
+    addEventListener() {},
+    removeEventListener() {},
+    activeElement: null,
+    body: {
+      classList: { add() {}, remove() {} },
+      appendChild() {}
+    }
+  };
+
+  const sandbox = {
+    window: {
+      location: { href: 'chrome://researchflow/content/pages/options.html', searchParams: new URLSearchParams() },
+      history: { replaceState() {} },
+      RFUI: { setHTML() {} },
+      addEventListener() {},
+      removeEventListener() {},
+      matchMedia: () => ({ matches: false })
+    },
+    document: mockDoc,
+    HTMLElement: class {},
+    URL: globalThis.URL,
+    ZoteroBridge: {
+      getPref(key, def) {
+        if (key === 'enableAcceptanceCelebration') return false;
+        return def;
+      }
+    },
+    db: { manuscripts: [] },
+    t: () => ''
+  };
+
+  vm.createContext(sandbox);
+  vm.runInContext(optionsSource, sandbox);
+
+  sandbox.showAcceptanceCelebration({ manuscriptId: 'm1', title: 'Test Paper' });
+  assert.equal(celebrationRendered, false, 'Celebration animation must be skipped when enableAcceptanceCelebration is false');
 });

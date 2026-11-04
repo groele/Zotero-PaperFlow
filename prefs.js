@@ -16,11 +16,14 @@ pref("extensions.researchflow.enableReaderIntegration", true);
 pref("extensions.researchflow.syncStatusTags", false);
 pref("extensions.researchflow.locateOnManuscriptClick", true);
 pref("extensions.researchflow.autoLinkSelectedPaper", true);
+pref("extensions.researchflow.autoSyncChildNotes", true);
+pref("extensions.researchflow.autoAddToPipelineCollection", true);
 
 // Group 4: Manuscript & Review Workflow
 pref("extensions.researchflow.showJournalPortals", true);
 pref("extensions.researchflow.collapseEmptyKanbanStages", false);
 pref("extensions.researchflow.defaultRebuttalExportFormat", "latex");
+pref("extensions.researchflow.enableAcceptanceCelebration", true);
 
 // Group 5: Sync & Backup
 pref("extensions.researchflow.autoSync", true);

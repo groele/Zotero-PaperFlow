@@ -158,14 +158,21 @@ function renderKanban() {
         const result = await persistManuscriptStatusChange(m, e.target.value);
         if (m.zoteroItemKey && typeof ZoteroBridge !== 'undefined') {
           ZoteroBridge.syncStatusTag(m.zoteroItemKey, e.target.value, m.zoteroLibraryID);
-          ZoteroBridge.addToPipelineCollection(m.zoteroItemKey, m.zoteroLibraryID);
+          if (ZoteroBridge.getPref('autoAddToPipelineCollection', true)) {
+            ZoteroBridge.addToPipelineCollection(m.zoteroItemKey, m.zoteroLibraryID);
+          }
+          if (ZoteroBridge.getPref('autoSyncChildNotes', true)) {
+            ZoteroBridge.syncNote(m.zoteroItemKey, m.zoteroLibraryID);
+          }
         }
         renderKanban();
         renderDashboard();
         renderSubmissions();
         showGlobalToast(t('manuscriptStatusUpdated'), 'success');
         if (result.shouldCelebrate) {
-          showAcceptanceCelebration({ title: result.manuscript.title, manuscriptId: result.manuscript.id });
+          if (typeof ZoteroBridge === 'undefined' || ZoteroBridge.getPref('enableAcceptanceCelebration', true)) {
+            showAcceptanceCelebration({ title: result.manuscript.title, manuscriptId: result.manuscript.id });
+          }
         }
       } catch (error) {
         console.error('Manuscript status save failed:', error);
@@ -214,7 +221,9 @@ function renderKanban() {
         renderKanban();
         showGlobalToast(`已将文献《${(pItem.title || '').slice(0, 18)}…》成功关联到稿件！`, 'success');
         if (typeof ZoteroBridge !== 'undefined' && ZoteroBridge.isZotero) {
-          ZoteroBridge.syncNote(m.zoteroItemKey, m.zoteroLibraryID);
+          if (ZoteroBridge.getPref('autoSyncChildNotes', true)) {
+            ZoteroBridge.syncNote(m.zoteroItemKey, m.zoteroLibraryID);
+          }
         }
       });
     }
@@ -1220,8 +1229,12 @@ function openManuscriptModal(man = null, prefill = null) {
     await window.storage.saveAll(db);
     if (currentZoteroItemKey && typeof ZoteroBridge !== 'undefined' && ZoteroBridge.isZotero) {
       ZoteroBridge.syncStatusTag(currentZoteroItemKey, status, currentZoteroLibraryID);
-      ZoteroBridge.addToPipelineCollection(currentZoteroItemKey, currentZoteroLibraryID);
-      ZoteroBridge.syncNote(currentZoteroItemKey, currentZoteroLibraryID);
+      if (ZoteroBridge.getPref('autoAddToPipelineCollection', true)) {
+        ZoteroBridge.addToPipelineCollection(currentZoteroItemKey, currentZoteroLibraryID);
+      }
+      if (ZoteroBridge.getPref('autoSyncChildNotes', true)) {
+        ZoteroBridge.syncNote(currentZoteroItemKey, currentZoteroLibraryID);
+      }
     }
     closeModal();
     renderKanban();

@@ -6,7 +6,7 @@
   <html:div class="rf-pref-brand-header">
     <html:div class="rf-pref-brand-row">
       <html:div class="rf-pref-brand-title">Zotero PaperFlow</html:div>
-      <html:div class="rf-pref-brand-tag">v13.7.0</html:div>
+      <html:div class="rf-pref-brand-tag">v13.8.0</html:div>
     </html:div>
     <html:div class="rf-pref-brand-slogan">From Manuscript to Publication. 面向科研论文全生命周期的智能投稿与审稿管理工作台。</html:div>
     <html:div id="rf-pref-status" class="rf-pref-status" role="status" aria-live="polite">首选项已就绪。所有更改将实时生效并保存。</html:div>
@@ -120,19 +120,23 @@
   </html:details>
 
   <!-- 模块 5: 版本信息与运行诊断 -->
-  <html:div class="rf-version-info" id="rf-acc-about" aria-labelledby="rf-about-title">
-    <html:div class="rf-version-info-title" id="rf-about-title">版本信息与运行诊断</html:div>
-    <html:div class="rf-version-info-row"><html:strong>兼容平台</html:strong> Zotero 10 ~ 12 (Gecko 153+ 标准现代架构)</html:div>
-    <html:div class="rf-version-info-row"><html:strong>版本说明</html:strong> <span>五大模块化设置架构重构、功能开关全量覆盖、审稿修回辩明完结统计与防漂移校验</span></html:div>
-    <html:div class="rf-version-info-row"><html:strong>构建日期</html:strong> 2026-11-03</html:div>
-    <html:div class="rf-version-info-row"><html:strong>安装包</html:strong> <html:a href="https://github.com/groele/Zotero-PaperFlow/releases/download/v13.7.0/zotero-paperflow-13.7.0.xpi" target="_blank" rel="noopener noreferrer">zotero-paperflow-13.7.0.xpi</html:a></html:div>
-    <html:div class="rf-version-info-row"><html:strong>项目仓库</html:strong> <html:a href="https://github.com/groele/Zotero-PaperFlow" target="_blank" rel="noopener noreferrer">github.com/groele/Zotero-PaperFlow</html:a></html:div>
-    <html:div class="rf-sub-action-group" style="margin-top: 10px;">
-      <html:button id="rf-btn-export-diag" class="rf-sub-action-btn" type="button">
-        <html:span>🔍 导出脱敏运行诊断报告 (用于跨设备排查与技术支持)</html:span>
-        <html:span class="rf-sub-chevron">›</html:span>
-      </html:button>
+  <html:details class="rf-setting-group" id="rf-acc-about" aria-labelledby="rf-about-title">
+    <html:summary class="rf-setting-group-title" id="rf-about-title">版本信息与运行诊断</html:summary>
+    <html:div class="rf-setting-group-body">
+      <html:p class="rf-card-desc">查阅 Zotero PaperFlow 运行环境、版本说明、官方发布资产与脱敏诊断报告：</html:p>
+      <html:div class="rf-version-info-row"><html:strong>当前版本</html:strong> <span>v13.8.0</span></html:div>
+      <html:div class="rf-version-info-row"><html:strong>兼容平台</html:strong> <span>Zotero 10 ~ 12 (Gecko 153+ 标准现代架构)</span></html:div>
+      <html:div class="rf-version-info-row"><html:strong>版本说明</html:strong> <span>全量功能细粒度开关治理、设置面板三级层级重构与代码标识对齐</span></html:div>
+      <html:div class="rf-version-info-row"><html:strong>构建日期</html:strong> <span>2026-11-04</span></html:div>
+      <html:div class="rf-version-info-row"><html:strong>官方安装包</html:strong> <html:a href="https://github.com/groele/Zotero-PaperFlow/releases/download/v13.8.0/zotero-paperflow-13.8.0.xpi" target="_blank" rel="noopener noreferrer">zotero-paperflow-13.8.0.xpi</html:a></html:div>
+      <html:div class="rf-version-info-row"><html:strong>开源仓库</html:strong> <html:a href="https://github.com/groele/Zotero-PaperFlow" target="_blank" rel="noopener noreferrer">github.com/groele/Zotero-PaperFlow</html:a></html:div>
+      <html:div class="rf-sub-action-group" style="margin-top: 12px;">
+        <html:button id="rf-btn-export-diag" class="rf-sub-action-btn" type="button">
+          <html:span>🔍 导出脱敏运行诊断报告 (用于跨设备排查与技术支持)</html:span>
+          <html:span class="rf-sub-chevron">›</html:span>
+        </html:button>
+      </html:div>
     </html:div>
-  </html:div>
+  </html:details>
 
 </vbox>

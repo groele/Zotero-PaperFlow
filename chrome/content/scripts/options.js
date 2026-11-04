@@ -52,7 +52,7 @@ if (typeof window !== 'undefined') {
   window.registerModalCleanup = registerModalCleanup;
 }
 
-const RF_OPTIONS_RENDER_VERSION = '13.7.0';
+const RF_OPTIONS_RENDER_VERSION = '13.8.0';
 const PRE_IMPORT_BACKUP_KEY = 'researchflow_pre_import_backup';
 const SHARE_PREFS_STORAGE_KEY = 'researchflow_share_visibility';
 const MAX_IMPORT_BYTES = 25 * 1024 * 1024;
@@ -151,6 +151,10 @@ function setupGlobalModalListeners() {
 
 function showAcceptanceCelebration(submission) {
   acceptanceCelebrationCleanup?.();
+  if (typeof ZoteroBridge !== 'undefined') {
+    const enabled = ZoteroBridge.getPref('enableAcceptanceCelebration', true);
+    if (!enabled) return;
+  }
 
   const manuscript = db.manuscripts.find(item => item.id === submission.manuscriptId);
   const title = String(manuscript?.title || submission.title || t('untitledManuscript')).trim();

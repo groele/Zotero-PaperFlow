@@ -533,7 +533,9 @@ async function saveSubmissionEditFromValues(sub, prefix, options = {}) {
   if (typeof ZoteroBridge !== 'undefined' && ZoteroBridge.isZotero && workingMan?.zoteroItemKey) {
     try {
       ZoteroBridge.syncStatusTag(workingMan.zoteroItemKey, workingMan.status || savedSub.status, workingMan.zoteroLibraryID);
-      ZoteroBridge.syncNote(workingMan.zoteroItemKey, workingMan.zoteroLibraryID);
+      if (ZoteroBridge.getPref('autoSyncChildNotes', true)) {
+        ZoteroBridge.syncNote(workingMan.zoteroItemKey, workingMan.zoteroLibraryID);
+      }
     } catch (_) {}
   }
 
@@ -548,7 +550,11 @@ async function saveSubmissionEditFromValues(sub, prefix, options = {}) {
   if (options.renderDetails !== false) renderSubmissionDetails(savedSub);
   else if (selectedSubmissionId === savedSub.id) refreshSubmissionStatusPresentation(savedSub);
   if (options.notify !== false) showGlobalToast(t('submissionEditsSaved'), 'success');
-  if (shouldCelebrate) showAcceptanceCelebration(savedSub);
+  if (shouldCelebrate) {
+    if (typeof ZoteroBridge === 'undefined' || ZoteroBridge.getPref('enableAcceptanceCelebration', true)) {
+      showAcceptanceCelebration(savedSub);
+    }
+  }
   return true;
 }
 
