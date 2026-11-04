@@ -6,6 +6,8 @@ const { test } = require('node:test');
 
 const root = path.resolve(__dirname, '..');
 const citationSource = fs.readFileSync(path.join(root, 'chrome/content/scripts/modules/academic-citation.js'), 'utf8');
+const architectureGuardSource = fs.readFileSync(path.join(root, 'chrome/content/scripts/modules/architecture-guard.js'), 'utf8');
+const itemPaneSource = fs.readFileSync(path.join(root, 'chrome/content/scripts/modules/item-pane.js'), 'utf8');
 const indexSource = fs.readFileSync(path.join(root, 'chrome/content/scripts/index.js'), 'utf8');
 
 function createHostContext(initialDb = { manuscripts: [{ id: 'm1', title: 'Test Paper', zoteroItemKey: 'ITEM1' }], submissions: [] }, initialPrefs = {}) {
@@ -82,6 +84,8 @@ function createHostContext(initialDb = { manuscripts: [{ id: 'm1', title: 'Test 
 
   // Evaluate modules and index.js inside context
   vm.runInContext(citationSource, context);
+  vm.runInContext(architectureGuardSource, context);
+  vm.runInContext(itemPaneSource, context);
   vm.runInContext(indexSource, context);
   return { context, errors, logs, savedNotes, prefs, registeredSections, unregisteredSections, unregisteredPrefPanes };
 }

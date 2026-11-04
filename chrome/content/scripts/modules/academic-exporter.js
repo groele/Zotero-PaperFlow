@@ -411,26 +411,54 @@
 
     const tr = typeof t === 'function' ? t : (k => k);
     return `
-      <div class="rebuttal-progress-card" style="margin-bottom:14px; padding:12px 14px; background:hsl(var(--card-bg, 0 0% 100% / 0.7)); border:1px solid var(--border-color, rgba(0,0,0,0.08)); border-radius:8px;">
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; flex-wrap:wrap; gap:6px;">
-          <div style="display:flex; align-items:center; gap:8px;">
-            <span style="font-weight:600; font-size:13px; color:hsl(var(--text-primary));">📊 ${esc(tr('rebuttalProgressTitle') || '修回攻坚进度')}</span>
-            <span class="badge ${percent === 100 ? 'badge-success' : 'badge-warning'}" style="font-size:11px;">${percent}% ${percent === 100 ? 'Completed' : 'In Progress'}</span>
+      <div class="rebuttal-progress-card">
+        <div class="rebuttal-progress-header">
+          <div class="rebuttal-progress-title-wrap">
+            <span class="rebuttal-progress-icon">
+              <svg class="svg-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M18 20V10M12 20V4M6 20v-6"/></svg>
+            </span>
+            <span class="rebuttal-progress-title">${esc(tr('rebuttalProgressTitle') || '修回攻坚进度')}</span>
+            <span class="badge ${percent === 100 ? 'badge-success' : 'badge-warning'} rebuttal-progress-badge">${percent}% ${percent === 100 ? '100% Completed' : 'In Progress'}</span>
           </div>
-          <div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
+          <div class="rebuttal-progress-reviewers">
             ${reviewerChips}
           </div>
         </div>
-        <div style="width:100%; height:6px; background:rgba(0,0,0,0.08); border-radius:3px; overflow:hidden; margin-bottom:10px;">
-          <div style="width:${percent}%; height:100%; background:linear-gradient(90deg, #3b82f6, #10b981); transition:width 0.3s ease;"></div>
+        <div class="rebuttal-progress-bar-track">
+          <div class="rebuttal-progress-bar-fill" style="width:${percent}%;"></div>
         </div>
-        <div style="display:flex; gap:16px; font-size:12px; color:var(--text-secondary); flex-wrap:wrap;">
-          <span>${esc(tr('rebuttalTotalComments') || '总意见')}: <strong>${total}</strong></span>
-          <span style="color:#16a34a;">✔ ${esc(tr('rebuttalAddressed') || '已答复')}: <strong>${addressed}</strong></span>
-          ${clarified > 0 ? `<span style="color:#0d9488;">💬 ${esc(tr('rebuttalClarified') || '已辩明')}: <strong>${clarified}</strong></span>` : ''}
-          ${inProgress > 0 ? `<span style="color:#d97706;">⏳ ${esc(tr('rebuttalInProgress') || '处理中')}: <strong>${inProgress}</strong></span>` : ''}
-          <span style="color:${pending > 0 ? '#ea580c' : '#16a34a'};">⭕ ${esc(tr('rebuttalPending') || '待答复')}: <strong>${pending}</strong></span>
-          <span style="color:#0284c7;">📝 ${esc(tr('rebuttalChangesNoted') || '已标定改动')}: <strong>${withChanges}</strong></span>
+        <div class="rebuttal-progress-kpis">
+          <div class="rebuttal-kpi-chip kpi-total">
+            <span class="kpi-label">${esc(tr('rebuttalTotalComments') || '总意见')}:</span>
+            <strong class="kpi-value"><strong>${total}</strong></strong>
+          </div>
+          <div class="rebuttal-kpi-chip kpi-addressed">
+            <span class="kpi-icon">✔</span>
+            <span class="kpi-label">${esc(tr('rebuttalAddressed') || '已答复')}:</span>
+            <strong class="kpi-value">${addressed}</strong>
+          </div>
+          ${clarified > 0 ? `
+          <div class="rebuttal-kpi-chip kpi-clarified">
+            <span class="kpi-icon">💬</span>
+            <span class="kpi-label">${esc(tr('rebuttalClarified') || '已辩明')}:</span>
+            <strong class="kpi-value">${clarified}</strong>
+          </div>` : ''}
+          ${inProgress > 0 ? `
+          <div class="rebuttal-kpi-chip kpi-in-progress">
+            <span class="kpi-icon">⏳</span>
+            <span class="kpi-label">${esc(tr('rebuttalInProgress') || '处理中')}:</span>
+            <strong class="kpi-value">${inProgress}</strong>
+          </div>` : ''}
+          <div class="rebuttal-kpi-chip ${pending > 0 ? 'kpi-pending' : 'kpi-all-clear'}">
+            <span class="kpi-icon">⭕</span>
+            <span class="kpi-label">${esc(tr('rebuttalPending') || '待答复')}:</span>
+            <strong class="kpi-value">${pending}</strong>
+          </div>
+          <div class="rebuttal-kpi-chip kpi-changes">
+            <span class="kpi-icon">📝</span>
+            <span class="kpi-label">${esc(tr('rebuttalChangesNoted') || '已标定改动')}:</span>
+            <strong class="kpi-value">${withChanges}</strong>
+          </div>
         </div>
       </div>
     `;
