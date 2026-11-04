@@ -1,0 +1,15 @@
+{
+  "version": "14.0.1",
+  "file": "zotero-paperflow-14.0.1.xpi",
+  "size": 518047,
+  "sha256": "f67693f67f9f0fa1a49ee8e66a58d2d5a18c5448ff52cb4955b7cccf35447bdb",
+  "sha512": "27903c1032a76f08a90f9ec76c16d5c0c7bccbbd7bb5747eff36bbf36e415c0652b39cdbfd02a0e6652859288c14e8f7474dc799b86b45a2e00dba75bb8b577d",
+  "entries": 76,
+  "payloadVerifiedAgainstWorkspace": true,
+  "updateFeedsVerified": [
+    "update.json"
+  ],
+  "testHarnessIncluded": false,
+  "reproducibleZipMetadata": true,
+  "textLineEndings": "LF"
+}
