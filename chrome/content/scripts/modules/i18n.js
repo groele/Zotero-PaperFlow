@@ -1203,6 +1203,54 @@ function extractDoiFromText(value) {
   return match ? normalizeDoi(match[0].replace(/[.,;)\]]+$/, '')) : '';
 }
 
+function normalizeKanbanStatusClass(status) {
+  const normalized = normalizeText(status || 'planning').replace(/_/g, '-');
+  if (['planning', 'idea', 'outline', 'data-collection'].includes(normalized)) return 'planning';
+  if (['in-progress', 'figure-preparation', 'drafting', 'internal-review'].includes(normalized)) return 'drafting';
+  if (['submitted', 'under-review', 'revision'].includes(normalized)) return 'submitted';
+  if (['accepted', 'published'].includes(normalized)) return 'accepted';
+  return 'planning';
+}
+
+function getSubmissionStatusLabel(status) {
+  const canonicalStatus = normalizeSubmissionStatus(status);
+  const labels = {
+    submitted: t('stateSubmitted'),
+    under_review: t('stateUnderReview'),
+    revision: t('eventTypeRevision'),
+    accepted: t('stateAccepted'),
+    published: currentLanguage === 'zh' ? '已发表' : 'Published',
+    rejected: t('statusRejected')
+  };
+  return labels[canonicalStatus] || String(canonicalStatus || t('stateSubmitted')).replace(/_/g, ' ');
+}
+
+function getManuscriptStatusLabel(status) {
+  const labels = {
+    planning: t('statusPlanning'),
+    idea: t('statusIdea'),
+    outline: t('statusOutline'),
+    data_collection: currentLanguage === 'zh' ? '数据整理' : 'Data Collection',
+    in_progress: t('statusInProgress'),
+    figure_preparation: t('statusFiguresPrep'),
+    drafting: t('statusDrafting'),
+    internal_review: t('statusInternalReview'),
+    submitted: getSubmissionStatusLabel('submitted'),
+    under_review: getSubmissionStatusLabel('under_review'),
+    revision: getSubmissionStatusLabel('revision'),
+    accepted: getSubmissionStatusLabel('accepted'),
+    published: getSubmissionStatusLabel('published'),
+    rejected: getSubmissionStatusLabel('rejected')
+  };
+  return labels[status] || String(status || 'planning').replace(/_/g, ' ');
+}
+
+if (typeof globalThis !== 'undefined') {
+  globalThis.normalizeKanbanStatusClass = normalizeKanbanStatusClass;
+  globalThis.getSubmissionStatusLabel = getSubmissionStatusLabel;
+  globalThis.getManuscriptStatusLabel = getManuscriptStatusLabel;
+}
+
 function setText(selector, value) {
   const el = document.querySelector(selector);
   if (el) el.textContent = value;
@@ -1422,6 +1470,27 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Load Database
   try {
     db = await window.storage.loadAll();
+    if (typeof window !== 'undefined') {
+      window.db = db;
+    }
+    if (db) {
+      if (!db.settings) db.settings = {};
+      const PREF_DEFAULTS = {
+        subwindowCompactMode: true,
+        locateOnManuscriptClick: true,
+        autoLinkSelectedPaper: true,
+        showJournalPortals: true,
+        collapseEmptyKanbanStages: false,
+        defaultRebuttalExportFormat: 'latex',
+        autoSync: true,
+        autoBackupOnSave: true
+      };
+      for (const [key, defaultVal] of Object.entries(PREF_DEFAULTS)) {
+        if (typeof ZoteroBridge !== 'undefined' && typeof ZoteroBridge.getPref === 'function') {
+          db.settings[key] = ZoteroBridge.getPref(key, defaultVal);
+        }
+      }
+    }
   } catch (error) {
     const view = document.getElementById('view-dashboard');
     view.replaceChildren();

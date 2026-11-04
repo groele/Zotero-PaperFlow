@@ -53,48 +53,6 @@ function extractDoiFromText(value) {
   return match ? normalizeDoi(match[0].replace(/[.,;)\]]+$/, '')) : '';
 }
 
-function normalizeKanbanStatusClass(status) {
-  const normalized = normalizeText(status || 'planning').replace(/_/g, '-');
-  if (['planning', 'idea', 'outline', 'data-collection'].includes(normalized)) return 'planning';
-  if (['in-progress', 'figure-preparation', 'drafting', 'internal-review'].includes(normalized)) return 'drafting';
-  if (['submitted', 'under-review', 'revision'].includes(normalized)) return 'submitted';
-  if (['accepted', 'published'].includes(normalized)) return 'accepted';
-  return 'planning';
-}
-
-function getManuscriptStatusLabel(status) {
-  const labels = {
-    planning: t('statusPlanning'),
-    idea: t('statusIdea'),
-    outline: t('statusOutline'),
-    data_collection: currentLanguage === 'zh' ? '数据整理' : 'Data Collection',
-    in_progress: t('statusInProgress'),
-    figure_preparation: t('statusFiguresPrep'),
-    drafting: t('statusDrafting'),
-    internal_review: t('statusInternalReview'),
-    submitted: getSubmissionStatusLabel('submitted'),
-    under_review: getSubmissionStatusLabel('under_review'),
-    revision: getSubmissionStatusLabel('revision'),
-    accepted: getSubmissionStatusLabel('accepted'),
-    published: getSubmissionStatusLabel('published'),
-    rejected: getSubmissionStatusLabel('rejected')
-  };
-  return labels[status] || String(status || 'planning').replace(/_/g, ' ');
-}
-
-function getSubmissionStatusLabel(status) {
-  const canonicalStatus = normalizeSubmissionStatus(status);
-  const labels = {
-    submitted: t('stateSubmitted'),
-    under_review: t('stateUnderReview'),
-    revision: t('eventTypeRevision'),
-    accepted: t('stateAccepted'),
-    published: currentLanguage === 'zh' ? '已发表' : 'Published',
-    rejected: t('statusRejected')
-  };
-  return labels[canonicalStatus] || String(canonicalStatus || t('stateSubmitted')).replace(/_/g, ' ');
-}
-
 function getDashboardFilterLabel() {
   if (currentDashboardFilter === 'accepted') return t('acceptedPipelines');
   if (currentDashboardFilter === 'active') return t('activePipelines');

@@ -13,6 +13,9 @@ function applyDatabaseUpdate(newData) {
   if (db && Number(newData.revision || 0) <= Number(db.revision || 0)
     && Number(newData.lastUpdated || 0) <= Number(db.lastUpdated || 0)) return;
   db = newData;
+  if (typeof window !== 'undefined') {
+    window.db = newData;
+  }
   syncManuscriptStatusesFromSubmissions(db);
   if (typeof window.storage !== 'undefined') {
     window.storage.cache = newData;

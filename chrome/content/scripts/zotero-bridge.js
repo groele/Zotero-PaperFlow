@@ -44,9 +44,13 @@ function resolveZoteroItem(zotero, itemKey, libraryID = null) {
 const ZoteroBridge = {
   isZotero: false,
   resolveZoteroItem,
+  resolveItem(itemKey, libraryID = null) {
+    return resolveZoteroItem(window.Zotero || window.parent?.Zotero, itemKey, libraryID);
+  },
   _pendingRequestId: 0,
   _requestCallbacks: new Map(),
   _pendingNavigation: null,
+  _directPrefObserverSymbol: null,
 
   async conflictRecovery(action, payload = {}) {
     if (!['list', 'inspect', 'preview', 'apply'].includes(action)) throw new Error('Invalid recovery action');
@@ -64,6 +68,7 @@ const ZoteroBridge = {
   init() {
     this.detectEnvironment();
     this.setupMessageListener();
+    this.initDirectPrefObserver();
     window.addEventListener('researchflow-workspace-ready', () => {
       if (this._pendingNavigation) {
         const options = this._pendingNavigation;
@@ -196,15 +201,21 @@ const ZoteroBridge = {
 
       // Handle preference changed notification from host
       if (data.type === 'RESEARCHFLOW_PREF_CHANGED' && data.key) {
-        if (window.db) {
-          if (!window.db.settings) window.db.settings = {};
-          window.db.settings[data.key] = data.value;
+        const targetDb = window.db || (typeof db !== 'undefined' ? db : null);
+        if (targetDb) {
+          if (!targetDb.settings) targetDb.settings = {};
+          targetDb.settings[data.key] = data.value;
         }
         if (data.key === 'showJournalPortals' && typeof renderJournalPortals === 'function') {
           try { renderJournalPortals(); } catch (_) {}
         }
         if (data.key === 'collapseEmptyKanbanStages' && typeof renderKanban === 'function') {
           try { renderKanban(); } catch (_) {}
+        }
+        if (data.key === 'subwindowCompactMode') {
+          const isCompact = Boolean(data.value);
+          document.documentElement.classList.toggle('compact-mode', isCompact);
+          document.body?.classList?.toggle('compact-mode', isCompact);
         }
       }
 
@@ -268,15 +279,61 @@ const ZoteroBridge = {
     });
   },
 
+  initDirectPrefObserver() {
+    try {
+      const zotero = window.Zotero || (window.parent !== window ? window.parent?.Zotero : null);
+      if (zotero?.Prefs?.registerObserver && !this._directPrefObserverSymbol) {
+        this._directPrefObserverSymbol = Symbol('ResearchFlowWorkbenchPrefObserver');
+        zotero.Prefs.registerObserver('extensions.researchflow.', (pref) => {
+          const prefix = 'extensions.researchflow.';
+          const key = pref && pref.startsWith(prefix) ? pref.slice(prefix.length) : pref;
+          if (key) {
+            const val = this.getPref(key);
+            const targetDb = window.db || (typeof db !== 'undefined' ? db : null);
+            if (targetDb) {
+              if (!targetDb.settings) targetDb.settings = {};
+              targetDb.settings[key] = val;
+            }
+            if (key === 'showJournalPortals' && typeof window.renderJournalPortals === 'function') {
+              try { window.renderJournalPortals(); } catch (_) {}
+            }
+            if (key === 'collapseEmptyKanbanStages' && typeof window.renderKanban === 'function') {
+              try { window.renderKanban(); } catch (_) {}
+            }
+            if (key === 'subwindowCompactMode') {
+              const isCompact = Boolean(val);
+              document.documentElement.classList.toggle('compact-mode', isCompact);
+              document.body?.classList?.toggle('compact-mode', isCompact);
+            }
+          }
+        }, this._directPrefObserverSymbol);
+
+        window.addEventListener('unload', () => {
+          try {
+            if (this._directPrefObserverSymbol && zotero.Prefs?.unregisterObserver) {
+              zotero.Prefs.unregisterObserver(this._directPrefObserverSymbol);
+              this._directPrefObserverSymbol = null;
+            }
+          } catch (_) {}
+        }, { once: true });
+      }
+    } catch (_) {}
+  },
+
   getPref(key, defaultValue) {
     try {
       const zotero = window.Zotero || window.parent?.Zotero;
       if (typeof zotero?.ResearchFlow?.getPref === 'function') {
         return zotero.ResearchFlow.getPref(key, defaultValue);
       }
+      if (typeof zotero?.Prefs?.get === 'function') {
+        const val = zotero.Prefs.get(`extensions.researchflow.${key}`, true);
+        if (val !== undefined) return val;
+      }
     } catch (_) {}
-    if (window.db?.settings && key in window.db.settings) {
-      return window.db.settings[key];
+    const currentDb = window.db || (typeof db !== 'undefined' ? db : null);
+    if (currentDb?.settings && key in currentDb.settings) {
+      return currentDb.settings[key];
     }
     return defaultValue;
   },

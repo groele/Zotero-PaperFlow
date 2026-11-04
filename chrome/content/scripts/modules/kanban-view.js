@@ -2,6 +2,8 @@
  * Zotero PaperFlow - Manuscripts Kanban View Module
  * Renders manuscript stage cards, drag-and-drop columns, and manuscript edit modals.
  */
+let activeManuscriptDropdownOutsideClick = null;
+
 function renderKanban() {
   const columns = ['idea', 'drafting', 'submitted', 'accepted'];
   columns.forEach(col => {
@@ -372,48 +374,6 @@ function renderKanban() {
   document.querySelector('.kanban-board')?.classList.toggle('all-empty', visibleManuscripts.length === 0);
   setText('#kanban-stage-summary', tf('kanbanStageSummary', { count: columns.filter(col => mCount[col] > 0).length, total: columns.length }));
   updateKanbanEmptyColumns();
-}
-
-function normalizeKanbanStatusClass(status) {
-  const normalized = normalizeText(status || 'planning').replace(/_/g, '-');
-  if (['planning', 'idea', 'outline', 'data-collection'].includes(normalized)) return 'planning';
-  if (['in-progress', 'figure-preparation', 'drafting', 'internal-review'].includes(normalized)) return 'drafting';
-  if (['submitted', 'under-review', 'revision'].includes(normalized)) return 'submitted';
-  if (['accepted', 'published'].includes(normalized)) return 'accepted';
-  return 'planning';
-}
-
-function getManuscriptStatusLabel(status) {
-  const labels = {
-    planning: t('statusPlanning'),
-    idea: t('statusIdea'),
-    outline: t('statusOutline'),
-    data_collection: currentLanguage === 'zh' ? '数据整理' : 'Data Collection',
-    in_progress: t('statusInProgress'),
-    figure_preparation: t('statusFiguresPrep'),
-    drafting: t('statusDrafting'),
-    internal_review: t('statusInternalReview'),
-    submitted: getSubmissionStatusLabel('submitted'),
-    under_review: getSubmissionStatusLabel('under_review'),
-    revision: getSubmissionStatusLabel('revision'),
-    accepted: getSubmissionStatusLabel('accepted'),
-    published: getSubmissionStatusLabel('published'),
-    rejected: getSubmissionStatusLabel('rejected')
-  };
-  return labels[status] || String(status || 'planning').replace(/_/g, ' ');
-}
-
-function getSubmissionStatusLabel(status) {
-  const canonicalStatus = normalizeSubmissionStatus(status);
-  const labels = {
-    submitted: t('stateSubmitted'),
-    under_review: t('stateUnderReview'),
-    revision: t('eventTypeRevision'),
-    accepted: t('stateAccepted'),
-    published: currentLanguage === 'zh' ? '已发表' : 'Published',
-    rejected: t('statusRejected')
-  };
-  return labels[canonicalStatus] || String(canonicalStatus || t('stateSubmitted')).replace(/_/g, ' ');
 }
 
 async function deleteManuscript(manuscriptId) {
@@ -1092,15 +1052,22 @@ function openManuscriptModal(man = null, prefill = null) {
         }, 220);
       });
 
-      const onDropdownOutsideClick = (e) => {
+      if (activeManuscriptDropdownOutsideClick) {
+        document.removeEventListener('click', activeManuscriptDropdownOutsideClick);
+        activeManuscriptDropdownOutsideClick = null;
+      }
+      activeManuscriptDropdownOutsideClick = (e) => {
         if (!searchInput.contains(e.target) && !dropdown.contains(e.target)) {
           dropdown.style.display = 'none';
         }
       };
-      document.addEventListener('click', onDropdownOutsideClick);
+      document.addEventListener('click', activeManuscriptDropdownOutsideClick);
       if (typeof registerModalCleanup === 'function') {
         registerModalCleanup(() => {
-          document.removeEventListener('click', onDropdownOutsideClick);
+          if (activeManuscriptDropdownOutsideClick) {
+            document.removeEventListener('click', activeManuscriptDropdownOutsideClick);
+            activeManuscriptDropdownOutsideClick = null;
+          }
         });
       }
     }

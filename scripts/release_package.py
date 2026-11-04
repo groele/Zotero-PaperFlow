@@ -85,6 +85,7 @@ def verify(root, output, repo, feeds, identities, update=False):
         for path, contents in expected.items():
             require(archive.read(path) == contents, f"Stale XPI resource: {path}")
     digest = hashlib.sha256(output.read_bytes()).hexdigest()
+    digest512 = hashlib.sha512(output.read_bytes()).hexdigest()
     link = f"https://github.com/groele/{repo}/releases/download/v{version}/{name}"
     documents = []
     for feed in feeds:
@@ -100,17 +101,23 @@ def verify(root, output, repo, feeds, identities, update=False):
             for key in ("strict_min_version", "strict_max_version"):
                 require(entry["applications"]["zotero"][key] == manifest["applications"]["zotero"][key],
                         f"{feed}: compatibility mismatch")
+            declared_hash = entry.get("update_hash", "")
+            algo = declared_hash.partition(":")[0] if ":" in declared_hash else "sha256"
+            require(algo in ("sha256", "sha512"), f"{feed}: unsupported hash algorithm '{algo}'")
+            actual_digest = digest512 if algo == "sha512" else digest
             if update:
-                entry["update_hash"] = f"sha256:{digest}"
+                entry["update_hash"] = f"{algo}:{actual_digest}"
             else:
-                require(entry.get("update_hash") == f"sha256:{digest}", f"{feed}: installer SHA-256 mismatch")
+                expected_hash = f"{algo}:{actual_digest}"
+                mismatch_label = "SHA-256" if algo == "sha256" else "SHA512"
+                require(declared_hash == expected_hash, f"{feed}: installer {mismatch_label} mismatch")
         documents.append((path, data))
     # Validate every entry before updating any feed; the feed is not in the XPI.
     if update:
         for path, data in documents:
             path.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8", newline="\n")
     return {"version": version, "file": name, "size": output.stat().st_size,
-            "sha256": digest, "entries": len(expected), "payloadVerifiedAgainstWorkspace": True,
+            "sha256": digest, "sha512": digest512, "entries": len(expected), "payloadVerifiedAgainstWorkspace": True,
             "updateFeedsVerified": list(feeds), "testHarnessIncluded": False,
             "reproducibleZipMetadata": True, "textLineEndings": "LF"}
 

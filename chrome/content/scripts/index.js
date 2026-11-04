@@ -459,6 +459,7 @@
     getRelatedItems,
     getLiteratureItem,
     findItemByKey,
+    resolveItem: findItemByKey,
 
     localizedDocs: new Set(),
     _cachedData: null,
@@ -729,6 +730,22 @@
           }, this._prefObserverSymbol);
           Zotero.Prefs.registerObserver('extensions.researchflow.enableReaderIntegration', () => {
             this.updateReaderContextMenu();
+          }, this._prefObserverSymbol);
+          Zotero.Prefs.registerObserver('extensions.researchflow.', (pref) => {
+            const prefix = 'extensions.researchflow.';
+            const key = pref && pref.startsWith(prefix) ? pref.slice(prefix.length) : pref;
+            if (key) {
+              const val = this.getPref(key);
+              if (this._cachedData) {
+                if (!this._cachedData.settings) this._cachedData.settings = {};
+                this._cachedData.settings[key] = val;
+              }
+              this.broadcastToIframes({
+                type: 'RESEARCHFLOW_PREF_CHANGED',
+                key,
+                value: val
+              });
+            }
           }, this._prefObserverSymbol);
         } catch (_) {}
       }
@@ -2236,7 +2253,10 @@
 
       if (!toolbar) {
         if (retryCount < 5) {
-          window.setTimeout(() => this.ensureToolbarButton(window, windowElements, retryCount + 1), 500);
+          const retryTimer = window.setTimeout(() => this.ensureToolbarButton(window, windowElements, retryCount + 1), 500);
+          if (windowElements) {
+            windowElements.push({ remove: () => window.clearTimeout(retryTimer) });
+          }
         }
         return;
       }
@@ -2291,8 +2311,14 @@
         } catch (_) {}
       };
       constrainIcon();
-      window.setTimeout(constrainIcon, 150);
-      window.setTimeout(constrainIcon, 800);
+      const t1 = window.setTimeout(constrainIcon, 150);
+      const t2 = window.setTimeout(constrainIcon, 800);
+      if (windowElements) {
+        windowElements.push(
+          { remove: () => window.clearTimeout(t1) },
+          { remove: () => window.clearTimeout(t2) }
+        );
+      }
 
       // Anchor before search box
       const toolbarChildren = Array.from(toolbar.children || []);

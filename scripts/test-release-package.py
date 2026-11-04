@@ -49,6 +49,23 @@ class ReleaseTests(unittest.TestCase):
                 self.assertEqual(data["addons"][identity]["updates"][0]["update_hash"],
                                  "sha256:" + report["sha256"])
 
+    def test_sha512_hash_is_supported_and_synchronized(self):
+        build(self.root, self.output)
+        for feed in self.feeds:
+            data = json.loads((self.root / feed).read_text())
+            for identity in self.identities:
+                data["addons"][identity]["updates"][0]["update_hash"] = "sha512:stale"
+            self.write_json(feed, data)
+        with self.assertRaisesRegex(ValueError, "SHA512 mismatch"):
+            self.check()
+        report = self.check(update=True)
+        self.assertEqual(self.check(), report)
+        for feed in self.feeds:
+            data = json.loads((self.root / feed).read_text())
+            for identity in self.identities:
+                self.assertEqual(data["addons"][identity]["updates"][0]["update_hash"],
+                                 "sha512:" + report["sha512"])
+
     def test_rebuild_is_byte_identical_after_mtime_changes(self):
         build(self.root, self.output)
         before = self.output.read_bytes()

@@ -17,7 +17,7 @@
               "strict_max_version": "12.*"
             }
           },
-          "update_hash": "sha256:64ec005fb0e2dc20ee5797587b49f9e34d437bf83e4c36ccc820fd22a35165e0"
+          "update_hash": "sha512:91b2347beed6de208b4f3e42b1d3715c9ac7f937ae003f58a921ee6b3e81c70f71d1f7aa7c243d4291deddc428429c87f8ee453f2cdf2fd59c9c7804b93b3279"
         }
       ]
     },
@@ -38,7 +38,7 @@
               "strict_max_version": "12.*"
             }
           },
-          "update_hash": "sha256:64ec005fb0e2dc20ee5797587b49f9e34d437bf83e4c36ccc820fd22a35165e0"
+          "update_hash": "sha512:91b2347beed6de208b4f3e42b1d3715c9ac7f937ae003f58a921ee6b3e81c70f71d1f7aa7c243d4291deddc428429c87f8ee453f2cdf2fd59c9c7804b93b3279"
         }
       ]
     }
