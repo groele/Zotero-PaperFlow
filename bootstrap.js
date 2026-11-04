@@ -133,6 +133,7 @@ async function startup({ id, version, resourceURI, rootURI }, reason) {
     };
     if (!ctx.IOUtils || !ctx.PathUtils) throw new Error('Zotero file APIs are unavailable');
 
+    Services.scriptloader.loadSubScript(`${rootURI}chrome/content/scripts/modules/academic-citation.js`, ctx);
     Services.scriptloader.loadSubScript(`${rootURI}chrome/content/scripts/index.js`, ctx);
   } catch (error) {
     Zotero?.logError?.('Failed to startup Zotero PaperFlow addon: ' + error);

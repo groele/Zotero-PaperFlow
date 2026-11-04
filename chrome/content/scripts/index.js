@@ -32,79 +32,26 @@
 
   // =========================================================================
   // MODULE 1: LITERATURE SERIALIZATION & ACADEMIC CITATION ENGINE
+  // (Delegated to chrome/content/scripts/modules/academic-citation.js)
   // =========================================================================
-  const itemSelectUri = (item) => {
-    if (!item) return '';
-    const key = item.key || item.id;
-    const groupID = Zotero.Libraries?.get?.(item.libraryID)?.groupID;
-    return groupID
-      ? `zotero://select/groups/${groupID}/items/${key}`
-      : `zotero://select/library/items/${key}`;
-  };
+  let AcademicCitation = (typeof RFAcademicCitation !== 'undefined')
+    ? RFAcademicCitation
+    : (typeof globalThis !== 'undefined' && globalThis.RFAcademicCitation)
+      ? globalThis.RFAcademicCitation
+      : (typeof window !== 'undefined' && window.RFAcademicCitation)
+        ? window.RFAcademicCitation
+        : null;
 
-  const getLiteratureItem = (item) => {
-    if (!item) return null;
-    let target = item;
+  if (!AcademicCitation && typeof require !== 'undefined') {
     try {
-      if (target.topLevelItem && typeof target.topLevelItem.isRegularItem === 'function' && target.topLevelItem.isRegularItem()) {
-        return target.topLevelItem;
-      }
+      AcademicCitation = require('./modules/academic-citation.js');
     } catch (_) {}
-    if (typeof target.isAttachment === 'function' && target.isAttachment()) {
-      if (target.parentItemID) {
-        target = Zotero.Items.get(target.parentItemID) || target;
-      }
-    }
-    if (typeof target.isNote === 'function' && target.isNote()) {
-      if (target.parentItemID) {
-        target = Zotero.Items.get(target.parentItemID) || target;
-      }
-    }
-    try {
-      if (target.topLevelItem && typeof target.topLevelItem.isRegularItem === 'function' && target.topLevelItem.isRegularItem()) {
-        return target.topLevelItem;
-      }
-    } catch (_) {}
-    return target && typeof target.isRegularItem === 'function' && target.isRegularItem() ? target : null;
-  };
+  }
 
-  const findItemByKey = (itemKey, libraryID = null) => {
-    if (!itemKey || typeof Zotero === 'undefined' || !Zotero.Items) return null;
-    const key = String(itemKey).trim();
-    if (!key) return null;
-
-    // 1. Explicit libraryID lookup
-    if (libraryID !== null && libraryID !== undefined) {
-      try {
-        const item = Zotero.Items.getByLibraryAndKey(libraryID, key);
-        if (item) return getLiteratureItem(item);
-      } catch (_) {}
-    }
-
-    // 2. User personal library lookup
-    const userLibID = Zotero.Libraries?.userLibraryID || 1;
-    try {
-      const item = Zotero.Items.getByLibraryAndKey(userLibID, key);
-      if (item) return getLiteratureItem(item);
-    } catch (_) {}
-
-    // 3. Fallback: Search all registered libraries (including group libraries)
-    try {
-      const allLibs = typeof Zotero.Libraries?.getAll === 'function' ? Zotero.Libraries.getAll() : [];
-      for (const lib of allLibs) {
-        const libId = lib?.libraryID || lib?.id;
-        if (libId && libId !== userLibID) {
-          const item = Zotero.Items.getByLibraryAndKey(libId, key);
-          if (item) return getLiteratureItem(item);
-        }
-      }
-    } catch (_) {}
-
-    return null;
-  };
-
-  
-  const STATUS_TAG_MAP = {
+  const itemSelectUri = (item) => AcademicCitation?.itemSelectUri ? AcademicCitation.itemSelectUri(item) : '';
+  const getLiteratureItem = (item) => AcademicCitation?.getLiteratureItem ? AcademicCitation.getLiteratureItem(item) : (item?.topLevelItem || item);
+  const findItemByKey = (itemKey, libraryID = null) => AcademicCitation?.findItemByKey ? AcademicCitation.findItemByKey(itemKey, libraryID) : null;
+  const STATUS_TAG_MAP = AcademicCitation?.STATUS_TAG_MAP || {
     idea: 'PaperFlow/01-选题大纲',
     outline: 'PaperFlow/01-选题大纲',
     data_collection: 'PaperFlow/01-选题大纲',
@@ -117,324 +64,18 @@
     accepted: 'PaperFlow/06-已录用Accepted',
     published: 'PaperFlow/07-已正式发表'
   };
-
-  const extractCiteKey = (target) => {
-    if (!target) return '';
-    const extra = typeof target.getField === 'function' ? (target.getField('extra') || '') : '';
-    const m = extra.match(/(?:Citation Key|tex\.citationkey|bibtex):\s*([^\s\n\r]+)/i);
-    if (m && m[1]) return m[1].trim();
-
-    let firstAuthor = 'author';
-    try {
-      const creators = target.getCreators?.() || [];
-      if (creators.length > 0) {
-        firstAuthor = (creators[0].lastName || creators[0].name || 'author').replace(/[^a-zA-Z]/g, '').toLowerCase();
-      }
-    } catch (_) {}
-    const date = typeof target.getField === 'function' ? target.getField('date') : '';
-    const ym = String(date || '').match(/\b(19|20)\d{2}\b/);
-    const year = ym ? ym[0] : '2024';
-
-    const title = (typeof target.getField === 'function' ? target.getField('title') : '') || '';
-    const firstWord = (title.split(/\s+/)[0] || '').replace(/[^a-zA-Z0-9]/g, '').toLowerCase();
-
-    return `${firstAuthor}${year}${firstWord ? firstWord : ''}`;
+  const extractCiteKey = (target) => AcademicCitation?.extractCiteKey ? AcademicCitation.extractCiteKey(target) : '';
+  const generateBibTeX = (target) => AcademicCitation?.generateBibTeX ? AcademicCitation.generateBibTeX(target) : '';
+  const generateAPACitation = (target) => AcademicCitation?.generateAPACitation ? AcademicCitation.generateAPACitation(target) : '';
+  const getLiteratureAnnotations = (item) => AcademicCitation?.getLiteratureAnnotations ? AcademicCitation.getLiteratureAnnotations(item) : [];
+  const getRelatedItems = (item) => AcademicCitation?.getRelatedItems ? AcademicCitation.getRelatedItems(item) : [];
+  const getLiteratureCollections = (item) => AcademicCitation?.getLiteratureCollections ? AcademicCitation.getLiteratureCollections(item) : [];
+  const getLiteratureNotes = (item) => AcademicCitation?.getLiteratureNotes ? AcademicCitation.getLiteratureNotes(item) : [];
+  const getLiteratureReadingAssets = (item) => AcademicCitation?.getLiteratureReadingAssets ? AcademicCitation.getLiteratureReadingAssets(item) : {
+    annotations: [], notes: [], collections: [], tags: [], relatedItems: [], citekey: '', bibtex: '', citationApa: ''
   };
+  const serializeLiteratureItem = (item) => AcademicCitation?.serializeLiteratureItem ? AcademicCitation.serializeLiteratureItem(item) : null;
 
-  const generateBibTeX = (target) => {
-    if (!target) return '';
-    const citekey = extractCiteKey(target);
-    const title = typeof target.getField === 'function' ? (target.getField('title') || '') : '';
-    const journal = typeof target.getField === 'function'
-      ? (target.getField('publicationTitle') || target.getField('proceedingsTitle') || target.getField('publisher') || '')
-      : '';
-    const date = typeof target.getField === 'function' ? target.getField('date') : '';
-    const ym = String(date || '').match(/\b(19|20)\d{2}\b/);
-    const year = ym ? ym[0] : '';
-    const doi = typeof target.getField === 'function' ? (target.getField('DOI') || '') : '';
-    const url = typeof target.getField === 'function' ? (target.getField('url') || '') : '';
-
-    let authorStr = '';
-    try {
-      const creators = target.getCreators?.() || [];
-      authorStr = creators.map((c) => `${c.lastName || ''}, ${c.firstName || ''}`.trim()).filter(Boolean).join(' and ');
-    } catch (_) {}
-
-    return `@article{${citekey},
-  title = {${title}},
-  author = {${authorStr}},
-  journal = {${journal}},
-  year = {${year}}${doi ? `,\n  doi = {${doi}}` : ''}${url ? `,\n  url = {${url}}` : ''}
-}`;
-  };
-
-  const generateAPACitation = (target) => {
-    if (!target) return '';
-    let authors = [];
-    try {
-      authors = (target.getCreators?.() || []).map((c) => c.lastName ? `${c.lastName}, ${c.firstName ? c.firstName[0] + '.' : ''}` : c.name).filter(Boolean);
-    } catch (_) {}
-    const authorStr = authors.length > 0 ? (authors.slice(0, 3).join(', ') + (authors.length > 3 ? ', et al.' : '')) : 'Anonymous';
-    const date = typeof target.getField === 'function' ? target.getField('date') : '';
-    const ym = String(date || '').match(/\b(19|20)\d{2}\b/);
-    const yearStr = ym ? `(${ym[0]})` : '(n.d.)';
-    const title = (typeof target.getField === 'function' ? target.getField('title') : '') || '';
-    const journal = typeof target.getField === 'function' ? (target.getField('publicationTitle') || '') : '';
-    const doi = typeof target.getField === 'function' ? target.getField('DOI') : '';
-
-    return `${authorStr} ${yearStr}. ${title}. ${journal ? journal + '.' : ''}${doi ? ' https://doi.org/' + doi : ''}`.trim();
-  };
-
-  const getLiteratureAnnotations = (item) => {
-    const target = getLiteratureItem(item);
-    if (!target) return [];
-    const annotations = [];
-    try {
-      const attIds = typeof target.getAttachments === 'function' ? target.getAttachments() : [];
-      for (const attId of attIds) {
-        const att = Zotero.Items.get(attId);
-        if (att && ((typeof att.isPDFAttachment === 'function' && att.isPDFAttachment()) || att.contentType === 'application/pdf')) {
-          const groupID = Zotero.Libraries?.get?.(att.libraryID)?.groupID;
-          const pdfBaseUri = groupID
-            ? `zotero://open-pdf/groups/${groupID}/items/${att.key}`
-            : `zotero://open-pdf/library/items/${att.key}`;
-
-          if (typeof att.getAnnotations === 'function') {
-            const annos = att.getAnnotations();
-            for (const a of (annos || [])) {
-              if (a.annotationText || a.annotationComment) {
-                let pageIndex = 0;
-                try {
-                  if (a.annotationPosition) {
-                    const pos = typeof a.annotationPosition === 'string' ? JSON.parse(a.annotationPosition) : a.annotationPosition;
-                    pageIndex = typeof pos.pageIndex === 'number' ? pos.pageIndex : 0;
-                  }
-                } catch (_) {}
-                const pageNum = a.annotationPageLabel || (pageIndex + 1);
-
-                annotations.push({
-                  key: a.key,
-                  type: a.annotationType || 'highlight',
-                  text: String(a.annotationText || '').trim(),
-                  comment: String(a.annotationComment || '').trim(),
-                  color: a.annotationColor || '#ffd400',
-                  page: pageNum,
-                  pageIndex,
-                  date: a.dateModified || a.dateAdded || '',
-                  pdfUri: `${pdfBaseUri}?page=${pageIndex + 1}&annotation=${a.key}`
-                });
-              }
-            }
-          }
-        }
-      }
-    } catch (err) {
-      Zotero.logError?.('[PaperFlow] getLiteratureAnnotations error: ' + err);
-    }
-    return annotations;
-  };
-
-  const getRelatedItems = (item) => {
-    const target = getLiteratureItem(item);
-    if (!target) return [];
-    const related = [];
-    try {
-      if (typeof target.getRelatedItemIDs === 'function') {
-        const rIds = target.getRelatedItemIDs();
-        for (const rId of (rIds || []).slice(0, 6)) {
-          const rItem = Zotero.Items.get(rId);
-          const lit = getLiteratureItem(rItem);
-          if (lit) {
-            const date = typeof lit.getField === 'function' ? lit.getField('date') : '';
-            const ym = String(date || '').match(/\b(19|20)\d{2}\b/);
-            related.push({
-              id: lit.id,
-              key: lit.key,
-              title: (typeof lit.getField === 'function' ? lit.getField('title') : '') || '未命名文献',
-              year: ym ? ym[0] : '',
-              authors: (lit.getCreators?.() || []).map((c) => c.lastName || c.name).filter(Boolean).slice(0, 2).join(', '),
-              zoteroUri: itemSelectUri(lit)
-            });
-          }
-        }
-      }
-    } catch (_) {}
-    return related;
-  };
-
-  const getLiteratureCollections = (item) => {
-    const target = getLiteratureItem(item);
-    if (!target) return [];
-    const collections = [];
-    try {
-      if (typeof target.getCollections === 'function') {
-        const colIds = target.getCollections();
-        for (const cId of (colIds || [])) {
-          const col = Zotero.Collections?.get?.(cId);
-          if (col) {
-            let path = col.name;
-            let parentID = col.parentID;
-            let depth = 0;
-            while (parentID && depth < 6) {
-              const p = Zotero.Collections?.get?.(parentID);
-              if (!p) break;
-              path = `${p.name} / ${path}`;
-              parentID = p.parentID;
-              depth++;
-            }
-            collections.push({
-              id: col.id,
-              key: col.key,
-              name: col.name,
-              path
-            });
-          }
-        }
-      }
-    } catch (_) {}
-    return collections;
-  };
-
-  const getLiteratureNotes = (item) => {
-    const target = getLiteratureItem(item);
-    if (!target) return [];
-    const notes = [];
-    try {
-      if (typeof target.getNotes === 'function') {
-        const noteIds = target.getNotes();
-        for (const nId of (noteIds || [])) {
-          const nItem = Zotero.Items?.get?.(nId);
-          if (nItem && typeof nItem.isNote === 'function' && nItem.isNote()) {
-            const rawNote = (typeof nItem.getNote === 'function' ? nItem.getNote() : '') || '';
-            if (rawNote.includes('[ResearchFlow]') || rawNote.includes('ResearchFlow for Zotero') || rawNote.includes('[PaperFlow]') || rawNote.includes('Zotero PaperFlow')) {
-              continue;
-            }
-            const snippet = rawNote.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
-            if (snippet || rawNote) {
-              const titleMatch = rawNote.match(/<(?:h[1-6]|p|strong)[^>]*>(.*?)<\/(?:h[1-6]|p|strong)>/i);
-              const noteTitle = titleMatch ? titleMatch[1].replace(/<[^>]+>/g, '').trim() : (snippet.slice(0, 24) || 'Zotero 笔记');
-              notes.push({
-                id: nItem.id,
-                key: nItem.key,
-                title: noteTitle,
-                rawHtml: rawNote,
-                snippet: snippet.slice(0, 300) + (snippet.length > 300 ? '…' : ''),
-                date: nItem.dateModified || nItem.dateAdded || '',
-                zoteroUri: itemSelectUri(nItem)
-              });
-            }
-          }
-        }
-      }
-    } catch (err) {
-      Zotero.logError?.('[PaperFlow] getLiteratureNotes error: ' + err);
-    }
-    return notes;
-  };
-
-  const getLiteratureReadingAssets = (item) => {
-    const target = getLiteratureItem(item);
-    if (!target) {
-      return { annotations: [], notes: [], collections: [], tags: [], relatedItems: [], citekey: '', bibtex: '', citationApa: '' };
-    }
-    return {
-      annotations: getLiteratureAnnotations(target),
-      notes: getLiteratureNotes(target),
-      collections: getLiteratureCollections(target),
-      tags: typeof target.getTags === 'function' ? target.getTags().map((t) => t.tag || String(t)).filter(Boolean) : [],
-      relatedItems: getRelatedItems(target),
-      citekey: extractCiteKey(target),
-      bibtex: generateBibTeX(target),
-      citationApa: generateAPACitation(target)
-    };
-  };
-
-  const serializeLiteratureItem = (item) => {
-    const target = getLiteratureItem(item);
-    if (!target) return null;
-
-    const title = (typeof target.getField === 'function' ? target.getField('title') : target.title) || '无标题文献';
-    const date = typeof target.getField === 'function' ? target.getField('date') : target.date;
-    let year = '';
-    if (date) {
-      const match = String(date).match(/\b(19|20)\d{2}\b/);
-      year = match ? match[0] : String(date).slice(0, 4);
-    }
-
-    let authors = [];
-    try {
-      if (typeof target.getCreators === 'function') {
-        authors = target.getCreators().map((c) => c.lastName || c.name || `${c.firstName || ''} ${c.lastName || ''}`.trim()).filter(Boolean);
-      }
-    } catch (_) {}
-
-    const publication = typeof target.getField === 'function'
-      ? (target.getField('publicationTitle') || target.getField('proceedingsTitle') || target.getField('publisher') || '')
-      : '';
-
-    const doi = typeof target.getField === 'function' ? (target.getField('DOI') || '') : '';
-    const url = typeof target.getField === 'function' ? (target.getField('url') || '') : '';
-    const abstract = typeof target.getField === 'function' ? (target.getField('abstractNote') || '') : '';
-
-    let tags = [];
-    try {
-      if (typeof target.getTags === 'function') {
-        tags = target.getTags().map((t) => t.tag || String(t)).filter(Boolean);
-      }
-    } catch (_) {}
-
-    // Main PDF attachment URI
-    let pdfUri = null;
-    try {
-      if (typeof target.getAttachments === 'function') {
-        const attIds = target.getAttachments();
-        for (const attId of attIds) {
-          const att = Zotero.Items.get(attId);
-          if (att && ((typeof att.isPDFAttachment === 'function' && att.isPDFAttachment()) || att.contentType === 'application/pdf')) {
-            const groupID = Zotero.Libraries?.get?.(att.libraryID)?.groupID;
-            pdfUri = groupID
-              ? `zotero://open-pdf/groups/${groupID}/items/${att.key}`
-              : `zotero://open-pdf/library/items/${att.key}`;
-            break;
-          }
-        }
-      }
-    } catch (_) {}
-
-    const citekey = extractCiteKey(target);
-    const bibtex = generateBibTeX(target);
-    const citationApa = generateAPACitation(target);
-    const relatedItems = getRelatedItems(target);
-    const annotations = getLiteratureAnnotations(target);
-    const annotationCount = annotations.length;
-    const collections = getLiteratureCollections(target);
-    const notes = getLiteratureNotes(target);
-    const notesCount = notes.length;
-
-    return {
-      key: target.key || String(target.id),
-      id: target.id,
-      libraryID: target.libraryID,
-      title,
-      authors: authors.slice(0, 3).join(', ') + (authors.length > 3 ? ' 等' : ''),
-      authorList: authors,
-      year,
-      publication,
-      doi,
-      url,
-      abstract,
-      tags,
-      collections,
-      citekey,
-      bibtex,
-      citationApa,
-      annotationCount,
-      notesCount,
-      relatedItems,
-      zoteroUri: itemSelectUri(target),
-      pdfUri,
-    };
-  };
 
   // Tracking structures
   const injectedElements = new Map();
@@ -447,7 +88,7 @@
   Zotero.ResearchFlow = {
     rootURI: typeof rootURI !== 'undefined' ? rootURI : '',
     addonId: ADDON_ID,
-    version: (typeof version !== 'undefined' && version) ? version : '13.8.0',
+    version: (typeof version !== 'undefined' && version) ? version : '13.10.0',
     serializeLiteratureItem,
     getLiteratureAnnotations,
     getLiteratureNotes,

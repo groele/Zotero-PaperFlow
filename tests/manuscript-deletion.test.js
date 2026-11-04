@@ -9,6 +9,7 @@ const uiUtilsSource = fs.readFileSync(path.join(root, 'chrome/content/scripts/ui
 const coreSource = fs.readFileSync(path.join(root, 'chrome/content/scripts/core/research-core.js'), 'utf8');
 const i18nSource = fs.readFileSync(path.join(root, 'chrome/content/scripts/modules/i18n.js'), 'utf8');
 const dashboardViewSource = fs.readFileSync(path.join(root, 'chrome/content/scripts/modules/dashboard-view.js'), 'utf8');
+const cloudSyncSource = fs.readFileSync(path.join(root, 'chrome/content/scripts/cloud-sync.js'), 'utf8');
 const storageSource = fs.readFileSync(path.join(root, 'chrome/content/scripts/storage.js'), 'utf8');
 const kanbanSource = fs.readFileSync(path.join(root, 'chrome/content/scripts/modules/kanban-view.js'), 'utf8');
 
@@ -118,6 +119,7 @@ function setupTestContext(initialDb = {}, confirmResult = true) {
   vm.runInContext(coreSource, context);
   vm.runInContext(i18nSource, context);
   vm.runInContext(dashboardViewSource, context);
+  vm.runInContext(cloudSyncSource, context);
   vm.runInContext(storageSource, context);
   vm.runInContext(kanbanSource, context);
 

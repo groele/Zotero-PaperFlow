@@ -6,6 +6,7 @@ const vm = require('node:vm');
 
 const root = path.resolve(__dirname, '..');
 const timelineSource = fs.readFileSync(path.join(root, 'chrome/content/scripts/modules/timeline-engine.js'), 'utf8');
+const academicExporterSource = fs.readFileSync(path.join(root, 'chrome/content/scripts/modules/academic-exporter.js'), 'utf8');
 const submissionsSource = fs.readFileSync(path.join(root, 'chrome/content/scripts/modules/submissions-view.js'), 'utf8');
 
 function setupTestSandbox() {
@@ -86,6 +87,7 @@ function setupTestSandbox() {
 
   const context = vm.createContext(sandbox);
   vm.runInContext(timelineSource, context);
+  vm.runInContext(academicExporterSource, context);
   vm.runInContext(submissionsSource, context);
   return sandbox;
 }

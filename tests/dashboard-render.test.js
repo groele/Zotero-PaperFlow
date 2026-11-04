@@ -12,6 +12,7 @@ const academicSource = fs.readFileSync(path.join(root, 'chrome/content/scripts/m
 const shareStudioSource = fs.readFileSync(path.join(root, 'chrome/content/scripts/modules/share-studio.js'), 'utf8');
 const dashboardViewSource = fs.readFileSync(path.join(root, 'chrome/content/scripts/modules/dashboard-view.js'), 'utf8');
 const kanbanViewSource = fs.readFileSync(path.join(root, 'chrome/content/scripts/modules/kanban-view.js'), 'utf8');
+const academicExporterSource = fs.readFileSync(path.join(root, 'chrome/content/scripts/modules/academic-exporter.js'), 'utf8');
 const submissionsViewSource = fs.readFileSync(path.join(root, 'chrome/content/scripts/modules/submissions-view.js'), 'utf8');
 const settingsViewSource = fs.readFileSync(path.join(root, 'chrome/content/scripts/modules/settings-view.js'), 'utf8');
 const optionsSource = fs.readFileSync(path.join(root, 'chrome/content/scripts/options.js'), 'utf8');
@@ -156,6 +157,7 @@ function setupEnvironment() {
   vm.runInContext(shareStudioSource, context);
   vm.runInContext(dashboardViewSource, context);
   vm.runInContext(kanbanViewSource, context);
+  vm.runInContext(academicExporterSource, context);
   vm.runInContext(submissionsViewSource, context);
   vm.runInContext(settingsViewSource, context);
   vm.runInContext(optionsSource, context);

@@ -2,21 +2,21 @@
   "name": "Zotero PaperFlow",
   "series": "Zotero Flow",
   "role": [
-    "投稿审稿",
+    "\u6295\u7a3f\u5ba1\u7a3f",
     "Publication"
   ],
   "shortDescription": [
-    "管理手稿、投稿轮次与审稿回复。",
+    "\u7ba1\u7406\u624b\u7a3f\u3001\u6295\u7a3f\u8f6e\u6b21\u4e0e\u5ba1\u7a3f\u56de\u590d\u3002",
     "Manage manuscripts, submission rounds, and review responses."
   ],
   "introduction": [
-    "面向需要跟踪论文处理过程的研究者，将手稿阶段、投稿历史、审稿意见、回复与关键日期连接到 Zotero 文献库。",
+    "\u9762\u5411\u9700\u8981\u8ddf\u8e2a\u8bba\u6587\u5904\u7406\u8fc7\u7a0b\u7684\u7814\u7a76\u8005\uff0c\u5c06\u624b\u7a3f\u9636\u6bb5\u3001\u6295\u7a3f\u5386\u53f2\u3001\u5ba1\u7a3f\u610f\u89c1\u3001\u56de\u590d\u4e0e\u5173\u952e\u65e5\u671f\u8fde\u63a5\u5230 Zotero \u6587\u732e\u5e93\u3002",
     "For researchers tracking a paper through publication: connect manuscript stages, submission history, reviewer comments, responses, and key dates to the Zotero library."
   ],
   "githubDescription": "Manage manuscripts, submission rounds, and review responses. Part of Zotero Flow.",
   "repository": "https://github.com/groele/Zotero-PaperFlow",
   "addonID": "zotero-paperflow@groele.org",
-  "version": "13.9.0",
+  "version": "13.10.0",
   "releaseStatus": "released",
   "license": null
 }

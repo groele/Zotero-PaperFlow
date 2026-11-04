@@ -5,6 +5,7 @@ const vm = require('node:vm');
 const { test } = require('node:test');
 
 const root = path.resolve(__dirname, '..');
+const citationSource = fs.readFileSync(path.join(root, 'chrome/content/scripts/modules/academic-citation.js'), 'utf8');
 const indexSource = fs.readFileSync(path.join(root, 'chrome/content/scripts/index.js'), 'utf8');
 
 function createHostContext(initialDb = { manuscripts: [{ id: 'm1', title: 'Test Paper', zoteroItemKey: 'ITEM1' }], submissions: [] }, initialPrefs = {}) {
@@ -79,7 +80,8 @@ function createHostContext(initialDb = { manuscripts: [{ id: 'm1', title: 'Test 
     }
   });
 
-  // Evaluate index.js inside context
+  // Evaluate modules and index.js inside context
+  vm.runInContext(citationSource, context);
   vm.runInContext(indexSource, context);
   return { context, errors, logs, savedNotes, prefs, registeredSections, unregisteredSections, unregisteredPrefPanes };
 }
@@ -170,7 +172,7 @@ test('addItemToPipelineCollection blocks read-only and deleted items and returns
   assert.ok(errors.some(e => e.includes('read-only or in trash')));
 });
 
-test('authoritative versions across package.json, manifest, product.json, preferences, READMEs, and workspace are unified at 13.9.0', () => {
+test('authoritative versions across package.json, manifest, product.json, preferences, READMEs, and workspace are unified at 13.10.0', () => {
   const pkg = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8'));
   const manifest = JSON.parse(fs.readFileSync(path.join(root, 'manifest.json'), 'utf8'));
   const product = JSON.parse(fs.readFileSync(path.join(root, 'docs/brand/product.json'), 'utf8'));
@@ -182,7 +184,7 @@ test('authoritative versions across package.json, manifest, product.json, prefer
   const readmeEn = fs.readFileSync(path.join(root, 'README.en.md'), 'utf8');
   const updateJson = JSON.parse(fs.readFileSync(path.join(root, 'update.json'), 'utf8'));
 
-  const expectedVersion = '13.9.0';
+  const expectedVersion = '13.10.0';
   assert.equal(pkg.version, expectedVersion);
   assert.equal(manifest.version, expectedVersion);
   assert.equal(product.version, expectedVersion);

@@ -4,9 +4,11 @@ const path = require('node:path');
 const vm = require('node:vm');
 const { test } = require('node:test');
 
+const cloudSyncSource = fs.readFileSync(path.join(__dirname, '../chrome/content/scripts/cloud-sync.js'), 'utf8');
 const source = fs.readFileSync(path.join(__dirname, '../chrome/content/scripts/storage.js'), 'utf8');
 function engine(globals = {}) {
   const context = vm.createContext({ console, ...globals });
+  vm.runInContext(cloudSyncSource, context);
   vm.runInContext(source, context);
   const storage = context.storage;
   storage.ensureDbShape = async data => ({ ...data, revision: data.revision + 1 });

@@ -41,55 +41,67 @@ window.ResearchFlow_Preferences = (() => {
         key: 'windowMode',
         label: '工作区默认打开形态',
         desc: '选择从主工具栏图标或快捷键 (Ctrl+Alt+R) 唤起工作台时的首选窗口形态。',
+        l10nLabel: 'researchflow-pref-field-window-mode-label',
+        l10nDesc: 'researchflow-pref-field-window-mode-desc',
         type: 'select',
         options: [
-          ['tab', '📑 Zotero 内部主选项卡 (无缝融入主界面标签栏)'],
-          ['subwindow', '🗗 伴读紧凑子窗口 (480×780，轻量悬浮，边读文献边跟踪进展)'],
-          ['window', '⬚ 独立桌面大窗口 (1240×820，大屏全景规划)']
+          ['tab', '📑 Zotero 内部主选项卡 (无缝融入主界面标签栏)', 'researchflow-pref-opt-window-mode-tab'],
+          ['subwindow', '🗗 伴读紧凑子窗口 (480×780，轻量悬浮，边读文献边跟踪进展)', 'researchflow-pref-opt-window-mode-subwindow'],
+          ['window', '⬚ 独立桌面大窗口 (1240×820，大屏全景规划)', 'researchflow-pref-opt-window-mode-window']
         ]
       },
       {
         key: 'defaultView',
         label: '工作区默认起始视图',
         desc: '打开工作台时默认定位的首屏功能模块。',
+        l10nLabel: 'researchflow-pref-field-default-view-label',
+        l10nDesc: 'researchflow-pref-field-default-view-desc',
         type: 'select',
         options: [
-          ['view-dashboard', '📊 仪表盘总览 (流向进度、时间线与统计概览)'],
-          ['view-manuscripts', '🎯 手稿看板 (阶段流转与写作卡片跟踪)'],
-          ['view-submissions', '🚀 投稿与同行评审 (期刊轮次、回复矩阵与学术导出)']
+          ['view-dashboard', '📊 仪表盘总览 (流向进度、时间线与统计概览)', 'researchflow-pref-opt-default-view-dashboard'],
+          ['view-manuscripts', '🎯 手稿看板 (阶段流转与写作卡片跟踪)', 'researchflow-pref-opt-default-view-manuscripts'],
+          ['view-submissions', '🚀 投稿与同行评审 (期刊轮次、回复矩阵与学术导出)', 'researchflow-pref-opt-default-view-submissions']
         ]
       },
       {
         key: 'language',
         label: '工作区显示语言',
         desc: '设置整个 PaperFlow 工作台与导出工具使用的界面语言。',
+        l10nLabel: 'researchflow-pref-field-language-label',
+        l10nDesc: 'researchflow-pref-field-language-desc',
         type: 'select',
         options: [
-          ['zh', '简体中文 (Chinese)'],
-          ['en', 'English']
+          ['zh', '简体中文 (Chinese)', 'researchflow-pref-opt-language-zh'],
+          ['en', 'English', 'researchflow-pref-opt-language-en']
         ]
       },
       {
         key: 'theme',
         label: '界面外观主题',
         desc: '选择工作台与伴读窗的明暗配色方案。',
+        l10nLabel: 'researchflow-pref-field-theme-label',
+        l10nDesc: 'researchflow-pref-field-theme-desc',
         type: 'select',
         options: [
-          ['system', '🌓 跟随系统与宿主环境'],
-          ['light', '☀️ 浅色模式 (Light)'],
-          ['dark', '🌙 深色模式 (Dark)']
+          ['system', '🌓 跟随系统与宿主环境', 'researchflow-pref-opt-theme-system'],
+          ['light', '☀️ 浅色模式 (Light)', 'researchflow-pref-opt-theme-light'],
+          ['dark', '🌙 深色模式 (Dark)', 'researchflow-pref-opt-theme-dark']
         ]
       },
       {
         key: 'subwindowAlwaysOnTop',
         label: '伴读子窗口始终置顶',
         desc: '开启后伴读窗口浮于所有窗口顶层，边阅读 PDF 原文边随时记录投稿灵感与审稿要点。',
+        l10nLabel: 'researchflow-pref-field-subwindow-always-on-top-label',
+        l10nDesc: 'researchflow-pref-field-subwindow-always-on-top-desc',
         type: 'check'
       },
       {
         key: 'subwindowCompactMode',
         label: '伴读子窗口启用紧凑阅读排版',
         desc: '在小尺寸伴读窗口下隐藏大图与非必要留白，最大化可读面积。',
+        l10nLabel: 'researchflow-pref-field-subwindow-compact-mode-label',
+        l10nDesc: 'researchflow-pref-field-subwindow-compact-mode-desc',
         type: 'check'
       }
     ],
@@ -99,48 +111,64 @@ window.ResearchFlow_Preferences = (() => {
         key: 'enableItemPane',
         label: '在文献条目右侧信息面板中显示「稿件管线」卡片',
         desc: '在文献条目信息侧栏注入原生卡片，直接查看关联手稿状态、目标期刊并一键同步子笔记。默认关闭以保持主界面整洁。',
+        l10nLabel: 'researchflow-pref-field-enable-item-pane-label',
+        l10nDesc: 'researchflow-pref-field-enable-item-pane-desc',
         type: 'check'
       },
       {
         key: 'showContextMenu',
         label: '在文献条目与分类集合右键菜单中显示快捷操作',
         desc: '在文献列表右键菜单提供「新建论文稿件管线」「关联到现有论文稿件」等快捷入口。',
+        l10nLabel: 'researchflow-pref-field-show-context-menu-label',
+        l10nDesc: 'researchflow-pref-field-show-context-menu-desc',
         type: 'check'
       },
       {
         key: 'enableReaderIntegration',
         label: '在 PDF 阅读器中启用快捷选中文本/批注摘录',
         desc: '在 PDF 阅读器内支持通过右键或快捷键 (Ctrl+Shift+R) 将选中文本/批注快速摘录至手稿管线笔记。',
+        l10nLabel: 'researchflow-pref-field-enable-reader-integration-label',
+        l10nDesc: 'researchflow-pref-field-enable-reader-integration-desc',
         type: 'check'
       },
       {
         key: 'syncStatusTags',
         label: '稿件流程状态更新时自动向 Zotero 条目同步彩色标签',
         desc: '开启后自动将稿件当前所处阶段（如 PaperFlow/04-同行审稿中）同步打在关联的 Zotero 文献条目上。默认关闭以防止污染文献标签云。',
+        l10nLabel: 'researchflow-pref-field-sync-status-tags-label',
+        l10nDesc: 'researchflow-pref-field-sync-status-tags-desc',
         type: 'check'
       },
       {
         key: 'locateOnManuscriptClick',
         label: '工作台点击手稿时自动在 Zotero 文献库中定位对应条目',
         desc: '在工作台看板或投稿列表中点击已关联文献的手稿时，自动在 Zotero 主界面定位并高亮该文献。',
+        l10nLabel: 'researchflow-pref-field-locate-on-manuscript-click-label',
+        l10nDesc: 'researchflow-pref-field-locate-on-manuscript-click-desc',
         type: 'check'
       },
       {
         key: 'autoLinkSelectedPaper',
         label: '跟踪新投稿时自动检测并载入 Zotero 当前选中文献',
         desc: '点击「+ 跟踪新投稿」时，自动检测 Zotero 当前选中的文献条目并提供一键载入元数据快捷浮条。',
+        l10nLabel: 'researchflow-pref-field-auto-link-selected-paper-label',
+        l10nDesc: 'researchflow-pref-field-auto-link-selected-paper-desc',
         type: 'check'
       },
       {
         key: 'autoSyncChildNotes',
         label: '手稿流程更新或关联文献时自动同步更新 Zotero 子笔记',
         desc: '开启后自动将稿件进展与审稿矩阵同步写入文献条目的专属子笔记中。关闭后仅在用户手动点击「同步」时写入。',
+        l10nLabel: 'researchflow-pref-field-auto-sync-child-notes-label',
+        l10nDesc: 'researchflow-pref-field-auto-sync-child-notes-desc',
         type: 'check'
       },
       {
         key: 'autoAddToPipelineCollection',
         label: '关联手稿时自动将文献条目归入「论文管线」分类集合',
         desc: '开启后自动在当前库中维护「🚀 Zotero PaperFlow 论文管线」分类目录并将关联文献归入其中。',
+        l10nLabel: 'researchflow-pref-field-auto-add-to-pipeline-collection-label',
+        l10nDesc: 'researchflow-pref-field-auto-add-to-pipeline-collection-desc',
         type: 'check'
       }
     ],
@@ -150,30 +178,38 @@ window.ResearchFlow_Preferences = (() => {
         key: 'showJournalPortals',
         label: '在投稿管理界面顶部常驻显示常用期刊投稿入口停靠栏',
         desc: '在投稿与审稿管理视图顶部展示快捷期刊登录入口卡片（如 ACS、Wiley、Nature、APL 等）。',
+        l10nLabel: 'researchflow-pref-field-show-journal-portals-label',
+        l10nDesc: 'researchflow-pref-field-show-journal-portals-desc',
         type: 'check'
       },
       {
         key: 'collapseEmptyKanbanStages',
         label: '手稿看板中无条目的空阶段列默认自动折叠',
         desc: '当某写作阶段（如选题大纲、图表初稿）没有手稿卡片时默认折叠隐藏，减少横向滚动。',
+        l10nLabel: 'researchflow-pref-field-collapse-empty-kanban-stages-label',
+        l10nDesc: 'researchflow-pref-field-collapse-empty-kanban-stages-desc',
         type: 'check'
       },
       {
         key: 'defaultRebuttalExportFormat',
         label: '学术审稿回复信与自述信默认导出格式偏好',
         desc: '在导出学术审稿回复信与自述信模态框中默认预选的格式选项卡。',
+        l10nLabel: 'researchflow-pref-field-default-rebuttal-export-format-label',
+        l10nDesc: 'researchflow-pref-field-default-rebuttal-export-format-desc',
         type: 'select',
         options: [
-          ['latex', '📄 LaTeX 宏包答复信 (.tex with tcolorbox)'],
-          ['word', '📝 Word / 富文本带格式 (可在 Word/WPS 中直接编辑)'],
-          ['md', '📑 学术 Markdown 模版 (.md)'],
-          ['table', '📊 意见与修改汇总表 (Markdown Table)']
+          ['latex', '📄 LaTeX 宏包答复信 (.tex with tcolorbox)', 'researchflow-pref-opt-rebuttal-format-latex'],
+          ['word', '📝 Word / 富文本带格式 (可在 Word/WPS 中直接编辑)', 'researchflow-pref-opt-rebuttal-format-word'],
+          ['md', '📑 学术 Markdown 模版 (.md)', 'researchflow-pref-opt-rebuttal-format-md'],
+          ['table', '📊 意见与修改汇总表 (Markdown Table)', 'researchflow-pref-opt-rebuttal-format-table']
         ]
       },
       {
         key: 'enableAcceptanceCelebration',
         label: '论文正式录用接收时播放全屏彩带动画与庆祝卡片',
         desc: '当稿件或投稿轮次状态变更为「已录用接收」时，弹出喜报卡片并播放彩带礼花动效。',
+        l10nLabel: 'researchflow-pref-field-enable-acceptance-celebration-label',
+        l10nDesc: 'researchflow-pref-field-enable-acceptance-celebration-desc',
         type: 'check'
       }
     ],
@@ -183,12 +219,16 @@ window.ResearchFlow_Preferences = (() => {
         key: 'autoSync',
         label: '本地科研数据保存后自动执行云端同步',
         desc: '在已配置有效 WebDAV 或 GitHub 私有仓库凭据的前提下，本地每次保存后自动在后台静默发起远端同步。',
+        l10nLabel: 'researchflow-pref-field-auto-sync-label',
+        l10nDesc: 'researchflow-pref-field-auto-sync-desc',
         type: 'check'
       },
       {
         key: 'autoBackupOnSave',
         label: '本地科研数据保存时自动轮转生成安全灾备快照',
         desc: '本地每次提交保存时，自动在 Zotero 数据目录维护多份滚动版本历史快照，防止断电等意外导致数据损坏。',
+        l10nLabel: 'researchflow-pref-field-auto-backup-on-save-label',
+        l10nDesc: 'researchflow-pref-field-auto-backup-on-save-desc',
         type: 'check'
       }
     ]
@@ -224,7 +264,7 @@ window.ResearchFlow_Preferences = (() => {
     container.replaceChildren();
 
     fields.forEach((field) => {
-      const { key, label, desc, type, options } = field;
+      const { key, label, desc, type, options, l10nLabel, l10nDesc } = field;
       const val = getPref(key);
 
       if (type === 'check') {
@@ -245,6 +285,9 @@ window.ResearchFlow_Preferences = (() => {
         const title = doc.createElementNS(HTML, 'span');
         title.className = 'rf-check-title';
         title.textContent = label;
+        if (l10nLabel) {
+          title.setAttribute('data-l10n-id', l10nLabel);
+        }
 
         header.append(chk, title);
         item.appendChild(header);
@@ -253,6 +296,9 @@ window.ResearchFlow_Preferences = (() => {
           const descEl = doc.createElementNS(HTML, 'div');
           descEl.className = 'rf-setting-desc';
           descEl.textContent = desc;
+          if (l10nDesc) {
+            descEl.setAttribute('data-l10n-id', l10nDesc);
+          }
           item.appendChild(descEl);
         }
 
@@ -264,13 +310,19 @@ window.ResearchFlow_Preferences = (() => {
         const lbl = doc.createElementNS(HTML, 'label');
         lbl.className = 'rf-control-label';
         lbl.textContent = label;
+        if (l10nLabel) {
+          lbl.setAttribute('data-l10n-id', l10nLabel);
+        }
 
         const sel = doc.createElementNS(HTML, 'select');
         sel.className = 'rf-control';
-        options.forEach(([optVal, optLabel]) => {
+        options.forEach(([optVal, optLabel, optL10nId]) => {
           const opt = doc.createElementNS(HTML, 'option');
           opt.value = optVal;
           opt.textContent = optLabel;
+          if (optL10nId) {
+            opt.setAttribute('data-l10n-id', optL10nId);
+          }
           if (String(optVal) === String(val)) opt.selected = true;
           sel.appendChild(opt);
         });
@@ -285,6 +337,9 @@ window.ResearchFlow_Preferences = (() => {
           const descEl = doc.createElementNS(HTML, 'div');
           descEl.className = 'rf-setting-desc';
           descEl.textContent = desc;
+          if (l10nDesc) {
+            descEl.setAttribute('data-l10n-id', l10nDesc);
+          }
           item.appendChild(descEl);
         }
 
@@ -412,7 +467,7 @@ window.ResearchFlow_Preferences = (() => {
           const diag = {
             exportedAt: new Date().toISOString(),
             zoteroVersion: Zotero.version,
-            paperflowVersion: Zotero?.ResearchFlow?.version || '13.8.0',
+            paperflowVersion: Zotero?.ResearchFlow?.version || '13.10.0',
             schemaVersion: db?.schemaVersion,
             counts: {
               manuscripts: db?.manuscripts?.length || 0,

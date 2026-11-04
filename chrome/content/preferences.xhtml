@@ -1,3 +1,7 @@
+<linkset xmlns="http://www.mozilla.org/keymaster/gatekeeper/there.is.only.xul"
+         xmlns:html="http://www.w3.org/1999/xhtml">
+  <html:link rel="localization" href="researchflow.ftl"/>
+</linkset>
 <vbox xmlns="http://www.mozilla.org/keymaster/gatekeeper/there.is.only.xul"
       xmlns:html="http://www.w3.org/1999/xhtml"
       id="researchflow-preferences-pane" class="rf-prefs-container"
@@ -5,111 +9,111 @@
   
   <html:div class="rf-pref-brand-header">
     <html:div class="rf-pref-brand-row">
-      <html:div class="rf-pref-brand-title">Zotero PaperFlow</html:div>
-      <html:div class="rf-pref-brand-tag">v13.9.0</html:div>
+      <html:div class="rf-pref-brand-title" data-l10n-id="researchflow-pref-brand-title">Zotero PaperFlow</html:div>
+      <html:div class="rf-pref-brand-tag">v13.10.0</html:div>
     </html:div>
-    <html:div class="rf-pref-brand-slogan">From Manuscript to Publication. 面向科研论文全生命周期的智能投稿与审稿管理工作台。</html:div>
-    <html:div id="rf-pref-status" class="rf-pref-status" role="status" aria-live="polite">首选项已就绪。所有更改将实时生效并保存。</html:div>
+    <html:div class="rf-pref-brand-slogan" data-l10n-id="researchflow-pref-brand-slogan"></html:div>
+    <html:div id="rf-pref-status" class="rf-pref-status" role="status" aria-live="polite" data-l10n-id="researchflow-pref-status-ready"></html:div>
   </html:div>
 
-  <!-- 模块 1: 界面交互与窗口唤起 -->
+  <!-- Module 1: Window & Workspace Presentation -->
   <html:details class="rf-setting-group" id="rf-acc-window" aria-labelledby="rf-window-title" open="open">
-    <html:summary class="rf-setting-group-title" id="rf-window-title">界面交互与窗口唤起</html:summary>
+    <html:summary class="rf-setting-group-title" id="rf-window-title" data-l10n-id="researchflow-pref-group-window-title"></html:summary>
     <html:div class="rf-setting-group-body">
-      <html:p class="rf-card-desc">配置 Zotero PaperFlow 工作台默认打开形态、起始首屏、置顶策略以及多语言与外观主题偏好：</html:p>
+      <html:p class="rf-card-desc" data-l10n-id="researchflow-pref-group-window-desc"></html:p>
       
       <html:div id="rf-pref-window" class="rf-pref-content" />
 
       <html:div class="rf-sub-action-group">
         <html:button id="rf-btn-open-workspace" class="rf-sub-action-btn" type="button">
-          <html:span>📑 在 Zotero 内部主标签页打开工作台</html:span>
+          <html:span data-l10n-id="researchflow-pref-btn-open-workspace"></html:span>
           <html:span class="rf-sub-chevron">›</html:span>
         </html:button>
         <html:button id="rf-btn-open-subwindow" class="rf-sub-action-btn" type="button">
-          <html:span>🗗 打开 480×780 紧凑伴读子窗口 (边读文献边跟踪进展)</html:span>
+          <html:span data-l10n-id="researchflow-pref-btn-open-subwindow"></html:span>
           <html:span class="rf-sub-chevron">›</html:span>
         </html:button>
         <html:button id="rf-btn-open-window" class="rf-sub-action-btn" type="button">
-          <html:span>⬚ 打开 1240×820 独立桌面全功能大窗口</html:span>
+          <html:span data-l10n-id="researchflow-pref-btn-open-window"></html:span>
           <html:span class="rf-sub-chevron">›</html:span>
         </html:button>
       </html:div>
     </html:div>
   </html:details>
 
-  <!-- 模块 2: Zotero 宿主与文献库深度集成 -->
+  <!-- Module 2: Host & Literature Integration -->
   <html:details class="rf-setting-group" id="rf-acc-integration" aria-labelledby="rf-integration-title">
-    <html:summary class="rf-setting-group-title" id="rf-integration-title">Zotero 宿主与文献库深度集成</html:summary>
+    <html:summary class="rf-setting-group-title" id="rf-integration-title" data-l10n-id="researchflow-pref-group-integration-title"></html:summary>
     <html:div class="rf-setting-group-body">
-      <html:p class="rf-card-desc">管理与 Zotero 桌面端主界面的联动深度。支持根据科研阅读习惯灵活开关信息面板、上下文菜单、阅读器划词与条目标签：</html:p>
+      <html:p class="rf-card-desc" data-l10n-id="researchflow-pref-group-integration-desc"></html:p>
       
       <html:div id="rf-pref-integration" class="rf-pref-content" />
     </html:div>
   </html:details>
 
-  <!-- 模块 3: 写作看板与审稿回复工作流 -->
+  <!-- Module 3: Manuscripts Kanban & Peer Review Workflow -->
   <html:details class="rf-setting-group" id="rf-acc-workflow" aria-labelledby="rf-workflow-title">
-    <html:summary class="rf-setting-group-title" id="rf-workflow-title">写作看板与审稿回复工作流</html:summary>
+    <html:summary class="rf-setting-group-title" id="rf-workflow-title" data-l10n-id="researchflow-pref-group-workflow-title"></html:summary>
     <html:div class="rf-setting-group-body">
-      <html:p class="rf-card-desc">定制学术手稿流转、同行评审矩阵与学术导出工具的默认行为与视觉偏好：</html:p>
+      <html:p class="rf-card-desc" data-l10n-id="researchflow-pref-group-workflow-desc"></html:p>
       
       <html:div id="rf-pref-workflow" class="rf-pref-content" />
     </html:div>
   </html:details>
 
-  <!-- 模块 4: 数据存储、多云同步与灾备韧性 -->
+  <!-- Module 4: Data Storage, Cloud Sync & Resilience -->
   <html:details class="rf-setting-group" id="rf-acc-data" aria-labelledby="rf-data-title">
-    <html:summary class="rf-setting-group-title" id="rf-data-title">数据存储、多云同步与灾备韧性</html:summary>
+    <html:summary class="rf-setting-group-title" id="rf-data-title" data-l10n-id="researchflow-pref-group-data-title"></html:summary>
     <html:div class="rf-setting-group-body">
       
       <html:div class="rf-setting-subgroup" id="rf-acc-sync">
-        <html:h3 class="rf-setting-subgroup-title">多云同步与本地数据存储</html:h3>
-        <html:p class="rf-card-desc">PaperFlow 遵循本地优先原则，所有科研数据均安全保存于 Zotero 专属数据目录，可随时配合 WebDAV 或 GitHub 进行私有云端加密同步：</html:p>
+        <html:h3 class="rf-setting-subgroup-title" data-l10n-id="researchflow-pref-subgroup-sync-title"></html:h3>
+        <html:p class="rf-card-desc" data-l10n-id="researchflow-pref-subgroup-sync-desc"></html:p>
         <html:div class="rf-storage-path-box">
-          <html:span class="rf-storage-icon">📁 本地存储位置：</html:span>
+          <html:span class="rf-storage-icon" data-l10n-id="researchflow-pref-storage-path-prefix"></html:span>
           <html:code id="rf-data-path-label" class="rf-storage-code">Zotero/researchflow-data.json</html:code>
         </html:div>
         <html:div id="rf-pref-data-sync" class="rf-pref-content" style="margin-top: 6px;" />
         <html:div class="rf-sub-action-group" style="margin-top: 10px;">
           <html:button id="rf-btn-open-cloud-settings" class="rf-sub-action-btn" type="button">
-            <html:span>🌐 在工作台中配置 WebDAV 与 GitHub 私有云同步凭据</html:span>
+            <html:span data-l10n-id="researchflow-pref-btn-cloud-settings"></html:span>
             <html:span class="rf-sub-chevron">›</html:span>
           </html:button>
         </html:div>
       </html:div>
 
       <html:div class="rf-setting-subgroup" id="rf-acc-export">
-        <html:h3 class="rf-setting-subgroup-title">数据库全量备份与跨格式导出</html:h3>
-        <html:p class="rf-card-desc">支持一键将全部论文管线、审稿意见回复矩阵、日程里程碑与期刊记录导出为 JSON 标准数据包：</html:p>
+        <html:h3 class="rf-setting-subgroup-title" data-l10n-id="researchflow-pref-subgroup-export-title"></html:h3>
+        <html:p class="rf-card-desc" data-l10n-id="researchflow-pref-subgroup-export-desc"></html:p>
         <html:div class="rf-sub-action-group">
           <html:button id="rf-btn-export-db" class="rf-sub-action-btn" type="button">
-            <html:span>📑 导出 JSON 全量备份数据文件</html:span>
+            <html:span data-l10n-id="researchflow-pref-btn-export-db"></html:span>
             <html:span class="rf-sub-chevron">›</html:span>
           </html:button>
         </html:div>
       </html:div>
 
       <html:div class="rf-setting-subgroup" id="rf-acc-import">
-        <html:h3 class="rf-setting-subgroup-title">数据导入、紧急灾备与冲突恢复</html:h3>
-        <html:p class="rf-card-desc">从 Zotero PaperFlow JSON 备份中恢复科研管线数据（导入前系统将自动生成安全灾备快照）：</html:p>
+        <html:h3 class="rf-setting-subgroup-title" data-l10n-id="researchflow-pref-subgroup-import-title"></html:h3>
+        <html:p class="rf-card-desc" data-l10n-id="researchflow-pref-subgroup-import-desc"></html:p>
         <html:div class="rf-control-row" style="margin-bottom: 10px;">
-          <html:label for="rf-import-mode" class="rf-control-label">数据冲突处理策略：</html:label>
+          <html:label for="rf-import-mode" class="rf-control-label" data-l10n-id="researchflow-pref-import-mode-label"></html:label>
           <html:select id="rf-import-mode" class="rf-control" style="max-width: 280px;">
-            <html:option value="merge">智能合并 (保留现有并补充导入增量)</html:option>
-            <html:option value="overwrite">完全替换 (以导入备份为准完全覆写)</html:option>
+            <html:option value="merge" data-l10n-id="researchflow-pref-import-mode-merge"></html:option>
+            <html:option value="overwrite" data-l10n-id="researchflow-pref-import-mode-overwrite"></html:option>
           </html:select>
         </html:div>
         <html:div class="rf-sub-action-group">
           <html:button id="rf-btn-import-file" class="rf-sub-action-btn" type="button">
-            <html:span>📂 选择本地 JSON 备份文件导入并执行恢复</html:span>
+            <html:span data-l10n-id="researchflow-pref-btn-import-file"></html:span>
             <html:span class="rf-sub-chevron">›</html:span>
           </html:button>
           <html:button id="rf-btn-restore-backup" class="rf-sub-action-btn" type="button">
-            <html:span>⏮️ 恢复上次导入前的紧急安全备份快照</html:span>
+            <html:span data-l10n-id="researchflow-pref-btn-restore-backup"></html:span>
             <html:span class="rf-sub-chevron">›</html:span>
           </html:button>
           <html:button id="rf-btn-conflict-recovery" class="rf-sub-action-btn" type="button">
-            <html:span data-l10n-id="researchflow-recovery-open">比较并恢复冲突草稿</html:span>
+            <html:span data-l10n-id="researchflow-recovery-open"></html:span>
             <html:span class="rf-sub-chevron">›</html:span>
           </html:button>
         </html:div>
@@ -119,20 +123,20 @@
     </html:div>
   </html:details>
 
-  <!-- 模块 5: 版本信息与运行诊断 -->
+  <!-- Module 5: Version Information & Diagnostics -->
   <html:details class="rf-setting-group" id="rf-acc-about" aria-labelledby="rf-about-title">
-    <html:summary class="rf-setting-group-title" id="rf-about-title">版本信息与运行诊断</html:summary>
+    <html:summary class="rf-setting-group-title" id="rf-about-title" data-l10n-id="researchflow-pref-group-about-title"></html:summary>
     <html:div class="rf-setting-group-body">
-      <html:p class="rf-card-desc">查阅 Zotero PaperFlow 运行环境、版本说明、官方发布资产与脱敏诊断报告：</html:p>
-      <html:div class="rf-version-info-row"><html:strong>当前版本</html:strong> <span>v13.9.0</span></html:div>
-      <html:div class="rf-version-info-row"><html:strong>兼容平台</html:strong> <span>Zotero 10 ~ 12 (Gecko 153+ 标准现代架构)</span></html:div>
-      <html:div class="rf-version-info-row"><html:strong>版本说明</html:strong> <span>全量功能细粒度开关治理、设置面板三级层级重构与代码标识对齐</span></html:div>
-      <html:div class="rf-version-info-row"><html:strong>构建日期</html:strong> <span>2026-11-04</span></html:div>
-      <html:div class="rf-version-info-row"><html:strong>官方安装包</html:strong> <html:a href="https://github.com/groele/Zotero-PaperFlow/releases/download/v13.9.0/zotero-paperflow-13.9.0.xpi" target="_blank" rel="noopener noreferrer">zotero-paperflow-13.9.0.xpi</html:a></html:div>
-      <html:div class="rf-version-info-row"><html:strong>开源仓库</html:strong> <html:a href="https://github.com/groele/Zotero-PaperFlow" target="_blank" rel="noopener noreferrer">github.com/groele/Zotero-PaperFlow</html:a></html:div>
+      <html:p class="rf-card-desc" data-l10n-id="researchflow-pref-group-about-desc"></html:p>
+      <html:div class="rf-version-info-row"><html:strong data-l10n-id="researchflow-pref-version-label"></html:strong> <span>v13.10.0</span></html:div>
+      <html:div class="rf-version-info-row"><html:strong data-l10n-id="researchflow-pref-compat-label"></html:strong> <span data-l10n-id="researchflow-pref-compat-value"></span></html:div>
+      <html:div class="rf-version-info-row"><html:strong data-l10n-id="researchflow-pref-release-desc-label"></html:strong> <span data-l10n-id="researchflow-pref-release-desc-value"></span></html:div>
+      <html:div class="rf-version-info-row"><html:strong data-l10n-id="researchflow-pref-build-date-label"></html:strong> <span>2026-11-04</span></html:div>
+      <html:div class="rf-version-info-row"><html:strong data-l10n-id="researchflow-pref-package-label"></html:strong> <html:a href="https://github.com/groele/Zotero-PaperFlow/releases/download/v13.10.0/zotero-paperflow-13.10.0.xpi" target="_blank" rel="noopener noreferrer">zotero-paperflow-13.10.0.xpi</html:a></html:div>
+      <html:div class="rf-version-info-row"><html:strong data-l10n-id="researchflow-pref-repo-label"></html:strong> <html:a href="https://github.com/groele/Zotero-PaperFlow" target="_blank" rel="noopener noreferrer">github.com/groele/Zotero-PaperFlow</html:a></html:div>
       <html:div class="rf-sub-action-group" style="margin-top: 12px;">
         <html:button id="rf-btn-export-diag" class="rf-sub-action-btn" type="button">
-          <html:span>🔍 导出脱敏运行诊断报告 (用于跨设备排查与技术支持)</html:span>
+          <html:span data-l10n-id="researchflow-pref-btn-export-diag"></html:span>
           <html:span class="rf-sub-chevron">›</html:span>
         </html:button>
       </html:div>
