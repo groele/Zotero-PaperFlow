@@ -3,42 +3,30 @@
     "zotero-paperflow@groele.org": {
       "updates": [
         {
-          "version": "13.8.0",
-          "update_link": "https://github.com/groele/Zotero-PaperFlow/releases/download/v13.8.0/zotero-paperflow-13.8.0.xpi",
+          "version": "13.9.0",
+          "update_link": "https://github.com/groele/Zotero-PaperFlow/releases/download/v13.9.0/zotero-paperflow-13.9.0.xpi",
+          "update_hash": "sha512:00130f6c7761f0ba5ce2393cd07520f810debfcfdedb31499133466b79406b8de0cb09ad477155b205058f8ad746723f93024ff1a7a4faefad677a1a229a8a34",
           "applications": {
             "zotero": {
               "strict_min_version": "10.0",
               "strict_max_version": "12.*"
             }
-          },
-          "browser_specific_settings": {
-            "zotero": {
-              "strict_min_version": "10.0",
-              "strict_max_version": "12.*"
-            }
-          },
-          "update_hash": "sha512:91b2347beed6de208b4f3e42b1d3715c9ac7f937ae003f58a921ee6b3e81c70f71d1f7aa7c243d4291deddc428429c87f8ee453f2cdf2fd59c9c7804b93b3279"
+          }
         }
       ]
     },
     "researchflow@groele.org": {
       "updates": [
         {
-          "version": "13.8.0",
-          "update_link": "https://github.com/groele/Zotero-PaperFlow/releases/download/v13.8.0/zotero-paperflow-13.8.0.xpi",
+          "version": "13.9.0",
+          "update_link": "https://github.com/groele/Zotero-PaperFlow/releases/download/v13.9.0/zotero-paperflow-13.9.0.xpi",
+          "update_hash": "sha512:00130f6c7761f0ba5ce2393cd07520f810debfcfdedb31499133466b79406b8de0cb09ad477155b205058f8ad746723f93024ff1a7a4faefad677a1a229a8a34",
           "applications": {
             "zotero": {
               "strict_min_version": "10.0",
               "strict_max_version": "12.*"
             }
-          },
-          "browser_specific_settings": {
-            "zotero": {
-              "strict_min_version": "10.0",
-              "strict_max_version": "12.*"
-            }
-          },
-          "update_hash": "sha512:91b2347beed6de208b4f3e42b1d3715c9ac7f937ae003f58a921ee6b3e81c70f71d1f7aa7c243d4291deddc428429c87f8ee453f2cdf2fd59c9c7804b93b3279"
+          }
         }
       ]
     }
