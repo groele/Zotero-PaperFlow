@@ -1169,24 +1169,26 @@ function renderSubmissionDetails(sub) {
 
       <div class="submission-edit-section submission-edit-review-section">
         <div class="submission-edit-section-head submission-edit-section-head-row">
-          <div class="submission-edit-section-title">
-            <span class="submission-edit-section-icon" aria-hidden="true">
-              <svg class="svg-icon" viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H8l-5 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/><path d="M8 9h8"/><path d="M8 13h5"/></svg>
-            </span>
-            <span>${escapeHTML(t('peerReviewMatrixSection'))}</span>
+          <div class="submission-section-title-group">
+            <div class="submission-edit-section-title">
+              <span class="submission-edit-section-icon" aria-hidden="true">
+                <svg class="svg-icon" viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H8l-5 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/><path d="M8 9h8"/><path d="M8 13h5"/></svg>
+              </span>
+              <span>${escapeHTML(t('peerReviewMatrixSection') || '同行评审回复矩阵')}</span>
+            </div>
+            <div class="submission-edit-review-help">${escapeHTML(t('reviewEditorHelp') || '审稿意见和作者回复会在填写时自动保存。')}</div>
           </div>
-          <div style="display:flex; align-items:center; gap:8px;">
+          <div class="submission-section-actions">
             <button type="button" class="btn-secondary submission-work-button" id="btn-batch-import-reviews">
               <svg class="svg-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 14.899A7 7 0 1 1 15.71 8h1.79a4.5 4.5 0 0 1 2.5 8.242"/><path d="M12 12v9"/><path d="m8 17 4 4 4-4"/></svg>
               <span>${escapeHTML(t('smartBatchImport') || '智能批量导入')}</span>
             </button>
             <button type="button" class="btn-primary submission-work-button" id="btn-add-review-comment">
               <svg class="svg-icon" viewBox="0 0 24 24" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-              <span>${escapeHTML(t('addComment'))}</span>
+              <span>${escapeHTML(t('addComment') || '添加审稿意见')}</span>
             </button>
           </div>
         </div>
-        <div class="submission-edit-review-help">${escapeHTML(t('reviewEditorHelp'))}</div>
         <div id="sub-edit-rebuttal-progress-container"></div>
         <div class="submission-edit-review-container" id="sub-edit-review-matrix-container"></div>
       </div>

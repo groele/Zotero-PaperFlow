@@ -33,19 +33,19 @@ var RFReviewMatrix = (function () {
     const statusVal = row.status || (row.response && row.response.trim() ? 'addressed' : 'pending');
 
     window.RFUI.setHTML(rowDiv, `
-      <!-- 1. Full-width Card Title Bar -->
+      <!-- TIER 1: Full-Width Symmetrical Header -->
       <div class="submission-edit-review-row-header">
         <div class="review-row-meta-group">
           <div class="review-row-index-badge">
             <svg class="svg-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M21 15a2 2 0 0 1-2 2H8l-5 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
             <span class="submission-edit-review-label">${escapeHTML(tf('reviewerCommentLabel', { count: index + 1 }))}</span>
           </div>
-          <div class="review-row-reviewer-box">
-            <svg class="svg-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+          <div class="review-meta-item review-row-reviewer-box">
             <span class="review-field-prefix-label">${escapeHTML(t('reviewerFieldLabel') || '审稿人')}:</span>
             <input type="text" class="sub-edit-review-reviewer" value="${reviewerVal}" placeholder="Reviewer #1...">
           </div>
-          <div class="review-row-status-box">
+          <div class="review-meta-item review-row-status-box">
+            <span class="review-field-prefix-label">${escapeHTML(t('statusFieldLabel') || '状态')}:</span>
             <select class="sub-edit-review-status" data-status="${statusVal}" aria-label="Status">
               <option value="pending" ${statusVal === 'pending' ? 'selected' : ''}>⭕ ${escapeHTML(t('statusPending') || '待处理')}</option>
               <option value="in_progress" ${statusVal === 'in_progress' ? 'selected' : ''}>⏳ ${escapeHTML(t('statusInProgress') || '处理中')}</option>
@@ -57,51 +57,59 @@ var RFReviewMatrix = (function () {
         <div class="submission-edit-review-actions">
           <button type="button" class="btn-secondary btn-icon btn-move-review-up" title="${escapeHTML(t('moveCommentUp') || '上移')}" aria-label="Move Up">
             <svg class="svg-icon" viewBox="0 0 24 24" aria-hidden="true"><polyline points="18 15 12 9 6 15"/></svg>
+            <span>${escapeHTML(t('moveUpShort') || '上移')}</span>
           </button>
           <button type="button" class="btn-secondary btn-icon btn-move-review-down" title="${escapeHTML(t('moveCommentDown') || '下移')}" aria-label="Move Down">
             <svg class="svg-icon" viewBox="0 0 24 24" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>
+            <span>${escapeHTML(t('moveDownShort') || '下移')}</span>
           </button>
           <button type="button" class="btn-secondary btn-icon btn-copy-full-item" title="${escapeHTML(t('copyFullCommentItem') || '复制完整问答条目')}" aria-label="Copy Item">
             <svg class="svg-icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+            <span>${escapeHTML(t('copyItemShort') || '复制问答')}</span>
           </button>
           <button type="button" class="btn-danger btn-icon btn-delete-review-row" title="${escapeHTML(t('removeComment'))}" aria-label="Delete">
             <svg class="svg-icon" viewBox="0 0 24 24" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            <span>${escapeHTML(t('delete') || '删除')}</span>
           </button>
         </div>
       </div>
 
-      <!-- 2. Left Column: Reviewer Comment -->
-      <div class="submission-edit-review-field submission-review-field-comment">
-        <div class="submission-edit-review-label-row">
-          <div class="review-subhead-title">
-            <svg class="svg-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M21 15a2 2 0 0 1-2 2H8l-5 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
-            <span>${escapeHTML(t('reviewerCommentTitle') || '审稿人原始意见')}</span>
+      <!-- TIER 2: Two Equal Columns (Reviewer Comment vs Author Response) -->
+      <div class="submission-edit-review-body">
+        <!-- Left Column: Reviewer Comment -->
+        <div class="submission-edit-review-field submission-review-field-comment">
+          <div class="submission-review-column-header">
+            <div class="review-subhead-title">
+              <span class="subhead-indicator comment-indicator"></span>
+              <span>${escapeHTML(t('reviewerCommentTitle') || '审稿人原始意见')}</span>
+            </div>
           </div>
+          <textarea class="sub-edit-review-comment" placeholder="${escapeHTML(t('reviewerCommentPlaceholder') || '粘贴审稿意见...')}">${escapeHTML(row.comment || '')}</textarea>
         </div>
-        <textarea class="sub-edit-review-comment" placeholder="${escapeHTML(t('reviewerCommentPlaceholder') || '在此粘贴审稿意见或修改要求...')}">${escapeHTML(row.comment || '')}</textarea>
+
+        <!-- Right Column: Author Response -->
+        <div class="submission-edit-review-field submission-review-field-response">
+          <div class="submission-review-column-header">
+            <div class="review-subhead-title">
+              <span class="subhead-indicator response-indicator"></span>
+              <span>${escapeHTML(t('authorResponseLabel') || '作者学术答复')}</span>
+            </div>
+            <button type="button" class="btn-secondary btn-copy-review-response">
+              <svg class="svg-icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+              <span>${escapeHTML(t('copy') || '复制')}</span>
+            </button>
+          </div>
+          <textarea class="sub-edit-review-response" placeholder="${escapeHTML(t('authorResponsePlaceholder') || '撰写你的专业回复...')}">${escapeHTML(row.response || '')}</textarea>
+        </div>
       </div>
 
-      <!-- 3. Right Column: Author Response & Manuscript Location -->
-      <div class="submission-edit-review-field submission-review-field-response">
-        <div class="submission-edit-review-label-row">
-          <div class="review-subhead-title">
-            <svg class="svg-icon" viewBox="0 0 24 24" aria-hidden="true"><polyline points="9 10 4 15 9 20"/><path d="M20 4v7a4 4 0 0 1-4 4H4"/></svg>
-            <span>${escapeHTML(t('authorResponseLabel') || '作者学术答复')}</span>
-          </div>
-          <button type="button" class="btn-secondary btn-copy-review-response">
-            <svg class="svg-icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
-            <span>${escapeHTML(t('copy') || '复制')}</span>
-          </button>
+      <!-- TIER 3: Full-Width Manuscript Changes & Location Bar -->
+      <div class="submission-edit-review-footer">
+        <div class="changes-subhead">
+          <span class="changes-icon">📝</span>
+          <span class="changes-label">${escapeHTML(t('changesFieldLabel') || '手稿修订说明与位置 (页码/行号)')}</span>
         </div>
-        <textarea class="sub-edit-review-response" placeholder="${escapeHTML(t('authorResponsePlaceholder') || '撰写针对该意见的学术答复与修改论证...')}">${escapeHTML(row.response || '')}</textarea>
-        
-        <div class="sub-edit-review-changes-wrap">
-          <div class="changes-subhead">
-            <svg class="svg-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
-            <span>${escapeHTML(t('changesFieldLabel') || '手稿修订说明与位置')}</span>
-          </div>
-          <input type="text" class="sub-edit-review-changes" value="${changesVal}" placeholder="${escapeHTML(t('changesPlaceholder') || '例如: Page 4, Lines 120-135; 已重绘图 3 并补充表 S2')}">
-        </div>
+        <input type="text" class="sub-edit-review-changes" value="${changesVal}" placeholder="${escapeHTML(t('changesPlaceholder') || '例如: Page 4, Lines 120-135; 已补充表 S2')}">
       </div>
     `);
     return rowDiv;
