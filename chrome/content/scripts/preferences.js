@@ -268,6 +268,19 @@ window.ResearchFlow_Preferences = (() => {
 
   const notifyConfigChanged = (key, value) => {
     try {
+      if (Zotero?.ResearchFlow?._cachedData) {
+        if (!Zotero.ResearchFlow._cachedData.settings) {
+          Zotero.ResearchFlow._cachedData.settings = {};
+        }
+        Zotero.ResearchFlow._cachedData.settings[key] = value;
+      }
+      if (typeof Zotero?.ResearchFlow?.broadcastToClients === 'function') {
+        Zotero.ResearchFlow.broadcastToClients({
+          type: 'RESEARCHFLOW_PREF_CHANGED',
+          key,
+          value
+        });
+      }
       Zotero?.ResearchFlow?.notifyDataChanged?.();
       if (key === 'showContextMenu') {
         Zotero?.ResearchFlow?.updateItemContextMenu?.();
@@ -372,7 +385,7 @@ window.ResearchFlow_Preferences = (() => {
           const diag = {
             exportedAt: new Date().toISOString(),
             zoteroVersion: Zotero.version,
-            paperflowVersion: Zotero?.ResearchFlow?.version || '13.6.0',
+            paperflowVersion: Zotero?.ResearchFlow?.version || '13.7.0',
             schemaVersion: db?.schemaVersion,
             counts: {
               manuscripts: db?.manuscripts?.length || 0,
@@ -394,7 +407,7 @@ window.ResearchFlow_Preferences = (() => {
   };
 })();
 
-// 监听首选项 DOM 注入，确保首开即自愈初始化
+// 监听首选项 DOM 注入，确保首开即自愈初始化并防御性解绑
 (() => {
   const paneId = 'researchflow-preferences-pane';
   const start = () => {
@@ -403,8 +416,18 @@ window.ResearchFlow_Preferences = (() => {
     return true;
   };
   if (start()) return;
+
   const observer = new window.MutationObserver(() => {
-    if (start()) observer.disconnect();
+    if (start()) {
+      observer.disconnect();
+      window.removeEventListener('unload', onUnload);
+    }
   });
+
+  const onUnload = () => {
+    try { observer.disconnect(); } catch (_) {}
+  };
+  window.addEventListener('unload', onUnload, { once: true });
+
   observer.observe(window.document.documentElement, { childList: true, subtree: true });
 })();

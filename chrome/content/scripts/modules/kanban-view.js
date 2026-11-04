@@ -157,8 +157,8 @@ function renderKanban() {
       try {
         const result = await persistManuscriptStatusChange(m, e.target.value);
         if (m.zoteroItemKey && typeof ZoteroBridge !== 'undefined') {
-          ZoteroBridge.syncStatusTag(m.zoteroItemKey, e.target.value);
-          ZoteroBridge.addToPipelineCollection(m.zoteroItemKey);
+          ZoteroBridge.syncStatusTag(m.zoteroItemKey, e.target.value, m.zoteroLibraryID);
+          ZoteroBridge.addToPipelineCollection(m.zoteroItemKey, m.zoteroLibraryID);
         }
         renderKanban();
         renderDashboard();
@@ -171,6 +171,17 @@ function renderKanban() {
         console.error('Manuscript status save failed:', error);
         renderKanban();
         showGlobalToast(error.message || t('autoSaveFailed'), 'error');
+      }
+    });
+
+    // Locate on card click if preference enabled
+    card.addEventListener('click', (e) => {
+      if (e.target.closest('button, select, a, input, textarea, .zotero-card-badge, .zotero-pdf-badge, .zotero-citekey-badge')) return;
+      if (m.zoteroItemKey && typeof ZoteroBridge !== 'undefined') {
+        const shouldLocate = ZoteroBridge.getPref('locateOnManuscriptClick', true);
+        if (shouldLocate) {
+          ZoteroBridge.selectItemInZotero(m.zoteroItemKey, m.zoteroLibraryID);
+        }
       }
     });
 
@@ -193,6 +204,7 @@ function renderKanban() {
         const pItem = window._pendingZoteroLinkItem;
         if (!pItem) return;
         m.zoteroItemKey = pItem.key;
+        m.zoteroLibraryID = pItem.libraryID ?? null;
         m.zoteroUri = pItem.zoteroUri;
         m.pdfUri = pItem.pdfUri;
         if (!m.doi && pItem.doi) m.doi = pItem.doi;
@@ -202,7 +214,7 @@ function renderKanban() {
         renderKanban();
         showGlobalToast(`已将文献《${(pItem.title || '').slice(0, 18)}…》成功关联到稿件！`, 'success');
         if (typeof ZoteroBridge !== 'undefined' && ZoteroBridge.isZotero) {
-          ZoteroBridge.syncNote(m.zoteroItemKey);
+          ZoteroBridge.syncNote(m.zoteroItemKey, m.zoteroLibraryID);
         }
       });
     }
@@ -213,7 +225,7 @@ function renderKanban() {
       zoteroBadge.addEventListener('click', (e) => {
         e.stopPropagation();
         if (typeof ZoteroBridge !== 'undefined') {
-          ZoteroBridge.selectItemInZotero(m.zoteroItemKey);
+          ZoteroBridge.selectItemInZotero(m.zoteroItemKey, m.zoteroLibraryID);
         }
       });
     }
@@ -223,7 +235,7 @@ function renderKanban() {
       pdfBadge.addEventListener('click', (e) => {
         e.stopPropagation();
         if (typeof ZoteroBridge !== 'undefined') {
-          ZoteroBridge.openPdf(m.zoteroItemKey);
+          ZoteroBridge.openPdf(m.zoteroItemKey, null, m.zoteroLibraryID);
         }
       });
     }
@@ -244,7 +256,7 @@ function renderKanban() {
         e.stopPropagation();
         if (typeof ZoteroBridge !== 'undefined') {
           syncBadge.textContent = currentLanguage === 'zh' ? '⏳ 同步中' : '⏳ Syncing';
-          const ok = await ZoteroBridge.syncNote(m.zoteroItemKey);
+          const ok = await ZoteroBridge.syncNote(m.zoteroItemKey, m.zoteroLibraryID);
           if (ok) {
             syncBadge.textContent = currentLanguage === 'zh' ? '✅ 已同步' : '✅ Synced';
             showGlobalToast(currentLanguage === 'zh' ? '审稿进展已成功同步至 Zotero 云端笔记！' : 'Synced pipeline progress to Zotero child note!', 'success');
@@ -258,9 +270,16 @@ function renderKanban() {
     }
   });
 
+  const collapseEmpty = typeof ZoteroBridge !== 'undefined'
+    ? ZoteroBridge.getPref('collapseEmptyKanbanStages', false)
+    : false;
   columns.forEach(col => {
     document.getElementById(`count-${col}`).textContent = mCount[col];
-    document.querySelector(`.kanban-col[data-status="${col}"]`)?.classList.toggle('is-empty', mCount[col] === 0);
+    const colEl = document.querySelector(`.kanban-col[data-status="${col}"]`);
+    if (colEl) {
+      colEl.classList.toggle('is-empty', mCount[col] === 0);
+      colEl.classList.toggle('is-collapsed-empty', collapseEmpty && mCount[col] === 0);
+    }
 
     // HTML5 Column Drop Event Listeners
     const colCardsContainer = document.getElementById(`cards-${col}`);
@@ -491,6 +510,7 @@ function openManuscriptModal(man = null, prefill = null) {
     : (prefill?.status || (prefill?.isCapturedPublication ? 'published' : 'idea'));
 
   let currentZoteroItemKey = isEdit ? (man.zoteroItemKey || null) : (prefill?.zoteroItemKey || null);
+  let currentZoteroLibraryID = isEdit ? (man.zoteroLibraryID ?? null) : (prefill?.zoteroLibraryID ?? null);
   let currentZoteroUri = isEdit ? (man.zoteroUri || null) : (prefill?.zoteroUri || null);
   let currentPdfUri = isEdit ? (man.pdfUri || null) : (prefill?.pdfUri || null);
   let currentCiteKey = isEdit ? (man.citekey || '') : (prefill?.citekey || '');
@@ -677,6 +697,7 @@ function openManuscriptModal(man = null, prefill = null) {
 
       if (item && item.key) {
         currentZoteroItemKey = item.key;
+        currentZoteroLibraryID = item.libraryID ?? null;
         currentZoteroUri = item.zoteroUri;
         currentPdfUri = item.pdfUri;
         currentCiteKey = item.citekey || '';
@@ -732,6 +753,7 @@ function openManuscriptModal(man = null, prefill = null) {
         }
       } else {
         currentZoteroItemKey = null;
+        currentZoteroLibraryID = null;
         currentZoteroUri = null;
         currentPdfUri = null;
         currentCiteKey = '';
@@ -760,6 +782,8 @@ function openManuscriptModal(man = null, prefill = null) {
     setTimeout(async () => {
       try {
         if (typeof ZoteroBridge !== 'undefined' && !currentZoteroItemKey) {
+          const autoLink = ZoteroBridge.getPref('autoLinkSelectedPaper', true);
+          if (!autoLink) return;
           const activeItem = await ZoteroBridge.getActiveItem();
           const banner = document.getElementById('zotero-active-item-banner');
           const textEl = document.getElementById('zotero-active-item-text');
@@ -827,8 +851,8 @@ function openManuscriptModal(man = null, prefill = null) {
       window.RFUI.setHTML(panel, '<div style="font-size:11px; color:#64748b; padding:8px; text-align:center;">⏳ 正在读取 Zotero 研读资产库 (PDF划线、独立笔记、分类标签)...</div>');
 
       const assets = typeof ZoteroBridge.getReadingAssets === 'function'
-        ? await ZoteroBridge.getReadingAssets(currentZoteroItemKey)
-        : { annotations: await ZoteroBridge.getAnnotations(currentZoteroItemKey), notes: [], collections: [], tags: [] };
+        ? await ZoteroBridge.getReadingAssets(currentZoteroItemKey, currentZoteroLibraryID)
+        : { annotations: await ZoteroBridge.getAnnotations(currentZoteroItemKey, currentZoteroLibraryID), notes: [], collections: [], tags: [] };
 
       const annos = assets.annotations || [];
       const notes = assets.notes || [];
@@ -921,7 +945,7 @@ function openManuscriptModal(man = null, prefill = null) {
           });
           itemEl.querySelector('.btn-quote-jump')?.addEventListener('click', () => {
             if (currentZoteroItemKey && typeof ZoteroBridge !== 'undefined') {
-              ZoteroBridge.openPdf(currentZoteroItemKey, a.pageIndex + 1);
+              ZoteroBridge.openPdf(currentZoteroItemKey, a.pageIndex + 1, currentZoteroLibraryID);
             }
           });
           annosContainer.appendChild(itemEl);
@@ -957,7 +981,7 @@ function openManuscriptModal(man = null, prefill = null) {
           });
           noteEl.querySelector('.btn-locate-note')?.addEventListener('click', () => {
             if (typeof ZoteroBridge !== 'undefined') {
-              ZoteroBridge.selectItemInZotero(n.key);
+              ZoteroBridge.selectItemInZotero(n.key, currentZoteroLibraryID);
             }
           });
           notesContainer.appendChild(noteEl);
@@ -1059,11 +1083,17 @@ function openManuscriptModal(man = null, prefill = null) {
         }, 220);
       });
 
-      document.addEventListener('click', (e) => {
+      const onDropdownOutsideClick = (e) => {
         if (!searchInput.contains(e.target) && !dropdown.contains(e.target)) {
           dropdown.style.display = 'none';
         }
-      });
+      };
+      document.addEventListener('click', onDropdownOutsideClick);
+      if (typeof registerModalCleanup === 'function') {
+        registerModalCleanup(() => {
+          document.removeEventListener('click', onDropdownOutsideClick);
+        });
+      }
     }
 
     document.getElementById('btn-zotero-fetch-active')?.addEventListener('click', async () => {
@@ -1079,13 +1109,13 @@ function openManuscriptModal(man = null, prefill = null) {
 
     document.getElementById('btn-zotero-open-pdf')?.addEventListener('click', () => {
       if (currentZoteroItemKey && typeof ZoteroBridge !== 'undefined') {
-        ZoteroBridge.openPdf(currentZoteroItemKey);
+        ZoteroBridge.openPdf(currentZoteroItemKey, null, currentZoteroLibraryID);
       }
     });
 
     document.getElementById('btn-zotero-sync-note')?.addEventListener('click', async () => {
       if (currentZoteroItemKey && typeof ZoteroBridge !== 'undefined') {
-        const ok = await ZoteroBridge.syncNote(currentZoteroItemKey);
+        const ok = await ZoteroBridge.syncNote(currentZoteroItemKey, currentZoteroLibraryID);
         if (ok) {
           showGlobalToast('已同步审稿进展至 Zotero 云端笔记！', 'success');
         } else {
@@ -1096,7 +1126,7 @@ function openManuscriptModal(man = null, prefill = null) {
 
     document.getElementById('btn-zotero-locate')?.addEventListener('click', () => {
       if (currentZoteroItemKey && typeof ZoteroBridge !== 'undefined') {
-        ZoteroBridge.selectItemInZotero(currentZoteroItemKey);
+        ZoteroBridge.selectItemInZotero(currentZoteroItemKey, currentZoteroLibraryID);
       }
     });
 
@@ -1144,6 +1174,7 @@ function openManuscriptModal(man = null, prefill = null) {
       targetManuscript.articleUrl = articleUrl || null;
       if (currentZoteroItemKey !== undefined) {
         targetManuscript.zoteroItemKey = currentZoteroItemKey;
+        targetManuscript.zoteroLibraryID = currentZoteroLibraryID;
         targetManuscript.zoteroUri = currentZoteroUri;
         targetManuscript.pdfUri = currentPdfUri;
         targetManuscript.citekey = currentCiteKey || targetManuscript.citekey || null;
@@ -1170,6 +1201,7 @@ function openManuscriptModal(man = null, prefill = null) {
         doi: doi || null,
         articleUrl: articleUrl || null,
         zoteroItemKey: currentZoteroItemKey || null,
+        zoteroLibraryID: currentZoteroLibraryID || null,
         zoteroUri: currentZoteroUri || null,
         pdfUri: currentPdfUri || null,
         citekey: currentCiteKey || null,
@@ -1187,9 +1219,9 @@ function openManuscriptModal(man = null, prefill = null) {
 
     await window.storage.saveAll(db);
     if (currentZoteroItemKey && typeof ZoteroBridge !== 'undefined' && ZoteroBridge.isZotero) {
-      ZoteroBridge.syncStatusTag(currentZoteroItemKey, status);
-      ZoteroBridge.addToPipelineCollection(currentZoteroItemKey);
-      ZoteroBridge.syncNote(currentZoteroItemKey);
+      ZoteroBridge.syncStatusTag(currentZoteroItemKey, status, currentZoteroLibraryID);
+      ZoteroBridge.addToPipelineCollection(currentZoteroItemKey, currentZoteroLibraryID);
+      ZoteroBridge.syncNote(currentZoteroItemKey, currentZoteroLibraryID);
     }
     closeModal();
     renderKanban();

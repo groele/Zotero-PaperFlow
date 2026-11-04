@@ -38,8 +38,21 @@ let previousModalFocus = null;
 let activeSharePreviewUrl = null;
 let activeSharePreviewCleanup = null;
 let sharePreferenceWrites = Promise.resolve();
+let currentModalCleanup = null;
 
-const RF_OPTIONS_RENDER_VERSION = '13.6.0';
+function registerModalCleanup(fn) {
+  if (typeof fn !== 'function') return;
+  const previous = currentModalCleanup;
+  currentModalCleanup = () => {
+    try { previous?.(); } catch (_) {}
+    try { fn(); } catch (_) {}
+  };
+}
+if (typeof window !== 'undefined') {
+  window.registerModalCleanup = registerModalCleanup;
+}
+
+const RF_OPTIONS_RENDER_VERSION = '13.7.0';
 const PRE_IMPORT_BACKUP_KEY = 'researchflow_pre_import_backup';
 const SHARE_PREFS_STORAGE_KEY = 'researchflow_share_visibility';
 const MAX_IMPORT_BYTES = 25 * 1024 * 1024;
@@ -50,6 +63,10 @@ const modal = document.getElementById('modal-container');
 const modalContent = document.getElementById('modal-card-content');
 
 function openModal(htmlContent) {
+  if (typeof currentModalCleanup === 'function') {
+    try { currentModalCleanup(); } catch (_) {}
+    currentModalCleanup = null;
+  }
   activeSharePreviewCleanup?.();
   if (!modal.classList.contains('active')) {
     const activeElement = document.activeElement;
@@ -86,6 +103,10 @@ function openModal(htmlContent) {
 }
 
 function closeModal() {
+  if (typeof currentModalCleanup === 'function') {
+    try { currentModalCleanup(); } catch (_) {}
+    currentModalCleanup = null;
+  }
   activeSharePreviewCleanup?.();
   const restoreTarget = previousModalFocus?.isConnected && !modal.contains(previousModalFocus)
     ? previousModalFocus

@@ -1,7 +1,49 @@
 // ResearchFlow Zotero Bridge - Facilitates communication between ResearchFlow UI and Zotero host
 
+function resolveZoteroItem(zotero, itemKey, libraryID = null) {
+  if (!zotero || !itemKey) return null;
+  const key = String(itemKey).trim();
+  if (!key) return null;
+
+  if (typeof zotero.ResearchFlow?.findItemByKey === 'function') {
+    try {
+      const it = zotero.ResearchFlow.findItemByKey(key, libraryID);
+      if (it) return it;
+    } catch (_) {}
+  }
+
+  if (!zotero.Items?.getByLibraryAndKey) return null;
+
+  if (libraryID !== null && libraryID !== undefined) {
+    try {
+      const it = zotero.Items.getByLibraryAndKey(libraryID, key);
+      if (it) return it;
+    } catch (_) {}
+  }
+
+  const userLibID = zotero.Libraries?.userLibraryID || 1;
+  try {
+    const it = zotero.Items.getByLibraryAndKey(userLibID, key);
+    if (it) return it;
+  } catch (_) {}
+
+  try {
+    const allLibs = typeof zotero.Libraries?.getAll === 'function' ? zotero.Libraries.getAll() : [];
+    for (const lib of allLibs) {
+      const libId = lib?.libraryID || lib?.id;
+      if (libId && libId !== userLibID) {
+        const it = zotero.Items.getByLibraryAndKey(libId, key);
+        if (it) return it;
+      }
+    }
+  } catch (_) {}
+
+  return null;
+}
+
 const ZoteroBridge = {
   isZotero: false,
+  resolveZoteroItem,
   _pendingRequestId: 0,
   _requestCallbacks: new Map(),
   _pendingNavigation: null,
@@ -62,6 +104,10 @@ const ZoteroBridge = {
         if (mode === 'subwindow' || window.arguments?.[0]?.options?.currentWindowType === 'subwindow') {
           document.documentElement.classList.add('subwindow-mode');
           document.body?.classList?.add('subwindow-mode');
+          if (this.getPref('subwindowCompactMode', true)) {
+            document.documentElement.classList.add('compact-mode');
+            document.body?.classList?.add('compact-mode');
+          }
         }
 
         if (window.arguments && window.arguments[0] && window.arguments[0].Zotero) {
@@ -148,6 +194,20 @@ const ZoteroBridge = {
         }
       }
 
+      // Handle preference changed notification from host
+      if (data.type === 'RESEARCHFLOW_PREF_CHANGED' && data.key) {
+        if (window.db) {
+          if (!window.db.settings) window.db.settings = {};
+          window.db.settings[data.key] = data.value;
+        }
+        if (data.key === 'showJournalPortals' && typeof renderJournalPortals === 'function') {
+          try { renderJournalPortals(); } catch (_) {}
+        }
+        if (data.key === 'collapseEmptyKanbanStages' && typeof renderKanban === 'function') {
+          try { renderKanban(); } catch (_) {}
+        }
+      }
+
       // Handle collection updated notification from host
       if (data.type === 'RESEARCHFLOW_COLLECTION_UPDATED') {
         if (typeof window.refreshZoteroCollectionFilter === 'function') {
@@ -208,6 +268,19 @@ const ZoteroBridge = {
     });
   },
 
+  getPref(key, defaultValue) {
+    try {
+      const zotero = window.Zotero || window.parent?.Zotero;
+      if (typeof zotero?.ResearchFlow?.getPref === 'function') {
+        return zotero.ResearchFlow.getPref(key, defaultValue);
+      }
+    } catch (_) {}
+    if (window.db?.settings && key in window.db.settings) {
+      return window.db.settings[key];
+    }
+    return defaultValue;
+  },
+
   async getActiveItem() {
     try {
       const zotero = window.Zotero || window.parent?.Zotero;
@@ -222,27 +295,27 @@ const ZoteroBridge = {
     return res?.item || null;
   },
 
-  openPdf(itemKey, page = null) {
+  openPdf(itemKey, page = null, libraryID = null) {
     if (!itemKey) return;
     try {
       const zotero = window.Zotero || window.parent?.Zotero;
-      if (zotero?.Items?.getByLibraryAndKey) {
-        const item = zotero.Items.getByLibraryAndKey(zotero.Libraries.userLibraryID, itemKey);
+      if (zotero) {
+        const item = resolveZoteroItem(zotero, itemKey, libraryID);
         if (item && zotero.ResearchFlow?.openPdfAttachment) {
           zotero.ResearchFlow.openPdfAttachment(item, page);
           return;
         }
       }
     } catch (_) {}
-    this.sendToHost({ type: 'RESEARCHFLOW_OPEN_PDF', itemKey, page });
+    this.sendToHost({ type: 'RESEARCHFLOW_OPEN_PDF', itemKey, page, libraryID });
   },
 
-  async syncNote(itemKey) {
+  async syncNote(itemKey, libraryID = null) {
     if (!itemKey) return false;
     try {
       const zotero = window.Zotero || window.parent?.Zotero;
-      if (zotero?.Items?.getByLibraryAndKey) {
-        const item = zotero.Items.getByLibraryAndKey(zotero.Libraries?.userLibraryID || 1, itemKey);
+      if (zotero) {
+        const item = resolveZoteroItem(zotero, itemKey, libraryID);
         if (item) {
           if (item.deleted || (typeof item.isEditable === 'function' && !item.isEditable())) {
             return false;
@@ -254,7 +327,7 @@ const ZoteroBridge = {
         }
       }
     } catch (_) {}
-    const res = await this.request('RESEARCHFLOW_SYNC_NOTE', { itemKey });
+    const res = await this.request('RESEARCHFLOW_SYNC_NOTE', { itemKey, libraryID });
     return Boolean(res?.success);
   },
 
@@ -292,57 +365,57 @@ const ZoteroBridge = {
     this.sendToHost({ type: 'RESEARCHFLOW_SHOW_TOAST', title, message, toastType: type });
   },
 
-  async getAnnotations(itemKey) {
+  async getAnnotations(itemKey, libraryID = null) {
     if (!itemKey) return [];
     try {
       const zotero = window.Zotero || window.parent?.Zotero;
-      if (zotero?.ResearchFlow?.getLiteratureAnnotations && zotero.Items?.getByLibraryAndKey) {
-        const item = zotero.Items.getByLibraryAndKey(zotero.Libraries?.userLibraryID || 1, itemKey);
+      if (zotero?.ResearchFlow?.getLiteratureAnnotations) {
+        const item = resolveZoteroItem(zotero, itemKey, libraryID);
         if (item) {
           return zotero.ResearchFlow.getLiteratureAnnotations(item);
         }
       }
     } catch (_) {}
-    const res = await this.request('RESEARCHFLOW_GET_ANNOTATIONS', { itemKey });
+    const res = await this.request('RESEARCHFLOW_GET_ANNOTATIONS', { itemKey, libraryID });
     return res?.annotations || [];
   },
 
-  async getReadingAssets(itemKey) {
+  async getReadingAssets(itemKey, libraryID = null) {
     if (!itemKey) return { annotations: [], notes: [], collections: [], tags: [], relatedItems: [] };
     try {
       const zotero = window.Zotero || window.parent?.Zotero;
-      if (zotero?.ResearchFlow?.getLiteratureReadingAssets && zotero.Items?.getByLibraryAndKey) {
-        const item = zotero.Items.getByLibraryAndKey(zotero.Libraries?.userLibraryID || 1, itemKey);
+      if (zotero?.ResearchFlow?.getLiteratureReadingAssets) {
+        const item = resolveZoteroItem(zotero, itemKey, libraryID);
         if (item) {
           return zotero.ResearchFlow.getLiteratureReadingAssets(item);
         }
       }
     } catch (_) {}
-    const res = await this.request('RESEARCHFLOW_GET_READING_ASSETS', { itemKey });
+    const res = await this.request('RESEARCHFLOW_GET_READING_ASSETS', { itemKey, libraryID });
     return res?.assets || { annotations: [], notes: [], collections: [], tags: [], relatedItems: [] };
   },
 
-  async getNotes(itemKey) {
+  async getNotes(itemKey, libraryID = null) {
     if (!itemKey) return [];
     try {
       const zotero = window.Zotero || window.parent?.Zotero;
-      if (zotero?.ResearchFlow?.getLiteratureNotes && zotero.Items?.getByLibraryAndKey) {
-        const item = zotero.Items.getByLibraryAndKey(zotero.Libraries?.userLibraryID || 1, itemKey);
+      if (zotero?.ResearchFlow?.getLiteratureNotes) {
+        const item = resolveZoteroItem(zotero, itemKey, libraryID);
         if (item) {
           return zotero.ResearchFlow.getLiteratureNotes(item);
         }
       }
     } catch (_) {}
-    const res = await this.request('RESEARCHFLOW_GET_NOTES', { itemKey });
+    const res = await this.request('RESEARCHFLOW_GET_NOTES', { itemKey, libraryID });
     return res?.notes || [];
   },
 
-  async syncStatusTag(itemKey, status) {
+  async syncStatusTag(itemKey, status, libraryID = null) {
     if (!itemKey || !status) return false;
     try {
       const zotero = window.Zotero || window.parent?.Zotero;
-      if (zotero?.ResearchFlow?.syncStatusTagToItem && zotero.Items?.getByLibraryAndKey) {
-        const item = zotero.Items.getByLibraryAndKey(zotero.Libraries?.userLibraryID || 1, itemKey);
+      if (zotero?.ResearchFlow?.syncStatusTagToItem) {
+        const item = resolveZoteroItem(zotero, itemKey, libraryID);
         if (item) {
           if (item.deleted || (typeof item.isEditable === 'function' && !item.isEditable())) {
             return false;
@@ -351,16 +424,16 @@ const ZoteroBridge = {
         }
       }
     } catch (_) {}
-    const res = await this.request('RESEARCHFLOW_SYNC_STATUS_TAG', { itemKey, status });
+    const res = await this.request('RESEARCHFLOW_SYNC_STATUS_TAG', { itemKey, status, libraryID });
     return Boolean(res?.success);
   },
 
-  async addToPipelineCollection(itemKey) {
+  async addToPipelineCollection(itemKey, libraryID = null) {
     if (!itemKey) return false;
     try {
       const zotero = window.Zotero || window.parent?.Zotero;
-      if (zotero?.ResearchFlow?.addItemToPipelineCollection && zotero.Items?.getByLibraryAndKey) {
-        const item = zotero.Items.getByLibraryAndKey(zotero.Libraries?.userLibraryID || 1, itemKey);
+      if (zotero?.ResearchFlow?.addItemToPipelineCollection) {
+        const item = resolveZoteroItem(zotero, itemKey, libraryID);
         if (item) {
           if (item.deleted || (typeof item.isEditable === 'function' && !item.isEditable())) {
             return false;
@@ -370,7 +443,7 @@ const ZoteroBridge = {
         }
       }
     } catch (_) {}
-    const res = await this.request('RESEARCHFLOW_ADD_TO_PIPELINE_COLLECTION', { itemKey });
+    const res = await this.request('RESEARCHFLOW_ADD_TO_PIPELINE_COLLECTION', { itemKey, libraryID });
     return Boolean(res?.success);
   },
 
@@ -586,12 +659,12 @@ const ZoteroBridge = {
     }
   },
 
-  selectItemInZotero(itemKey) {
+  selectItemInZotero(itemKey, libraryID = null) {
     if (!itemKey) return;
     try {
       const zotero = window.Zotero || window.parent?.Zotero;
-      if (zotero?.Items?.getByLibraryAndKey) {
-        const item = zotero.Items.getByLibraryAndKey(zotero.Libraries.userLibraryID, itemKey);
+      if (zotero) {
+        const item = resolveZoteroItem(zotero, itemKey, libraryID);
         const win = window.parent?.ZoteroPane ? window.parent : window;
         if (item && win.ZoteroPane?.selectItem) {
           win.ZoteroPane.selectItem(item.id);
@@ -599,7 +672,7 @@ const ZoteroBridge = {
         }
       }
     } catch (_) {}
-    this.sendToHost({ type: 'RESEARCHFLOW_SELECT_ITEM', itemKey });
+    this.sendToHost({ type: 'RESEARCHFLOW_SELECT_ITEM', itemKey, libraryID });
   },
 
   openExternal(url) {

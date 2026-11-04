@@ -532,8 +532,8 @@ async function saveSubmissionEditFromValues(sub, prefix, options = {}) {
 
   if (typeof ZoteroBridge !== 'undefined' && ZoteroBridge.isZotero && workingMan?.zoteroItemKey) {
     try {
-      ZoteroBridge.syncStatusTag(workingMan.zoteroItemKey, workingMan.status || savedSub.status);
-      ZoteroBridge.syncNote(workingMan.zoteroItemKey);
+      ZoteroBridge.syncStatusTag(workingMan.zoteroItemKey, workingMan.status || savedSub.status, workingMan.zoteroLibraryID);
+      ZoteroBridge.syncNote(workingMan.zoteroItemKey, workingMan.zoteroLibraryID);
     } catch (_) {}
   }
 
@@ -798,7 +798,8 @@ function renderSubmissions({ refreshDetails = true } = {}) {
           event.stopPropagation();
           const key = cardZoteroBadge.getAttribute('data-item-key');
           if (key && typeof ZoteroBridge !== 'undefined') {
-            ZoteroBridge.selectItemInZotero(key);
+            const linkedMan = db.manuscripts?.find(item => item.id === sub.manuscriptId);
+            ZoteroBridge.selectItemInZotero(key, linkedMan?.zoteroLibraryID);
           }
         });
       }
@@ -819,8 +820,19 @@ function renderSubmissions({ refreshDetails = true } = {}) {
 }
 
 function renderJournalPortals() {
+  const toolsRow = document.querySelector('.submission-tools-row');
   const portalList = document.getElementById('journal-portals-list');
   if (!portalList) return;
+
+  const showPortals = typeof ZoteroBridge !== 'undefined'
+    ? ZoteroBridge.getPref('showJournalPortals', true)
+    : (db?.settings?.showJournalPortals ?? true);
+
+  if (toolsRow) {
+    toolsRow.style.display = showPortals ? '' : 'none';
+  }
+  if (!showPortals) return;
+
   window.RFUI.setHTML(portalList, '');
 
   if (!db.settings) db.settings = {};
@@ -2094,7 +2106,7 @@ function renderSubmissionDetails(sub) {
       if (typeof ZoteroBridge !== 'undefined' && man?.zoteroItemKey) {
         btnSyncSubZotero.disabled = true;
         try {
-          const ok = await ZoteroBridge.syncNote(man.zoteroItemKey);
+          const ok = await ZoteroBridge.syncNote(man.zoteroItemKey, man.zoteroLibraryID);
           if (ok) {
             showGlobalToast(currentLanguage === 'zh' ? '已成功同步审稿记录与修回矩阵至 Zotero 笔记' : 'Successfully synced review & rebuttal matrix to Zotero note', 'success');
           } else {
@@ -2112,7 +2124,7 @@ function renderSubmissionDetails(sub) {
   if (subZoteroBadge) {
     subZoteroBadge.addEventListener('click', () => {
       if (man?.zoteroItemKey && typeof ZoteroBridge !== 'undefined') {
-        ZoteroBridge.selectItemInZotero(man.zoteroItemKey);
+        ZoteroBridge.selectItemInZotero(man.zoteroItemKey, man.zoteroLibraryID);
       }
     });
   }
@@ -2130,7 +2142,7 @@ function renderSubmissionDetails(sub) {
   if (subPdfBadge) {
     subPdfBadge.addEventListener('click', () => {
       if (man?.zoteroItemKey && typeof ZoteroBridge !== 'undefined') {
-        ZoteroBridge.openPdf(man.zoteroItemKey);
+        ZoteroBridge.openPdf(man.zoteroItemKey, null, man.zoteroLibraryID);
       }
     });
   }
@@ -2208,7 +2220,11 @@ function renderSubmissionDetails(sub) {
       </div>
     `);
 
-    let currentFormat = 'word';
+    let defaultFormat = typeof ZoteroBridge !== 'undefined'
+      ? ZoteroBridge.getPref('defaultRebuttalExportFormat', 'word')
+      : (db?.settings?.defaultRebuttalExportFormat || 'word');
+    if (defaultFormat === 'markdown') defaultFormat = 'md';
+    let currentFormat = ['word', 'md', 'latex', 'table', 'cover'].includes(defaultFormat) ? defaultFormat : 'word';
     const previewArea = document.getElementById('rebuttal-export-preview');
     const wordBox = document.getElementById('rebuttal-word-preview-box');
     const tabWord = document.getElementById('modal-tab-word');

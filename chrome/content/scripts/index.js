@@ -68,6 +68,41 @@
     return target && typeof target.isRegularItem === 'function' && target.isRegularItem() ? target : null;
   };
 
+  const findItemByKey = (itemKey, libraryID = null) => {
+    if (!itemKey || typeof Zotero === 'undefined' || !Zotero.Items) return null;
+    const key = String(itemKey).trim();
+    if (!key) return null;
+
+    // 1. Explicit libraryID lookup
+    if (libraryID !== null && libraryID !== undefined) {
+      try {
+        const item = Zotero.Items.getByLibraryAndKey(libraryID, key);
+        if (item) return getLiteratureItem(item);
+      } catch (_) {}
+    }
+
+    // 2. User personal library lookup
+    const userLibID = Zotero.Libraries?.userLibraryID || 1;
+    try {
+      const item = Zotero.Items.getByLibraryAndKey(userLibID, key);
+      if (item) return getLiteratureItem(item);
+    } catch (_) {}
+
+    // 3. Fallback: Search all registered libraries (including group libraries)
+    try {
+      const allLibs = typeof Zotero.Libraries?.getAll === 'function' ? Zotero.Libraries.getAll() : [];
+      for (const lib of allLibs) {
+        const libId = lib?.libraryID || lib?.id;
+        if (libId && libId !== userLibID) {
+          const item = Zotero.Items.getByLibraryAndKey(libId, key);
+          if (item) return getLiteratureItem(item);
+        }
+      }
+    } catch (_) {}
+
+    return null;
+  };
+
   
   const STATUS_TAG_MAP = {
     idea: 'PaperFlow/01-选题大纲',
@@ -412,7 +447,7 @@
   Zotero.ResearchFlow = {
     rootURI: typeof rootURI !== 'undefined' ? rootURI : '',
     addonId: ADDON_ID,
-    version: (typeof version !== 'undefined' && version) ? version : '13.6.0',
+    version: (typeof version !== 'undefined' && version) ? version : '13.7.0',
     serializeLiteratureItem,
     getLiteratureAnnotations,
     getLiteratureNotes,
@@ -423,6 +458,7 @@
     generateAPACitation,
     getRelatedItems,
     getLiteratureItem,
+    findItemByKey,
 
     localizedDocs: new Set(),
     _cachedData: null,
@@ -469,6 +505,30 @@
       return PathUtils.join(Zotero.DataDirectory.dir, 'researchflow-data.json');
     },
 
+    getSyncedSettingsFromPrefs(existingSettings = {}) {
+      const s = { ...(existingSettings || {}) };
+      const get = (k, def) => this.getPref(k, def);
+      s.windowMode = get('windowMode', 'tab');
+      s.defaultView = get('defaultView', 'view-dashboard');
+      s.language = get('language', 'en');
+      s.theme = get('theme', 'system');
+      s.subwindowAlwaysOnTop = Boolean(get('subwindowAlwaysOnTop', false));
+      s.subwindowCompactMode = Boolean(get('subwindowCompactMode', true));
+      s.enableItemPane = Boolean(get('enableItemPane', false));
+      s.showContextMenu = Boolean(get('showContextMenu', false));
+      s.enableReaderIntegration = Boolean(get('enableReaderIntegration', true));
+      s.syncStatusTags = Boolean(get('syncStatusTags', false));
+      s.locateOnManuscriptClick = Boolean(get('locateOnManuscriptClick', true));
+      s.autoLinkSelectedPaper = Boolean(get('autoLinkSelectedPaper', true));
+      s.showJournalPortals = Boolean(get('showJournalPortals', true));
+      s.collapseEmptyKanbanStages = Boolean(get('collapseEmptyKanbanStages', false));
+      s.defaultRebuttalExportFormat = get('defaultRebuttalExportFormat', 'latex');
+      s.autoSync = Boolean(get('autoSync', true));
+      s.autoBackupOnSave = Boolean(get('autoBackupOnSave', true));
+      s.importMode = get('importMode', 'merge');
+      return s;
+    },
+
     getBackupFilePath() {
       return PathUtils.join(Zotero.DataDirectory.dir, 'researchflow-pre-import-backup.json');
     },
@@ -512,6 +572,10 @@
     },
 
     
+    broadcastToClients(msg) {
+      return this.broadcastToIframes(msg);
+    },
+
     broadcastToIframes(msg) {
       try {
         const windows = Services.wm.getEnumerator(null);
@@ -824,6 +888,7 @@
     // MODULE 4: HOST DATABASE STORAGE, SNAPSHOTS, & ATOMIC LOCKING
     // =======================================================================
     async searchLibrary(query, limit = 15) {
+      const libraryID = arguments[2] ?? null;
       if (!query || typeof query !== 'string') return [];
       const q = query.trim();
       if (!q) return [];
@@ -831,18 +896,28 @@
         const results = [];
         const seenKeys = new Set();
         if (Zotero.Search) {
-          const s = new Zotero.Search();
-          s.libraryID = Zotero.Libraries?.userLibraryID || 1;
-          s.addCondition('quicksearch-titleCreatorYear', 'contains', q);
-          const ids = (await s.search()) || [];
-          for (const id of ids.slice(0, limit * 2)) {
-            const it = Zotero.Items.get(id);
-            const lit = getLiteratureItem(it);
-            if (lit && !seenKeys.has(lit.key)) {
-              seenKeys.add(lit.key);
-              results.push(serializeLiteratureItem(lit));
-              if (results.length >= limit) break;
-            }
+          const userLibID = Zotero.Libraries?.userLibraryID || 1;
+          const targetLibs = libraryID
+            ? [libraryID]
+            : [userLibID, ...(typeof Zotero.Libraries?.getAll === 'function' ? Zotero.Libraries.getAll().map(l => l.libraryID || l.id).filter(id => id && id !== userLibID) : [])];
+
+          for (const targetLib of targetLibs) {
+            if (results.length >= limit) break;
+            try {
+              const s = new Zotero.Search();
+              s.libraryID = targetLib;
+              s.addCondition('quicksearch-titleCreatorYear', 'contains', q);
+              const ids = (await s.search()) || [];
+              for (const id of ids.slice(0, limit * 2)) {
+                const it = Zotero.Items.get(id);
+                const lit = getLiteratureItem(it);
+                if (lit && !seenKeys.has(lit.key)) {
+                  seenKeys.add(lit.key);
+                  results.push(serializeLiteratureItem(lit));
+                  if (results.length >= limit) break;
+                }
+              }
+            } catch (_) {}
           }
         }
         return results;
@@ -1167,6 +1242,10 @@
           const content = await IOUtils.readUTF8(filePath);
           const parsed = JSON.parse(content);
           this.validateDatabase(parsed);
+          if (!parsed.settings) parsed.settings = {};
+          if (typeof this.getSyncedSettingsFromPrefs === 'function') {
+        parsed.settings = this.getSyncedSettingsFromPrefs(parsed.settings);
+      }
           this._cachedData = parsed;
           this.rememberDatabaseSnapshot(parsed);
           return this.cloneDatabase(parsed);
@@ -1907,8 +1986,7 @@
           // C. Select item in Zotero library
           if (data.type === 'RESEARCHFLOW_SELECT_ITEM' && data.itemKey) {
             try {
-              const libID = data.libraryID || Zotero.Libraries?.userLibraryID || 1;
-              const item = Zotero.Items.getByLibraryAndKey(libID, data.itemKey);
+              const item = findItemByKey(data.itemKey, data.libraryID);
               if (item && window.ZoteroPane) {
                 window.ZoteroPane.selectItem(item.id);
               }
@@ -1929,8 +2007,7 @@
 
           // E. Open PDF Attachment in Reader
           if (data.type === 'RESEARCHFLOW_OPEN_PDF' && data.itemKey) {
-            const libID = data.libraryID || Zotero.Libraries?.userLibraryID || 1;
-            const item = Zotero.Items.getByLibraryAndKey(libID, data.itemKey);
+            const item = findItemByKey(data.itemKey, data.libraryID);
             if (item) {
               this.openPdfAttachment(item, data.page);
             }
@@ -1939,14 +2016,15 @@
 
           // F. Sync to Zotero Child Note
           if (data.type === 'RESEARCHFLOW_SYNC_NOTE' && data.itemKey) {
-            const libID = data.libraryID || Zotero.Libraries?.userLibraryID || 1;
-            const item = Zotero.Items.getByLibraryAndKey(libID, data.itemKey);
+            const item = findItemByKey(data.itemKey, data.libraryID);
             if (item) {
               this.syncManuscriptToChildNote(item).then((note) => {
                 if (data.requestId) {
                   replyResult({ requestId: data.requestId, success: Boolean(note), noteId: note?.id });
                 }
               });
+            } else if (data.requestId) {
+              replyResult({ requestId: data.requestId, success: false });
             }
             return;
           }
@@ -1977,8 +2055,7 @@
           
           // K. Get Literature PDF Annotations & Highlights
           if (data.type === 'RESEARCHFLOW_GET_ANNOTATIONS' && data.itemKey) {
-            const libID = data.libraryID || Zotero.Libraries?.userLibraryID || 1;
-            const item = Zotero.Items.getByLibraryAndKey(libID, data.itemKey);
+            const item = findItemByKey(data.itemKey, data.libraryID);
             const annos = item ? getLiteratureAnnotations(item) : [];
             replyResult({ requestId: data.requestId, annotations: annos });
             return;
@@ -1986,8 +2063,7 @@
 
           // L. Sync Status Tag to Zotero Item
           if (data.type === 'RESEARCHFLOW_SYNC_STATUS_TAG' && data.itemKey && data.status) {
-            const libID = data.libraryID || Zotero.Libraries?.userLibraryID || 1;
-            const item = Zotero.Items.getByLibraryAndKey(libID, data.itemKey);
+            const item = findItemByKey(data.itemKey, data.libraryID);
             if (item) {
               this.syncStatusTagToItem(item, data.status).then((success) => {
                 replyResult({ requestId: data.requestId, success });
@@ -2000,8 +2076,7 @@
 
           // M. Add Item to Pipeline Collection
           if (data.type === 'RESEARCHFLOW_ADD_TO_PIPELINE_COLLECTION' && data.itemKey) {
-            const libID = data.libraryID || Zotero.Libraries?.userLibraryID || 1;
-            const item = Zotero.Items.getByLibraryAndKey(libID, data.itemKey);
+            const item = findItemByKey(data.itemKey, data.libraryID);
             if (item) {
               this.addItemToPipelineCollection(item).then((col) => {
                 replyResult({ requestId: data.requestId, success: Boolean(col) });
@@ -2014,7 +2089,7 @@
 
           // N. Get Reading Assets (Annotations, Notes, Collections, Tags, Related)
           if (data.type === 'RESEARCHFLOW_GET_READING_ASSETS' && data.itemKey) {
-            const item = Zotero.Items.getByLibraryAndKey(Zotero.Libraries?.userLibraryID || 1, data.itemKey);
+            const item = findItemByKey(data.itemKey, data.libraryID);
             const assets = item ? getLiteratureReadingAssets(item) : { annotations: [], notes: [], collections: [], tags: [], relatedItems: [] };
             replyResult({ requestId: data.requestId, assets });
             return;
@@ -2022,9 +2097,34 @@
 
           // O. Get Literature Notes
           if (data.type === 'RESEARCHFLOW_GET_NOTES' && data.itemKey) {
-            const item = Zotero.Items.getByLibraryAndKey(Zotero.Libraries?.userLibraryID || 1, data.itemKey);
+            const item = findItemByKey(data.itemKey, data.libraryID);
             const notes = item ? getLiteratureNotes(item) : [];
             replyResult({ requestId: data.requestId, notes });
+            return;
+          }
+
+          if (data.type === 'RESEARCHFLOW_GET_ALL_PREFS') {
+            replyResult({ requestId: data.requestId, prefs: this.getSyncedSettingsFromPrefs() });
+            return;
+          }
+
+          if (data.type === 'RESEARCHFLOW_GET_PREF') {
+            replyResult({ requestId: data.requestId, value: this.getPref(data.key, data.defaultValue) });
+            return;
+          }
+
+          if (data.type === 'RESEARCHFLOW_SET_PREF') {
+            this.setPref(data.key, data.value);
+            if (this._cachedData) {
+              if (!this._cachedData.settings) this._cachedData.settings = {};
+              this._cachedData.settings[data.key] = data.value;
+            }
+            this.broadcastToIframes({
+              type: 'RESEARCHFLOW_PREF_CHANGED',
+              key: data.key,
+              value: data.value
+            });
+            replyResult({ requestId: data.requestId, success: true });
             return;
           }
 

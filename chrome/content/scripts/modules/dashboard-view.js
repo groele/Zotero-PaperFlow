@@ -302,12 +302,12 @@ function renderDashboard() {
           <div class="pipeline-link-row">
             ${doiHtml}
             ${man?.zoteroItemKey ? `
-              <span class="zotero-card-badge" data-item-key="${escapeHTML(man.zoteroItemKey)}" title="${escapeHTML(currentLanguage === 'zh' ? '在 Zotero 文献库中选中此条目' : 'Select in Zotero library')}" style="margin-left: 6px;">
+              <span class="zotero-card-badge" data-item-key="${escapeHTML(man.zoteroItemKey)}" data-library-id="${escapeHTML(man.zoteroLibraryID || '')}" title="${escapeHTML(currentLanguage === 'zh' ? '在 Zotero 文献库中选中此条目' : 'Select in Zotero library')}" style="margin-left: 6px;">
                 <svg width="11" height="11" viewBox="0 0 16 16" fill="currentColor"><path d="M2 3h12v2H6.4l5.6 6v2H2v-2h7.6L4 5V3z"/></svg>
                 Zotero
               </span>
               ${man.citekey ? `<span class="zotero-citekey-badge" data-citekey="${escapeHTML(man.citekey)}" title="${escapeHTML(currentLanguage === 'zh' ? '点击复制 Citation Key' : 'Click to copy Citation Key')}">[@${escapeHTML(man.citekey)}]</span>` : ''}
-              ${man.pdfUri ? `<span class="zotero-pdf-badge" data-item-key="${escapeHTML(man.zoteroItemKey)}" title="${escapeHTML(currentLanguage === 'zh' ? '在 Zotero 阅读器中打开 PDF' : 'Open PDF in Zotero reader')}">📖 PDF</span>` : ''}
+              ${man.pdfUri ? `<span class="zotero-pdf-badge" data-item-key="${escapeHTML(man.zoteroItemKey)}" data-library-id="${escapeHTML(man.zoteroLibraryID || '')}" title="${escapeHTML(currentLanguage === 'zh' ? '在 Zotero 阅读器中打开 PDF' : 'Open PDF in Zotero reader')}">📖 PDF</span>` : ''}
             ` : ''}
           </div>
           <div class="pipeline-actions" style="margin-top: 12px; display: flex; gap: 8px;">
@@ -417,8 +417,10 @@ function renderDashboard() {
       badge.addEventListener('click', (e) => {
         e.stopPropagation();
         const key = badge.getAttribute('data-item-key');
+        const rawLib = badge.getAttribute('data-library-id');
+        const libId = rawLib ? (Number(rawLib) || rawLib) : null;
         if (key && typeof ZoteroBridge !== 'undefined') {
-          ZoteroBridge.selectItemInZotero(key);
+          ZoteroBridge.selectItemInZotero(key, libId);
         }
       });
     });
@@ -437,8 +439,10 @@ function renderDashboard() {
       badge.addEventListener('click', (e) => {
         e.stopPropagation();
         const key = badge.getAttribute('data-item-key');
+        const rawLib = badge.getAttribute('data-library-id');
+        const libId = rawLib ? (Number(rawLib) || rawLib) : null;
         if (key && typeof ZoteroBridge !== 'undefined') {
-          ZoteroBridge.openPdf(key);
+          ZoteroBridge.openPdf(key, null, libId);
         }
       });
     });

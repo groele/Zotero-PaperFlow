@@ -408,6 +408,13 @@ class StorageEngine {
     normalized.settings = this.deepMerge(DEFAULT_DB.settings, normalized.settings || {});
     delete normalized.settings.ai;
     delete normalized.settings.syncProviders.files;
+
+    const zotero = this.getZoteroInstance();
+    if (typeof zotero?.ResearchFlow?.getSyncedSettingsFromPrefs === 'function') {
+      try {
+        normalized.settings = zotero.ResearchFlow.getSyncedSettingsFromPrefs(normalized.settings);
+      } catch (_) {}
+    }
     if (options.migrateCredentials === false) {
       const metadata = normalized.settings?.syncProviders?.metadata;
       if (metadata) metadata.config = this.getPublicSyncConfig(metadata.provider, metadata.config);
