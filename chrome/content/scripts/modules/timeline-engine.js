@@ -328,52 +328,6 @@ function buildInlineStageEditor(subId) {
   ];
 
   return `
-    <style>
-      .inline-stage-editor .inline-stage-head { gap:9px; margin-bottom:14px; }
-      .inline-stage-editor .inline-stage-hint { margin-inline-start:auto; color:hsl(var(--text-muted)); font-size:11px; font-weight:400; }
-      .inline-stage-editor .inline-stage-fields { display:grid; grid-template-columns:minmax(180px,1.05fr) minmax(150px,.9fr) minmax(220px,1.8fr) minmax(135px,.9fr) minmax(145px,.95fr); gap:10px 12px; align-items:end; }
-      .inline-stage-editor .inline-stage-section { display:contents; }
-      .inline-stage-editor .inline-stage-section-label { display:none; }
-      .inline-stage-editor .inline-stage-main-grid,
-      .inline-stage-editor .inline-stage-date-grid { display:contents; }
-      .inline-stage-editor .inline-stage-field { display:flex; min-width:0; flex-direction:column; gap:4px; }
-      .inline-stage-editor .inline-stage-field > span { color:hsl(var(--text-muted)); font-size:11px; font-weight:700; line-height:1.15; white-space:nowrap; }
-      .inline-stage-editor .inline-stage-field-preset { grid-column:1; grid-row:1; }
-      .inline-stage-editor .inline-stage-field-name { grid-column:2 / 4; grid-row:1; }
-      .inline-stage-editor .inline-stage-field-type { grid-column:4; grid-row:1; }
-      .inline-stage-editor .inline-stage-date-field { grid-column:5; grid-row:1; }
-      .inline-stage-editor .inline-stage-deadline-field { grid-column:1; grid-row:2; }
-      .inline-stage-editor .inline-stage-decision-field { grid-column:2; grid-row:2; }
-      .inline-stage-editor .inline-stage-notes-field { grid-column:3 / 5; grid-row:2; }
-      .inline-stage-editor:not(.is-review) .inline-stage-notes-field { grid-column:1 / 5; }
-      .inline-stage-editor .inline-stage-deadline-field > span { color:hsl(var(--accent-rose)); }
-      .inline-stage-editor .inline-stage-deadline { border-color:hsl(var(--accent-rose) / .35); background:hsl(var(--accent-rose) / .035); }
-      .inline-stage-editor .inline-stage-actions { display:flex; align-items:center; justify-content:flex-end; gap:8px; grid-column:5; grid-row:2; min-height:34px; }
-      .inline-stage-editor .btn-inline-stage-save { min-width:92px; white-space:nowrap; }
-      .inline-stage-editor .inline-stage-footer { display:flex; align-items:center; gap:7px; min-width:0; margin-top:11px; padding-top:10px; border-top:1px solid hsl(var(--accent-purple) / .12); color:hsl(var(--text-muted)); font-size:11px; }
-      .inline-stage-editor .inline-stage-status-dot { width:6px; height:6px; flex:0 0 6px; border-radius:50%; background:hsl(var(--accent-amber)); }
-      .inline-stage-editor .inline-stage-status-dot[data-level="normal"] { background:hsl(var(--accent-emerald)); }
-      .inline-stage-editor .inline-stage-status-dot[data-level="overdue"],
-      .inline-stage-editor .inline-stage-status-dot[data-level="due_today"],
-      .inline-stage-editor .inline-stage-status-dot[data-level="due_soon"] { background:hsl(var(--accent-rose)); }
-      .inline-stage-editor .inline-stage-status { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-      .inline-stage-editor .inline-stage-context { margin-inline-start:auto; white-space:nowrap; }
-      @media (max-width:820px) {
-        .inline-stage-editor .inline-stage-fields { grid-template-columns:repeat(2,minmax(0,1fr)); }
-        .inline-stage-editor .inline-stage-section-label { display:none; }
-        .inline-stage-editor .inline-stage-field-preset,
-        .inline-stage-editor .inline-stage-field-name,
-        .inline-stage-editor .inline-stage-field-type,
-        .inline-stage-editor .inline-stage-date-field,
-        .inline-stage-editor .inline-stage-deadline-field,
-        .inline-stage-editor .inline-stage-decision-field { grid-column:auto; grid-row:auto; }
-        .inline-stage-editor .inline-stage-notes-field { grid-column:1 / -1; grid-row:auto; }
-        .inline-stage-editor .inline-stage-actions { grid-column:1 / -1; grid-row:auto; justify-content:stretch; flex-wrap:wrap; }
-        .inline-stage-editor .btn-inline-stage-save { flex:1 1 160px; }
-        .inline-stage-editor .inline-stage-hint,
-        .inline-stage-editor .inline-stage-context { display:none; }
-      }
-    </style>
     <div class="inline-stage-editor" data-sub-id="${escapeHTML(subId)}" hidden>
       <div class="inline-stage-head">
         <span class="inline-stage-title"><span class="inline-stage-title-mark" aria-hidden="true">+</span>${t('inlineAddTimelineEvent')}</span>
