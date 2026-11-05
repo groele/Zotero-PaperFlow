@@ -58,13 +58,37 @@ Zotero PaperFlow 是面向科研论文全生命周期的智能投稿与审稿管
 
 ---
 
-## 5. 构建、测试与版本发布
+## 5. 现代化 esbuild + TypeScript 构建流水线与测试发布
 
-### 5.1 自动化单测
-测试套件基于 Node.js 原生测试运行器（`node:test` 与 `node:assert/strict`），运行命令：
+本项目已全面升级至全系统一的现代 `esbuild + TypeScript (TS/ESM)` 编译架构：
+- **权威源码目录**：`src/` 为唯一权威源码目录，单文件遵循单一职责原则，严禁直接手写散落 JS；
+- **类型守卫**：`tsconfig.json` 启用严格模式，构建前强制通过 `npm run typecheck` (`tsc --noEmit`)；
+- **打包流水线**：`scripts/build-source.mjs` 调用 `esbuild` 面向 `firefox140` (Gecko 153+) 编译生成 `chrome/content/scripts/index.js` 及模块产物；
+- **废弃传统覆盖结构**：移除废弃的 `chrome.manifest`，全生命周期依托 `bootstrap.js` 原生 `amIAddonManagerStartup.registerChrome` 动态注册。
+
+### 5.1 统一构建与测试命令
 ```bash
-node --test tests/*.test.js
+# 完整构建（类型检查 -> esbuild 编译 -> 可复现 XPI 打包并同步更新清单）
+npm run build
+
+# 快速编译主包与模块
+npm run build:bundle
+
+# 严格类型检查
+npm run typecheck
+
+# 完整自动化测试（类型守卫 + 编译 + 134 项单元测试 + 8 项打包策略校验）
+npm test
+
+# 仅运行单元测试
+npm run test:unit
+
+# 仅运行 XPI 打包校验测试
+npm run test:package
 ```
+
+### 5.2 自动化单测
+测试套件基于 Node.js 原生测试运行器（`node:test` 与 `node:assert/strict`）：
 测试文件涵盖：
 - `tests/conflict-bridge.test.js`：窗口消息桥与草稿通信；
 - `tests/conflict-recovery.test.js`：冲突草稿字段级对比与预览恢复；

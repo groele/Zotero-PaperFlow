@@ -3,11 +3,15 @@
   "version": "14.0.1",
   "description": "Manage manuscripts, submission rounds, and review responses. Part of Zotero Flow.",
   "scripts": {
-    "test": "node --test tests/*.test.js && python scripts/test-release-package.py",
+    "typecheck": "tsc --noEmit",
+    "tsc": "tsc --noEmit",
+    "build:bundle": "node scripts/build-source.mjs",
+    "build:xpi": "python tools/build-xpi.py --update-feeds",
+    "build": "npm run typecheck && npm run build:bundle && npm run build:xpi",
     "test:unit": "node --test tests/*.test.js",
     "test:package": "python scripts/test-release-package.py",
     "test:tags": "python scripts/release-tags.py --self-test",
-    "build": "python tools/build-xpi.py --update-feeds"
+    "test": "npm run typecheck && npm run build:bundle && npm run test:unit && npm run test:package"
   },
   "repository": {
     "type": "git",
@@ -18,5 +22,10 @@
   "bugs": {
     "url": "https://github.com/groele/Zotero-PaperFlow/issues"
   },
-  "homepage": "https://github.com/groele/Zotero-PaperFlow"
+  "homepage": "https://github.com/groele/Zotero-PaperFlow",
+  "devDependencies": {
+    "@types/node": "^22.13.0",
+    "esbuild": "0.28.2",
+    "typescript": "5.9.3"
+  }
 }

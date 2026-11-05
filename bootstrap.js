@@ -133,9 +133,6 @@ async function startup({ id, version, resourceURI, rootURI }, reason) {
     };
     if (!ctx.IOUtils || !ctx.PathUtils) throw new Error('Zotero file APIs are unavailable');
 
-    Services.scriptloader.loadSubScript(`${rootURI}chrome/content/scripts/modules/academic-citation.js`, ctx);
-    Services.scriptloader.loadSubScript(`${rootURI}chrome/content/scripts/modules/architecture-guard.js`, ctx);
-    Services.scriptloader.loadSubScript(`${rootURI}chrome/content/scripts/modules/item-pane.js`, ctx);
     Services.scriptloader.loadSubScript(`${rootURI}chrome/content/scripts/index.js`, ctx);
   } catch (error) {
     Zotero?.logError?.('Failed to startup Zotero PaperFlow addon: ' + error);
@@ -170,6 +167,12 @@ async function shutdown({ id, version, resourceURI, rootURI }, reason) {
   } catch (error) {
     Zotero?.logError?.('Error during Zotero PaperFlow shutdown: ' + error);
   }
+    try {
+      const scriptRootURI = rootURI || resourceURI?.spec;
+      if (scriptRootURI) {
+        ChromeUtils.unload?.(`${scriptRootURI.endsWith('/') ? scriptRootURI : scriptRootURI + '/'}chrome/content/scripts/index.js`);
+      }
+    } catch (_) {}
   if (chromeHandle) {
     try {
       chromeHandle.destruct();
@@ -182,3 +185,11 @@ async function shutdown({ id, version, resourceURI, rootURI }, reason) {
 }
 
 function uninstall(data, reason) {}
+
+async function onMainWindowLoad({ window }) {
+  await Zotero?.ResearchFlow?.onMainWindowLoad?.(window);
+}
+
+async function onMainWindowUnload({ window }) {
+  await Zotero?.ResearchFlow?.onMainWindowUnload?.(window);
+}

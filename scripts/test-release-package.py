@@ -18,7 +18,7 @@ class ReleaseTests(unittest.TestCase):
         self.manifest = {"version": "1.2.3", "applications": {"zotero": {
             "id": self.identities[0], "strict_min_version": "10", "strict_max_version": "10.*"}}}
         self.write_json("manifest.json", self.manifest)
-        for name in ("bootstrap.js", "prefs.js", "chrome.manifest", "chrome/content/preferences.xhtml"):
+        for name in ("bootstrap.js", "prefs.js", "chrome/content/preferences.xhtml"):
             target = self.root / name
             target.parent.mkdir(parents=True, exist_ok=True)
             target.write_text(">v1.2.3<", encoding="utf-8")

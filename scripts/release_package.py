@@ -48,7 +48,7 @@ def metadata(root):
     return manifest
 
 def runtime_files(root):
-    files = [root / name for name in ("manifest.json", "bootstrap.js", "prefs.js", "chrome.manifest")]
+    files = [root / name for name in ("manifest.json", "bootstrap.js", "prefs.js")]
     files += [p for folder in ("chrome", "locale") for p in (root / folder).rglob("*") if p.is_file()]
     require(all(p.is_file() for p in files), "Missing runtime entry file")
     return sorted(files)

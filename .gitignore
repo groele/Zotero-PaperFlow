@@ -3,6 +3,9 @@
 Thumbs.db
 Desktop.ini
 
+# Dependencies
+node_modules/
+
 # IDE
 .vscode/
 .idea/
@@ -11,6 +14,7 @@ Desktop.ini
 
 # Build outputs and installers
 *.xpi
+dist/
 
 # Logs
 *.log
