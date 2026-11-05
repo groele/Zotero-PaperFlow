@@ -55,7 +55,7 @@ if (typeof window !== 'undefined') {
   window.registerModalCleanup = registerModalCleanup;
 }
 
-const RF_OPTIONS_RENDER_VERSION = '15.0.2';
+const RF_OPTIONS_RENDER_VERSION = '15.0.3';
 const PRE_IMPORT_BACKUP_KEY = 'researchflow_pre_import_backup';
 const SHARE_PREFS_STORAGE_KEY = 'researchflow_share_visibility';
 const MAX_IMPORT_BYTES = 25 * 1024 * 1024;

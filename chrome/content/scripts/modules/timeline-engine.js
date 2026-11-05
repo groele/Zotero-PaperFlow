@@ -328,24 +328,52 @@ function buildInlineStageEditor(subId) {
   ];
 
   return `
+    <style>
+      .inline-stage-editor .inline-stage-fields { display:flex; flex-direction:column; gap:12px; align-items:stretch; }
+      .inline-stage-editor .inline-stage-section { display:flex; flex-direction:column; gap:7px; min-width:0; }
+      .inline-stage-editor .inline-stage-section-label { color:hsl(var(--text-muted)); font-size:10px; font-weight:800; letter-spacing:.08em; text-transform:uppercase; }
+      .inline-stage-editor .inline-stage-main-grid,
+      .inline-stage-editor .inline-stage-date-grid { display:grid; grid-template-columns:minmax(180px,.9fr) minmax(240px,1.4fr) minmax(150px,.8fr); gap:10px; min-width:0; }
+      .inline-stage-editor .inline-stage-date-grid { grid-template-columns:repeat(3,minmax(150px,1fr)); }
+      .inline-stage-editor .inline-stage-field { display:flex; min-width:0; flex-direction:column; gap:5px; }
+      .inline-stage-editor .inline-stage-field > span { color:hsl(var(--text-muted)); font-size:11px; font-weight:700; line-height:1.2; }
+      .inline-stage-editor .inline-stage-notes-field { width:100%; }
+      .inline-stage-editor .inline-stage-actions { display:flex; align-items:center; justify-content:flex-end; gap:10px; min-height:34px; padding-top:2px; border-top:1px solid hsl(var(--accent-purple) / .12); }
+      @media (max-width:820px) {
+        .inline-stage-editor .inline-stage-main-grid,
+        .inline-stage-editor .inline-stage-date-grid { grid-template-columns:1fr; }
+        .inline-stage-editor .inline-stage-actions { justify-content:stretch; flex-wrap:wrap; }
+        .inline-stage-editor .btn-inline-stage-save { flex:1 1 160px; }
+      }
+    </style>
     <div class="inline-stage-editor" data-sub-id="${escapeHTML(subId)}" hidden>
       <div class="inline-stage-head">
         <span class="inline-stage-title"><span class="inline-stage-title-mark" aria-hidden="true">+</span>${t('inlineAddTimelineEvent')}</span>
         <button class="btn-secondary btn-sm btn-inline-stage-cancel" type="button">${t('cancel')}</button>
       </div>
       <div class="inline-stage-fields" role="group" aria-label="${escapeHTML(t('inlineAddTimelineEvent'))}">
-        <select class="inline-stage-key" aria-label="${escapeHTML(t('keyEventPreset'))}" title="${escapeHTML(t('keyEventPreset'))}">${buildOptions(keyOptions, 'submit')}</select>
-        <input type="text" class="inline-stage-name" aria-label="${escapeHTML(t('eventName'))}" value="${escapeHTML(t('defaultManuscriptSubmitted'))}" placeholder="${escapeHTML(t('eventPlaceholder'))}" maxlength="160">
-        <input type="date" class="inline-stage-date" aria-label="${escapeHTML(t('eventDate'))}" value="${todayString()}">
-        <label class="inline-stage-labeled-control inline-stage-deadline-field" style="display:flex;flex-direction:column;gap:3px;min-width:0"><span style="font-size:10px;line-height:1.2;color:hsl(var(--text-muted));white-space:nowrap">${escapeHTML(t('eventDeadline'))}</span><input type="date" class="inline-stage-deadline" aria-label="${escapeHTML(t('eventDeadline'))}" title="${escapeHTML(t('eventDeadline'))}"></label>
-        <label class="inline-stage-labeled-control inline-stage-decision-field" style="display:flex;flex-direction:column;gap:3px;min-width:0"><span style="font-size:10px;line-height:1.2;color:hsl(var(--text-muted));white-space:nowrap">${escapeHTML(t('reviewDecision'))}</span><select class="inline-stage-decision" aria-label="${escapeHTML(t('reviewDecision'))}" title="${escapeHTML(t('reviewDecision'))}">${buildOptions([
-          { value: '', label: t('noReviewDecision') },
-          { value: 'major', label: t('majorRevision') },
-          { value: 'minor', label: t('minorRevision') }
-        ], '')}</select></label>
-        <select class="inline-stage-type" aria-label="${escapeHTML(t('eventTypeSpecial'))}">${buildOptions(typeOptions, 'submission')}</select>
-        <input type="text" class="inline-stage-notes" aria-label="${escapeHTML(t('eventNotesShort'))}" placeholder="${escapeHTML(t('eventNotesShort'))}" maxlength="500">
-        <button class="btn-primary btn-sm btn-inline-stage-save" type="button">${t('addEvent').replace('+ ', '')}</button><span class="inline-stage-status" data-inline-stage-status role="status" aria-live="polite"></span>
+        <div class="inline-stage-section inline-stage-section-main">
+          <div class="inline-stage-section-label">${escapeHTML(t('eventDetails'))}</div>
+          <div class="inline-stage-main-grid">
+            <label class="inline-stage-field inline-stage-field-preset"><span>${escapeHTML(t('keyEventPreset'))}</span><select class="inline-stage-key" aria-label="${escapeHTML(t('keyEventPreset'))}" title="${escapeHTML(t('keyEventPreset'))}">${buildOptions(keyOptions, 'submit')}</select></label>
+            <label class="inline-stage-field inline-stage-field-name"><span>${escapeHTML(t('eventName'))}</span><input type="text" class="inline-stage-name" aria-label="${escapeHTML(t('eventName'))}" value="${escapeHTML(t('defaultManuscriptSubmitted'))}" placeholder="${escapeHTML(t('eventPlaceholder'))}" maxlength="160"></label>
+            <label class="inline-stage-field inline-stage-field-type"><span>${escapeHTML(t('eventTypeSpecial'))}</span><select class="inline-stage-type" aria-label="${escapeHTML(t('eventTypeSpecial'))}">${buildOptions(typeOptions, 'submission')}</select></label>
+          </div>
+        </div>
+        <div class="inline-stage-section inline-stage-section-dates">
+          <div class="inline-stage-section-label">${escapeHTML(t('eventSchedule'))}</div>
+          <div class="inline-stage-date-grid">
+            <label class="inline-stage-field"><span>${escapeHTML(t('eventDate'))}</span><input type="date" class="inline-stage-date" aria-label="${escapeHTML(t('eventDate'))}" value="${todayString()}"></label>
+            <label class="inline-stage-field inline-stage-deadline-field"><span>${escapeHTML(t('eventDeadline'))}</span><input type="date" class="inline-stage-deadline" aria-label="${escapeHTML(t('eventDeadline'))}" title="${escapeHTML(t('eventDeadline'))}"></label>
+            <label class="inline-stage-field inline-stage-decision-field"><span>${escapeHTML(t('reviewDecision'))}</span><select class="inline-stage-decision" aria-label="${escapeHTML(t('reviewDecision'))}" title="${escapeHTML(t('reviewDecision'))}">${buildOptions([
+              { value: '', label: t('noReviewDecision') },
+              { value: 'major', label: t('majorRevision') },
+              { value: 'minor', label: t('minorRevision') }
+            ], '')}</select></label>
+          </div>
+        </div>
+        <label class="inline-stage-field inline-stage-notes-field"><span>${escapeHTML(t('eventNotesShort'))}</span><input type="text" class="inline-stage-notes" aria-label="${escapeHTML(t('eventNotesShort'))}" placeholder="${escapeHTML(t('eventNotesShort'))}" maxlength="500"></label>
+        <div class="inline-stage-actions"><span class="inline-stage-status" data-inline-stage-status role="status" aria-live="polite"></span><button class="btn-primary btn-sm btn-inline-stage-save" type="button">${t('addEvent').replace('+ ', '')}</button></div>
       </div>
     </div>
   `;
