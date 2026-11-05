@@ -237,6 +237,12 @@ function renderDashboard() {
       const latestMeta = a.latest ? getTimelineTypeMeta(a.latest.type) : { color: "#64748b", label: t('typeNoEvent') };
       const latestDate = a.latest ? getNodeDate(a.latest) : '';
       const latestRelative = latestDate ? getRelativeDateLabel(latestDate) : '';
+      const reviewNode = [...(sub.timelineNodes || [])]
+        .filter(node => isReviewTimelineNode(node) && node.dueDate)
+        .sort((left, right) => new Date(left.dueDate) - new Date(right.dueDate))[0];
+      const reviewDeadlineHtml = reviewNode
+        ? `<div class="latest-deadline ${computeNodeStatus(reviewNode) === 'overdue' ? 'is-overdue' : ''}">${escapeHTML(t('eventDeadline'))}：${escapeHTML(formatShortDate(reviewNode.dueDate))}${reviewNode.reviewDecision ? ` · ${escapeHTML(getReviewDecisionLabel(reviewNode.reviewDecision))}` : ''}</div>`
+        : '';
       const submissionDoi = getSubmissionDoi(sub);
       const articleUrl = getSubmissionArticleUrl(sub);
       const doiHtml = submissionDoi
@@ -341,6 +347,7 @@ function renderDashboard() {
           </div>
           <div class="latest-title">${a.latest ? escapeHTML(getTimelineNodeDisplayName(a.latest)) : t('noEventYet')}</div>
           <div class="latest-date">${a.latest ? `${latestDate ? escapeHTML(formatShortDate(latestDate)) : t('noDate')}${latestRelative ? ` · ${escapeHTML(latestRelative)}` : ''}` : t('addEventStart')}</div>
+          ${reviewDeadlineHtml}
           <div class="latest-note">${a.latest ? escapeHTML(a.latest.notes || t('clickEditEvent')) : t('clickAddEvent')}</div>
         </div>
 
@@ -448,6 +455,12 @@ function renderDashboard() {
     });
 
     ganttBox.querySelectorAll('.inline-stage-key').forEach(select => {
+      select.addEventListener('change', () => {
+        syncInlineStagePreset(select.closest('.inline-stage-editor'));
+      });
+    });
+
+    ganttBox.querySelectorAll('.inline-stage-type').forEach(select => {
       select.addEventListener('change', () => {
         syncInlineStagePreset(select.closest('.inline-stage-editor'));
       });
@@ -654,6 +667,8 @@ function openStageDrawer(subId, nodeId) {
     { value: 'online', label: t('keyOnlinePublished') }
   ];
   const eventDateValue = normalizeDateString(node.completeDate || node.planDate || node.dueDate || '');
+  const eventDeadlineValue = normalizeDateString(node.dueDate || '');
+  const reviewDecisionValue = node.reviewDecision || node.decisionType || '';
 
   openModal(`
     <div class="modal-header">
@@ -679,6 +694,18 @@ function openStageDrawer(subId, nodeId) {
         <div class="form-group">
           <label>${t('eventDate')}</label>
           <input type="date" id="drawer-node-date" value="${escapeHTML(eventDateValue)}">
+        </div>
+        <div class="form-group">
+          <label>${t('eventDeadline')}</label>
+          <input type="date" id="drawer-node-deadline" value="${escapeHTML(eventDeadlineValue)}">
+        </div>
+        <div class="form-group">
+          <label>${t('reviewDecision')}</label>
+          <select id="drawer-node-decision">${buildOptions([
+            { value: '', label: t('noReviewDecision') },
+            { value: 'major', label: t('majorRevision') },
+            { value: 'minor', label: t('minorRevision') }
+          ], reviewDecisionValue)}</select>
         </div>
       </div>
 
@@ -724,16 +751,27 @@ function openStageDrawer(subId, nodeId) {
     const eventDate = normalizeDateString(document.getElementById('drawer-node-date').value);
     node.status = eventDate ? 'completed' : 'pending';
     node.planDate = '';
-    node.dueDate = '';
+    node.dueDate = normalizeDateString(document.getElementById('drawer-node-deadline').value);
     node.completeDate = eventDate;
+    node.reviewDecision = document.getElementById('drawer-node-decision').value;
     node.notes = document.getElementById('drawer-node-notes').value.trim();
     node.updatedAt = new Date().toISOString();
 
     const nodeKey = inferKey(node);
+    const isReview = isReviewTimelineNode(node);
+    if (isReview && !node.dueDate && !node.reviewDecision) {
+      alert(t('reviewDeadlineOrDecisionRequired'));
+      return;
+    }
     if (nodeKey === 'submit') {
       sub.submissionDate = eventDate ? dateInputToIso(eventDate) : null;
     } else if (nodeKey === 'r1_comments') {
       sub.firstDecisionDate = eventDate ? dateInputToIso(eventDate) : null;
+      sub.revisionDueDate = node.dueDate ? dateInputToIso(node.dueDate) : null;
+      sub.reviewDecision = node.reviewDecision || '';
+    } else if (nodeKey === 'r2_comments') {
+      sub.revisionDueDate = node.dueDate ? dateInputToIso(node.dueDate) : null;
+      sub.reviewDecision = node.reviewDecision || '';
     } else if (nodeKey === 'accept' || nodeKey === 'online') {
       if (eventDate) applyInlineEventToSubmission(sub, nodeKey, eventDate);
       else if (nodeKey === 'online') {

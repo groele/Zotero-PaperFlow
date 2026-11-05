@@ -116,6 +116,18 @@ function getNodeDate(node) {
   return node?.completeDate || node?.planDate || node?.dueDate || '';
 }
 
+function isReviewTimelineNode(node) {
+  if (!node) return false;
+  const key = node.key || inferKey(node);
+  return node.type === 'review' || key === 'r1_comments' || key === 'r2_comments';
+}
+
+function getReviewDecisionLabel(decision) {
+  if (decision === 'major') return t('majorRevision');
+  if (decision === 'minor') return t('minorRevision');
+  return '';
+}
+
 function getLatestTimelineNode(nodes = []) {
   const datedNodes = nodes
     .filter(getNodeDate)
@@ -157,13 +169,20 @@ function buildTimelineEventManager(sub, options = {}) {
     const computedStatus = computeNodeStatus(node);
     const meta = getTimelineTypeMeta(node.type);
     const date = getNodeDate(node);
+    const deadline = normalizeDateString(node.dueDate || '');
+    const decision = getReviewDecisionLabel(node.reviewDecision || node.decisionType);
+    const dateSummary = [
+      date ? formatShortDate(date) : t('noDate'),
+      deadline ? `${t('deadlineShort')} ${formatShortDate(deadline)}` : '',
+      decision
+    ].filter(Boolean).join(' · ');
     return `
       <div class="timeline-event-chip ${inModal ? 'modal-event-chip' : ''}" data-node-id="${escapeHTML(node.id)}" style="--event-color:${meta.color}">
         <button class="timeline-event-main btn-event-edit" type="button" data-sub-id="${escapeHTML(sub.id)}" data-node-id="${escapeHTML(node.id)}" title="${escapeHTML(t('clickEditEvent'))}">
           <span class="timeline-event-dot"></span>
           <span class="timeline-event-text">
             <strong>${escapeHTML(getTimelineNodeDisplayName(node))}</strong>
-            <small>${date ? escapeHTML(formatShortDate(date)) : t('noDate')} · ${escapeHTML(getNodeStatusLabel(computedStatus))}</small>
+            <small>${escapeHTML(dateSummary)} · ${escapeHTML(getNodeStatusLabel(computedStatus))}</small>
           </span>
         </button>
         <button class="timeline-event-delete btn-event-delete" type="button" data-sub-id="${escapeHTML(sub.id)}" data-node-id="${escapeHTML(node.id)}" title="${escapeHTML(t('delete'))}">×</button>
@@ -318,6 +337,12 @@ function buildInlineStageEditor(subId) {
         <select class="inline-stage-key" aria-label="${escapeHTML(t('keyEventPreset'))}" title="${escapeHTML(t('keyEventPreset'))}">${buildOptions(keyOptions, 'submit')}</select>
         <input type="text" class="inline-stage-name" aria-label="${escapeHTML(t('eventName'))}" value="${escapeHTML(t('defaultManuscriptSubmitted'))}" placeholder="${escapeHTML(t('eventPlaceholder'))}" maxlength="160">
         <input type="date" class="inline-stage-date" aria-label="${escapeHTML(t('eventDate'))}" value="${todayString()}">
+        <input type="date" class="inline-stage-deadline" aria-label="${escapeHTML(t('eventDeadline'))}" title="${escapeHTML(t('eventDeadline'))}">
+        <select class="inline-stage-decision" aria-label="${escapeHTML(t('reviewDecision'))}" title="${escapeHTML(t('reviewDecision'))}">${buildOptions([
+          { value: '', label: t('noReviewDecision') },
+          { value: 'major', label: t('majorRevision') },
+          { value: 'minor', label: t('minorRevision') }
+        ], '')}</select>
         <select class="inline-stage-type" aria-label="${escapeHTML(t('eventTypeSpecial'))}">${buildOptions(typeOptions, 'submission')}</select>
         <input type="text" class="inline-stage-notes" aria-label="${escapeHTML(t('eventNotesShort'))}" placeholder="${escapeHTML(t('eventNotesShort'))}" maxlength="500">
         <button class="btn-primary btn-sm btn-inline-stage-save" type="button">${t('addEvent').replace('+ ', '')}</button><span class="inline-stage-status" data-inline-stage-status role="status" aria-live="polite"></span>
@@ -342,6 +367,8 @@ function syncInlineStagePreset(editor) {
   const keySelect = editor.querySelector('.inline-stage-key');
   const nameInput = editor.querySelector('.inline-stage-name');
   const typeSelect = editor.querySelector('.inline-stage-type');
+  const deadlineInput = editor.querySelector('.inline-stage-deadline');
+  const decisionSelect = editor.querySelector('.inline-stage-decision');
   if (!keySelect || !nameInput || !typeSelect) return;
 
   const preset = getInlineEventPreset(keySelect.value);
@@ -353,6 +380,9 @@ function syncInlineStagePreset(editor) {
   }
   nameInput.readOnly = preset.key !== 'custom';
   typeSelect.disabled = preset.key !== 'custom';
+  const isReview = typeSelect.value === 'review' || preset.key === 'r1_comments' || preset.key === 'r2_comments';
+  if (deadlineInput) deadlineInput.hidden = !isReview;
+  if (decisionSelect) decisionSelect.hidden = !isReview;
 }
 
 function applyInlineEventToSubmission(sub, key, eventDate, note = '') {
@@ -401,12 +431,20 @@ async function saveInlineStageEvent(editor) {
   const preset = getInlineEventPreset(selectedKey);
   const name = editor.querySelector('.inline-stage-name').value.trim() || preset.name;
   const eventDate = editor.querySelector('.inline-stage-date').value || todayString();
+  const deadline = normalizeDateString(editor.querySelector('.inline-stage-deadline')?.value || '');
+  const reviewDecision = editor.querySelector('.inline-stage-decision')?.value || '';
   const type = editor.querySelector('.inline-stage-type').value;
   const notes = editor.querySelector('.inline-stage-notes')?.value.trim() || '';
 
   if (!name) {
     alert(t('eventNameRequired'));
     editor.querySelector('.inline-stage-name').focus();
+    return;
+  }
+  const isReview = type === 'review' || selectedKey === 'r1_comments' || selectedKey === 'r2_comments';
+  if (isReview && !deadline && !reviewDecision) {
+    alert(t('reviewDeadlineOrDecisionRequired'));
+    editor.querySelector('.inline-stage-deadline')?.focus();
     return;
   }
 
@@ -433,9 +471,10 @@ async function saveInlineStageEvent(editor) {
       type,
       status: 'completed',
       planDate: '',
-      dueDate: '',
+      dueDate: deadline,
       completeDate: eventDate,
-      notes
+      notes,
+      reviewDecision
     };
 
     if (node) {
@@ -443,6 +482,10 @@ async function saveInlineStageEvent(editor) {
     } else {
       node = createTimelineNode(subId, nodeValues);
       sub.timelineNodes.push(node);
+    }
+    if (isReview) {
+      sub.revisionDueDate = deadline ? dateInputToIso(deadline) : null;
+      sub.reviewDecision = reviewDecision;
     }
     applyInlineEventToSubmission(sub, nodeKey, eventDate, notes);
   }
@@ -630,7 +673,15 @@ function normalizeSubmissionTimeline(sub) {
   if (firstDecisionDate) {
     const result = ensureTimelineNode(sub, 'r1_comments', 'Review Comments R1', 'review', 'completed');
     changed = result.changed || changed;
-    changed = setTimelineNodeDate(result.node, firstDecisionDate, 'completeDate') || changed;
+    if ((result.node.completeDate || '') !== firstDecisionDate) {
+      result.node.completeDate = firstDecisionDate;
+      changed = true;
+    }
+    const normalizedDueDate = normalizeDateString(sub.revisionDueDate);
+    if ((result.node.dueDate || '') !== normalizedDueDate) {
+      result.node.dueDate = normalizedDueDate;
+      changed = true;
+    }
     if (result.node.status !== 'completed') {
       result.node.status = 'completed';
       changed = true;
@@ -638,7 +689,7 @@ function normalizeSubmissionTimeline(sub) {
   }
 
   const revisionDueDate = normalizeDateString(sub.revisionDueDate);
-  if (revisionDueDate && !firstDecisionDate && !isAcceptedOrPublished) {
+  if (revisionDueDate && !isAcceptedOrPublished) {
     const result = ensureTimelineNode(sub, 'r1_comments', 'Review Comments R1', 'review', 'active');
     changed = result.changed || changed;
     if ((result.node.dueDate || '') !== revisionDueDate) {
