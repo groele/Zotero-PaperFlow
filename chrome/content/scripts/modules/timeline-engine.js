@@ -332,7 +332,6 @@ function buildInlineStageEditor(subId) {
       <div class="inline-stage-head">
         <span class="inline-stage-title"><span class="inline-stage-title-mark" aria-hidden="true">+</span>${t('inlineAddTimelineEvent')}</span>
         <span class="inline-stage-hint">${escapeHTML(t('inlineEventHint'))}</span>
-        <button class="btn-secondary btn-sm btn-inline-stage-cancel" type="button">${t('cancel')}</button>
       </div>
       <div class="inline-stage-fields" role="group" aria-label="${escapeHTML(t('inlineAddTimelineEvent'))}">
         <div class="inline-stage-section inline-stage-section-main">
@@ -340,7 +339,7 @@ function buildInlineStageEditor(subId) {
           <div class="inline-stage-main-grid">
             <label class="inline-stage-field inline-stage-field-preset"><span>${escapeHTML(t('keyEventPreset'))}</span><select class="inline-stage-key" aria-label="${escapeHTML(t('keyEventPreset'))}" title="${escapeHTML(t('keyEventPreset'))}">${buildOptions(keyOptions, 'submit')}</select></label>
             <label class="inline-stage-field inline-stage-field-name"><span>${escapeHTML(t('eventName'))}</span><input type="text" class="inline-stage-name" aria-label="${escapeHTML(t('eventName'))}" value="${escapeHTML(t('defaultManuscriptSubmitted'))}" placeholder="${escapeHTML(t('eventPlaceholder'))}" maxlength="160"></label>
-            <label class="inline-stage-field inline-stage-field-type"><span>${escapeHTML(t('eventTypeSpecial'))}</span><select class="inline-stage-type" aria-label="${escapeHTML(t('eventTypeSpecial'))}">${buildOptions(typeOptions, 'submission')}</select></label>
+            <label class="inline-stage-field inline-stage-field-type"><span>${escapeHTML(t('inlineEventType'))}</span><select class="inline-stage-type" aria-label="${escapeHTML(t('inlineEventType'))}">${buildOptions(typeOptions, 'submission')}</select></label>
           </div>
         </div>
         <div class="inline-stage-section inline-stage-section-dates">
@@ -355,8 +354,8 @@ function buildInlineStageEditor(subId) {
             ], '')}</select></label>
           </div>
         </div>
-        <label class="inline-stage-field inline-stage-notes-field"><span>${escapeHTML(t('eventNotesShort'))} · ${escapeHTML(t('optional'))}</span><input type="text" class="inline-stage-notes" aria-label="${escapeHTML(t('eventNotesShort'))}" placeholder="${escapeHTML(t('notesPlaceholder'))}" maxlength="500"></label>
-        <div class="inline-stage-actions"><button class="btn-secondary btn-sm btn-inline-stage-reset" type="button">${escapeHTML(t('reset'))}</button><button class="btn-primary btn-sm btn-inline-stage-save" type="button">${t('addEvent').replace('+ ', '')}</button></div>
+        <label class="inline-stage-field inline-stage-notes-field"><span>${escapeHTML(t('eventNotesShort'))} <span class="inline-stage-optional">· ${escapeHTML(t('optional'))}</span></span><input type="text" class="inline-stage-notes" aria-label="${escapeHTML(t('eventNotesShort'))}" placeholder="${escapeHTML(t('inlineEventNotesPlaceholder'))}" maxlength="500"></label>
+        <div class="inline-stage-actions"><button class="btn-secondary btn-sm btn-inline-stage-reset" type="button">${escapeHTML(t('reset'))}</button><button class="btn-primary btn-sm btn-inline-stage-save" type="button">${escapeHTML(t('inlineEventAdd'))}</button></div>
       </div>
       <div class="inline-stage-footer"><span class="inline-stage-status-dot" data-inline-stage-status-dot aria-hidden="true"></span><span class="inline-stage-status" data-inline-stage-status role="status" aria-live="polite"></span><span class="inline-stage-context" data-inline-stage-context></span></div>
     </div>
@@ -428,6 +427,7 @@ function updateInlineStageDeadlineStatus(editor) {
 }
 
 function resetInlineStageEditor(editor) {
+  if (editor?.querySelector('.btn-inline-stage-save')?.disabled) return;
   const keySelect = editor?.querySelector('.inline-stage-key');
   if (!keySelect) return;
   keySelect.value = 'submit';
@@ -440,6 +440,7 @@ function resetInlineStageEditor(editor) {
   if (decisionSelect) decisionSelect.value = '';
   if (notesInput) notesInput.value = '';
   syncInlineStagePreset(editor);
+  keySelect.focus();
 }
 
 function applyInlineEventToSubmission(sub, key, eventDate, note = '') {
@@ -467,11 +468,13 @@ function applyInlineEventToSubmission(sub, key, eventDate, note = '') {
 
 function setInlineStageBusy(editor, busy, message = '') {
   const button = editor?.querySelector('.btn-inline-stage-save');
+  const resetButton = editor?.querySelector('.btn-inline-stage-reset');
   const status = editor?.querySelector('[data-inline-stage-status]');
   if (button) {
     button.disabled = busy;
     button.setAttribute('aria-busy', String(busy));
   }
+  if (resetButton) resetButton.disabled = busy;
   if (status && message) status.textContent = message;
   else if (!busy) updateInlineStageDeadlineStatus(editor);
 }
@@ -529,10 +532,10 @@ async function saveInlineStageEvent(editor) {
       type,
       status: 'completed',
       planDate: '',
-      dueDate: deadline,
+      dueDate: isReview ? deadline : '',
       completeDate: eventDate,
       notes,
-      reviewDecision
+      reviewDecision: isReview ? reviewDecision : ''
     };
 
     if (node) {

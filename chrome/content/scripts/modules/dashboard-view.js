@@ -497,6 +497,16 @@ function renderDashboard() {
       });
     });
 
+    ganttBox.querySelectorAll('.inline-stage-editor').forEach(editor => {
+      editor.addEventListener('keydown', event => {
+        if (event.key !== 'Escape' || editor.querySelector('.btn-inline-stage-save')?.disabled) return;
+        event.preventDefault();
+        event.stopPropagation();
+        toggleInlineStageEditor(editor.closest('.pipeline-card'), false);
+        editor.closest('.pipeline-card')?.querySelector('.btn-pipeline-add')?.focus();
+      });
+    });
+
     ganttBox.querySelectorAll('.inline-stage-fields input').forEach(input => {
       input.addEventListener('keydown', event => {
         if (event.key !== 'Enter' || event.isComposing) return;
