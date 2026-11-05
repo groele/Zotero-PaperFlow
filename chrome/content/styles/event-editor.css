@@ -68,7 +68,7 @@
 .inline-stage-editor .inline-stage-deadline-field > span { color:var(--editor-deadline); }
 .inline-stage-editor .inline-stage-fields input.inline-stage-deadline { border-color:var(--editor-deadline-border); background:var(--editor-tint); }
 .inline-stage-editor .inline-stage-actions { height:38px; }
-.inline-stage-editor .inline-stage-actions button { padding:0 14px; font:inherit; font-weight:400; border:1px solid var(--editor-line); border-radius:7px; background:var(--editor-surface); color:var(--editor-text); box-shadow:none; transform:none; }
+.inline-stage-editor .inline-stage-actions button { padding:0 10px; font:inherit; font-weight:400; border:1px solid var(--editor-line); border-radius:7px; background:var(--editor-surface); color:var(--editor-text); box-shadow:none; transform:none; }
 .inline-stage-editor .inline-stage-actions button:hover { border-color:#aab4c3; }
 .inline-stage-editor .inline-stage-actions .btn-inline-stage-save { flex:1; min-width:0; font-weight:600; background:var(--editor-accent); border-color:var(--editor-accent); color:#fff; }
 .inline-stage-editor .inline-stage-actions .btn-inline-stage-save:hover { background:#ae123e; border-color:#ae123e; }

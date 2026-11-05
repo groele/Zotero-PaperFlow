@@ -355,7 +355,7 @@ function buildInlineStageEditor(subId) {
           </div>
         </div>
         <label class="inline-stage-field inline-stage-notes-field"><span>${escapeHTML(t('eventNotesShort'))} <span class="inline-stage-optional">· ${escapeHTML(t('optional'))}</span></span><input type="text" class="inline-stage-notes" aria-label="${escapeHTML(t('eventNotesShort'))}" placeholder="${escapeHTML(t('inlineEventNotesPlaceholder'))}" maxlength="500"></label>
-        <div class="inline-stage-actions"><button class="btn-secondary btn-sm btn-inline-stage-reset" type="button">${escapeHTML(t('reset'))}</button><button class="btn-primary btn-sm btn-inline-stage-save" type="button">${escapeHTML(t('inlineEventAdd'))}</button></div>
+        <div class="inline-stage-actions"><button class="btn-secondary btn-sm btn-inline-stage-cancel" type="button">${escapeHTML(t('cancel'))}</button><button class="btn-secondary btn-sm btn-inline-stage-reset" type="button">${escapeHTML(t('reset'))}</button><button class="btn-primary btn-sm btn-inline-stage-save" type="button">${escapeHTML(t('inlineEventAdd'))}</button></div>
       </div>
       <div class="inline-stage-footer"><span class="inline-stage-status-dot" data-inline-stage-status-dot aria-hidden="true"></span><span class="inline-stage-status" data-inline-stage-status role="status" aria-live="polite"></span><span class="inline-stage-context" data-inline-stage-context></span></div>
     </div>
@@ -469,12 +469,14 @@ function applyInlineEventToSubmission(sub, key, eventDate, note = '') {
 function setInlineStageBusy(editor, busy, message = '') {
   const button = editor?.querySelector('.btn-inline-stage-save');
   const resetButton = editor?.querySelector('.btn-inline-stage-reset');
+  const cancelButton = editor?.querySelector('.btn-inline-stage-cancel');
   const status = editor?.querySelector('[data-inline-stage-status]');
   if (button) {
     button.disabled = busy;
     button.setAttribute('aria-busy', String(busy));
   }
   if (resetButton) resetButton.disabled = busy;
+  if (cancelButton) cancelButton.disabled = busy;
   if (status && message) status.textContent = message;
   else if (!busy) updateInlineStageDeadlineStatus(editor);
 }

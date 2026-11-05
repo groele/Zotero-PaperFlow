@@ -402,7 +402,10 @@ function renderDashboard() {
     ganttBox.querySelectorAll('.btn-inline-stage-cancel').forEach(btn => {
       btn.addEventListener('click', (e) => {
         e.stopPropagation();
-        toggleInlineStageEditor(btn.closest('.pipeline-card'), false);
+        if (btn.disabled) return;
+        const card = btn.closest('.pipeline-card');
+        toggleInlineStageEditor(card, false);
+        card?.querySelector('.btn-pipeline-add')?.focus();
       });
     });
 
