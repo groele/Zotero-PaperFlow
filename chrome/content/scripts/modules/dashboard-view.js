@@ -466,6 +466,19 @@ function renderDashboard() {
       });
     });
 
+    ganttBox.querySelectorAll('.inline-stage-deadline').forEach(input => {
+      input.addEventListener('input', () => {
+        updateInlineStageDeadlineStatus(input.closest('.inline-stage-editor'));
+      });
+    });
+
+    ganttBox.querySelectorAll('.btn-inline-stage-reset').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        resetInlineStageEditor(btn.closest('.inline-stage-editor'));
+      });
+    });
+
     ganttBox.querySelectorAll('.btn-inline-stage-save').forEach(btn => {
       btn.addEventListener('click', async (e) => {
         e.stopPropagation();
