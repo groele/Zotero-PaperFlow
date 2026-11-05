@@ -176,7 +176,7 @@ test('addItemToPipelineCollection blocks read-only and deleted items and returns
   assert.ok(errors.some(e => e.includes('read-only or in trash')));
 });
 
-test('authoritative versions across package.json, manifest, product.json, preferences, READMEs, and workspace are unified at 15.0.1', () => {
+test('authoritative versions across package.json, manifest, product.json, preferences, READMEs, and workspace are unified at 15.0.2', () => {
   const pkg = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8'));
   const manifest = JSON.parse(fs.readFileSync(path.join(root, 'manifest.json'), 'utf8'));
   const product = JSON.parse(fs.readFileSync(path.join(root, 'docs/brand/product.json'), 'utf8'));
@@ -188,7 +188,7 @@ test('authoritative versions across package.json, manifest, product.json, prefer
   const readmeEn = fs.readFileSync(path.join(root, 'README.en.md'), 'utf8');
   const updateJson = JSON.parse(fs.readFileSync(path.join(root, 'update.json'), 'utf8'));
 
-  const expectedVersion = '15.0.1';
+  const expectedVersion = '15.0.2';
   assert.equal(pkg.version, expectedVersion);
   assert.equal(manifest.version, expectedVersion);
   assert.equal(product.version, expectedVersion);

@@ -337,12 +337,12 @@ function buildInlineStageEditor(subId) {
         <select class="inline-stage-key" aria-label="${escapeHTML(t('keyEventPreset'))}" title="${escapeHTML(t('keyEventPreset'))}">${buildOptions(keyOptions, 'submit')}</select>
         <input type="text" class="inline-stage-name" aria-label="${escapeHTML(t('eventName'))}" value="${escapeHTML(t('defaultManuscriptSubmitted'))}" placeholder="${escapeHTML(t('eventPlaceholder'))}" maxlength="160">
         <input type="date" class="inline-stage-date" aria-label="${escapeHTML(t('eventDate'))}" value="${todayString()}">
-        <input type="date" class="inline-stage-deadline" aria-label="${escapeHTML(t('eventDeadline'))}" title="${escapeHTML(t('eventDeadline'))}">
-        <select class="inline-stage-decision" aria-label="${escapeHTML(t('reviewDecision'))}" title="${escapeHTML(t('reviewDecision'))}">${buildOptions([
+        <label class="inline-stage-labeled-control inline-stage-deadline-field" style="display:flex;flex-direction:column;gap:3px;min-width:0"><span style="font-size:10px;line-height:1.2;color:hsl(var(--text-muted));white-space:nowrap">${escapeHTML(t('eventDeadline'))}</span><input type="date" class="inline-stage-deadline" aria-label="${escapeHTML(t('eventDeadline'))}" title="${escapeHTML(t('eventDeadline'))}"></label>
+        <label class="inline-stage-labeled-control inline-stage-decision-field" style="display:flex;flex-direction:column;gap:3px;min-width:0"><span style="font-size:10px;line-height:1.2;color:hsl(var(--text-muted));white-space:nowrap">${escapeHTML(t('reviewDecision'))}</span><select class="inline-stage-decision" aria-label="${escapeHTML(t('reviewDecision'))}" title="${escapeHTML(t('reviewDecision'))}">${buildOptions([
           { value: '', label: t('noReviewDecision') },
           { value: 'major', label: t('majorRevision') },
           { value: 'minor', label: t('minorRevision') }
-        ], '')}</select>
+        ], '')}</select></label>
         <select class="inline-stage-type" aria-label="${escapeHTML(t('eventTypeSpecial'))}">${buildOptions(typeOptions, 'submission')}</select>
         <input type="text" class="inline-stage-notes" aria-label="${escapeHTML(t('eventNotesShort'))}" placeholder="${escapeHTML(t('eventNotesShort'))}" maxlength="500">
         <button class="btn-primary btn-sm btn-inline-stage-save" type="button">${t('addEvent').replace('+ ', '')}</button><span class="inline-stage-status" data-inline-stage-status role="status" aria-live="polite"></span>
@@ -369,6 +369,8 @@ function syncInlineStagePreset(editor) {
   const typeSelect = editor.querySelector('.inline-stage-type');
   const deadlineInput = editor.querySelector('.inline-stage-deadline');
   const decisionSelect = editor.querySelector('.inline-stage-decision');
+  const deadlineField = editor.querySelector('.inline-stage-deadline-field');
+  const decisionField = editor.querySelector('.inline-stage-decision-field');
   if (!keySelect || !nameInput || !typeSelect) return;
 
   const preset = getInlineEventPreset(keySelect.value);
@@ -381,8 +383,10 @@ function syncInlineStagePreset(editor) {
   nameInput.readOnly = preset.key !== 'custom';
   typeSelect.disabled = preset.key !== 'custom';
   const isReview = typeSelect.value === 'review' || preset.key === 'r1_comments' || preset.key === 'r2_comments';
-  if (deadlineInput) deadlineInput.hidden = !isReview;
-  if (decisionSelect) decisionSelect.hidden = !isReview;
+  if (deadlineField) deadlineField.hidden = !isReview;
+  if (decisionField) decisionField.hidden = !isReview;
+  if (deadlineInput) deadlineInput.hidden = false;
+  if (decisionSelect) decisionSelect.hidden = false;
 }
 
 function applyInlineEventToSubmission(sub, key, eventDate, note = '') {
