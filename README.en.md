@@ -1,4 +1,4 @@
-> **13.8.0 Modular Settings Architecture & Full Feature Switch Governance**: Rebuilt settings into 5 top-down lifecycle modules, completed granular preference switches across all 22 feature areas (reader excerpt menu, tag sync, empty stage folding, journal portals, export formats, import mode), unified `Zotero.PaperFlow` alias and `PaperFlow/*` tag standards, and established dynamic pref observers; preserving full Zotero 10+ (10.0–12.*) compatibility. [Release notes](docs/releases/v13.8.0.md).
+> **15.1.0 Architecture Deconstruction & Pure Node.js Build Pipeline**: Fully deconstructed monolithic architecture (rebuilding historical 2,280-line src/index.ts and oversized singleton modules into decoupled submodules). All 45 source modules strictly comply with §5.9 360-line ceiling (0 debt declared). Established 14-point scripts/architecture-guard.mjs and introduced pure Node.js streaming XPI packaging pipeline; preserving full Zotero 10 ~ 12 modern Gecko compatibility. [Release notes](docs/releases/v15.1.0.md).
 
 # Zotero PaperFlow
 
@@ -82,9 +82,9 @@ Zotero preferences configure window behavior and data maintenance; use workspace
 
 | Item | Scope |
 |---|---|
-| Current add-on version | 13.8.0 |
+| Current add-on version | 15.1.0 |
 | Declared Zotero range | `10.0` through `12.*` (for modern Zotero 10+ Web Components architecture) |
-| Evidence boundary | Version 13.8.0 reconstructs a 5-module settings pane, completes granular preference switches for all 22 features, unifies Zotero.PaperFlow aliases and PaperFlow/* tags with dynamic menu observers, and passes 100% of unit and packaging validations. |
+| Evidence boundary | Version 15.1.0 completed full monolithic deconstruction with all 45 source files strictly under 339 lines. Official architecture baseline declared debtCleared: true; 134 automated unit tests, 8 packaging verification tests, and 14 architecture guard rules pass 100%. |
 
 Add-on and Zotero versions are separate. Manifest compatibility does not establish testing on every host, operating system, or service. This release passed the full Node regression test suite, installer packaging verification, tag self-tests, and isolated Windows Zotero 10 environment checks.
 
