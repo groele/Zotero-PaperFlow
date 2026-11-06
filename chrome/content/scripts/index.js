@@ -698,7 +698,7 @@
                 icon: `${CHROME_ROOT}icons/researchflow.svg`,
                 onCommand: (event) => {
                   try {
-                    this.createRecordFromReader(event?.target?.ownerGlobal);
+                    this.createRecordFromReader(event?.target?.ownerDocument?.defaultView || event?.target?.ownerGlobal);
                   } catch (err) {
                     Zotero.logError?.("[PaperFlow] Reader context error: " + err);
                   }

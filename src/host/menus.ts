@@ -34,7 +34,7 @@ export const hostMenuMethods = {
               icon: `${CHROME_ROOT}icons/researchflow.svg`,
               onCommand: (event: any) => {
                 try {
-                  this.createRecordFromReader(event?.target?.ownerGlobal);
+                  this.createRecordFromReader((event?.target as HTMLElement)?.ownerDocument?.defaultView || (event?.target as any)?.ownerGlobal);
                 } catch (err) {
                   Zotero.logError?.('[PaperFlow] Reader context error: ' + err);
                 }

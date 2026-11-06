@@ -66,9 +66,9 @@
             this.isZotero = true;
             return;
           }
-          if (window.location?.protocol === "chrome:" && window.location.hostname === "researchflow" && typeof Components !== "undefined" && Components.classes) {
+          if (window.location?.protocol === "chrome:" && window.location.hostname === "researchflow" && (typeof Cc !== "undefined" || typeof Components !== "undefined")) {
             try {
-              const host = Components.classes["@zotero.org/Zotero;1"].getService(Components.interfaces.nsISupports).wrappedJSObject;
+              const host = (typeof Cc !== "undefined" ? Cc["@zotero.org/Zotero;1"] : Components?.classes?.["@zotero.org/Zotero;1"]).getService(typeof Ci !== "undefined" ? Ci.nsISupports : Components?.interfaces?.nsISupports).wrappedJSObject;
               if (host?.ResearchFlow) {
                 window.Zotero = host;
                 this.isZotero = true;

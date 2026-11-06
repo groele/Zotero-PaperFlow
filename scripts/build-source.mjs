@@ -5,7 +5,7 @@ import { fileURLToPath } from 'node:url';
 
 const root = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 const pkg = JSON.parse(await fs.readFile(path.join(root, 'package.json'), 'utf8'));
-const version = pkg.version || '15.1.0';
+const version = pkg.version || '16.0.0';
 const buildTime = new Date().toISOString();
 
 console.log(`[build-source] Bundling PaperFlow v${version} for Gecko 153+ / Firefox 140+...`);
