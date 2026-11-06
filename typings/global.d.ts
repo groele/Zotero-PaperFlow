@@ -34,6 +34,13 @@ declare global {
   var RFShareStudio: any;
   var RFSettingsView: any;
   var RFI18n: any;
+  var CloudSyncProvider: any;
+  var StorageEngine: any;
+  var storage: any;
+  var ZoteroBridge: any;
+  var RFConflictRecovery: any;
+  var ResearchFlow_Preferences: any;
+  var RFPlatform: any;
 
   interface Window {
     [key: string]: any;
@@ -52,6 +59,13 @@ declare global {
     RFShareStudio?: any;
     RFSettingsView?: any;
     RFI18n?: any;
+    CloudSyncProvider?: any;
+    StorageEngine?: any;
+    storage?: any;
+    ZoteroBridge?: any;
+    RFConflictRecovery?: any;
+    ResearchFlow_Preferences?: any;
+    RFPlatform?: any;
   }
 }
 

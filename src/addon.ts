@@ -6,6 +6,13 @@ import { ADDON_ID, CHROME_ROOT, PREF_PREFIX, DEFAULT_VERSION } from './config';
 import { RFAcademicCitation } from './modules/academic-citation';
 import { RFArchitectureGuard } from './modules/architecture-guard';
 import { RFItemPaneSection } from './modules/item-pane';
+import { CloudSyncProvider } from './modules/cloud-sync';
+import { RFAcademicSync } from './modules/academic-sync';
+import { StorageEngine, storage } from './modules/storage';
+import { ZoteroBridge, resolveZoteroItem } from './modules/zotero-bridge';
+import { RFConflictRecovery } from './modules/conflict-recovery';
+import { ResearchFlow_Preferences } from './modules/preferences';
+import { RFPlatformAdapter } from './modules/zotero-ui-api';
 
 export class PaperFlowAddon {
   rootURI: string = '';
@@ -30,6 +37,15 @@ export class PaperFlowAddon {
   academicCitation = RFAcademicCitation;
   architectureGuard = RFArchitectureGuard;
   itemPaneSection = RFItemPaneSection;
+  cloudSync = CloudSyncProvider;
+  academicSync = RFAcademicSync;
+  storage = storage;
+  StorageEngine = StorageEngine;
+  bridge = ZoteroBridge;
+  resolveZoteroItem = resolveZoteroItem;
+  conflictRecovery = RFConflictRecovery;
+  preferences = ResearchFlow_Preferences;
+  uiPlatform = RFPlatformAdapter;
 
   async init(ctx?: any): Promise<void> {
     if (ctx?.rootURI) this.rootURI = ctx.rootURI;

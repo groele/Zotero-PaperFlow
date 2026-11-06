@@ -237,7 +237,7 @@ export async function syncManuscriptToChildNote(host: any, item: any, manuscript
       const noteIDs = target.getNotes();
       for (const nid of noteIDs) {
         const noteItem = (typeof Zotero !== 'undefined' && Zotero.Items) ? Zotero.Items.get(nid) : null;
-        if (noteItem && typeof noteItem.isNote === 'function' && noteItem.isNote()) {
+        if (noteItem && !noteItem.deleted && isItemEditableAndActive(noteItem) && typeof noteItem.isNote === 'function' && noteItem.isNote()) {
           const content = noteItem.getNote();
           if (content && (content.includes('[ResearchFlow]') || content.includes('ResearchFlow for Zotero') || content.includes('Zotero PaperFlow') || content.includes('[Zotero PaperFlow]'))) {
             targetNote = noteItem;

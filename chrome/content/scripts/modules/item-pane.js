@@ -1,6 +1,24 @@
 "use strict";
 (() => {
   // src/modules/item-pane.ts
+  function copyToClipboard(text) {
+    if (!text) return;
+    try {
+      if (typeof navigator !== "undefined" && navigator.clipboard?.writeText) {
+        navigator.clipboard.writeText(text).catch(() => {
+        });
+        return;
+      }
+    } catch (_) {
+    }
+    try {
+      const classes = typeof Cc !== "undefined" ? Cc : typeof Components !== "undefined" ? Components.classes : null;
+      const interfaces = typeof Ci !== "undefined" ? Ci : typeof Components !== "undefined" ? Components.interfaces : null;
+      const clipboard = classes?.["@mozilla.org/widget/clipboardhelper;1"]?.getService(interfaces?.nsIClipboardHelper);
+      if (clipboard) clipboard.copyString(text);
+    } catch (_) {
+    }
+  }
   function registerItemPaneSection(host) {
     if (typeof Zotero === "undefined" || typeof Zotero.ItemPaneManager?.registerSection !== "function") return null;
     try {
@@ -150,11 +168,7 @@
               citeChip.textContent = `[@${metaData?.citekey || ""}]`;
               citeChip.title = "点击复制 Citation Key";
               citeChip.addEventListener("click", () => {
-                try {
-                  const clipboard = Components.classes["@mozilla.org/widget/clipboardhelper;1"]?.getService(Components.interfaces.nsIClipboardHelper);
-                  if (clipboard) clipboard.copyString(`[@${metaData?.citekey || ""}]`);
-                } catch (_) {
-                }
+                copyToClipboard(`[@${metaData?.citekey || ""}]`);
                 citeChip.textContent = "✅ 已复制";
                 setTimeout(() => {
                   citeChip.textContent = `[@${metaData?.citekey || ""}]`;
@@ -173,11 +187,7 @@
               btnApa.textContent = "📋 引用";
               btnApa.title = "复制标准引用 (APA)";
               btnApa.addEventListener("click", () => {
-                try {
-                  const clipboard = Components.classes["@mozilla.org/widget/clipboardhelper;1"]?.getService(Components.interfaces.nsIClipboardHelper);
-                  if (clipboard) clipboard.copyString(metaData?.citationApa || "");
-                } catch (_) {
-                }
+                copyToClipboard(metaData?.citationApa || "");
                 btnApa.textContent = "✅ 已复制";
                 setTimeout(() => {
                   btnApa.textContent = "📋 引用";
@@ -188,11 +198,7 @@
               btnBib.textContent = "📋 BibTeX";
               btnBib.title = "复制 BibTeX 引用条目";
               btnBib.addEventListener("click", () => {
-                try {
-                  const clipboard = Components.classes["@mozilla.org/widget/clipboardhelper;1"]?.getService(Components.interfaces.nsIClipboardHelper);
-                  if (clipboard) clipboard.copyString(metaData?.bibtex || "");
-                } catch (_) {
-                }
+                copyToClipboard(metaData?.bibtex || "");
                 btnBib.textContent = "✅ 已复制";
                 setTimeout(() => {
                   btnBib.textContent = "📋 BibTeX";
