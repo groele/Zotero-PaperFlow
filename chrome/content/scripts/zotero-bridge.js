@@ -1,6 +1,6 @@
 "use strict";
 (() => {
-  // src/modules/zotero-bridge.ts
+  // src/modules/zotero-bridge/resolver.ts
   function resolveZoteroItem(zotero, itemKey, libraryID = null) {
     if (!zotero || !itemKey) return null;
     const key = String(itemKey).trim();
@@ -39,60 +39,9 @@
     }
     return null;
   }
-  var ZoteroBridge = {
-    isZotero: false,
-    resolveZoteroItem,
-    resolveItem(itemKey, libraryID = null) {
-      return resolveZoteroItem(typeof window !== "undefined" ? window.Zotero || window.parent?.Zotero : null, itemKey, libraryID);
-    },
-    _pendingRequestId: 0,
-    _requestCallbacks: /* @__PURE__ */ new Map(),
-    _pendingNavigation: null,
-    _directPrefObserverSymbol: null,
-    async conflictRecovery(action, payload = {}) {
-      if (!["list", "inspect", "preview", "apply"].includes(action)) throw new Error("Invalid recovery action");
-      const zotero = typeof window !== "undefined" ? window.Zotero || window.parent?.Zotero : null;
-      if (typeof zotero?.ResearchFlow?.databaseConflictRecovery === "function") {
-        return zotero.ResearchFlow.databaseConflictRecovery(action, payload);
-      }
-      if (!this.isZotero) throw new Error("Conflict recovery requires Zotero");
-      const response = await this.request("RESEARCHFLOW_CONFLICT_RECOVERY", { action, payload }, action === "apply" ? 0 : 3e4);
-      if (!response?.success) throw new Error(response?.error || "Conflict recovery request failed");
-      return response.data;
-    },
-    init() {
-      this.detectEnvironment();
-      this.setupMessageListener();
-      this.initDirectPrefObserver();
-      if (typeof window !== "undefined") {
-        window.addEventListener("researchflow-workspace-ready", () => {
-          if (this._pendingNavigation) {
-            const options = this._pendingNavigation;
-            this._pendingNavigation = null;
-            this.handleHostNavigation(options);
-          }
-        });
-      }
-      if (this.isZotero && typeof document !== "undefined") {
-        document.documentElement.classList.add("zotero-env");
-        document.body?.classList?.add("zotero-env");
-        this.sendToHost({ type: "RESEARCHFLOW_READY" });
-        console.log("[ResearchFlow] Running in Zotero environment");
-        document.addEventListener("click", (e) => {
-          const link = e.target?.closest?.('a[href^="http"]');
-          if (link && !link.dataset.internal) {
-            e.preventDefault();
-            this.openExternal(link.href);
-          }
-        });
-      }
-      if (typeof window !== "undefined") {
-        const initialOptions = window.arguments?.[0]?.options || window._researchflowPending;
-        if (initialOptions) {
-          this.handleHostNavigation(initialOptions);
-        }
-      }
-    },
+
+  // src/modules/zotero-bridge/messenger.ts
+  var bridgeMessengerMethods = {
     detectEnvironment() {
       try {
         if (typeof window !== "undefined") {
@@ -323,6 +272,139 @@
       }
       return defaultValue;
     },
+    async conflictRecovery(action, payload = {}) {
+      if (!["list", "inspect", "preview", "apply"].includes(action)) throw new Error("Invalid recovery action");
+      const zotero = typeof window !== "undefined" ? window.Zotero || window.parent?.Zotero : null;
+      if (typeof zotero?.ResearchFlow?.databaseConflictRecovery === "function") {
+        return zotero.ResearchFlow.databaseConflictRecovery(action, payload);
+      }
+      if (!this.isZotero) throw new Error("Conflict recovery requires Zotero");
+      const response = await this.request("RESEARCHFLOW_CONFLICT_RECOVERY", { action, payload }, action === "apply" ? 0 : 3e4);
+      if (!response?.success) throw new Error(response?.error || "Conflict recovery request failed");
+      return response.data;
+    }
+  };
+
+  // src/modules/zotero-bridge/navigation-handler.ts
+  function handleHostNavigation(options) {
+    if (!options || typeof options !== "object" || typeof window === "undefined") return;
+    if (!window._researchflowWorkspaceReady) {
+      this._pendingNavigation = options;
+      return;
+    }
+    if (options.view && typeof document !== "undefined") {
+      const navBtn = document.querySelector(`.nav-item[data-view="${options.view}"]`);
+      if (navBtn) navBtn.click();
+    }
+    if (options.action === "create_manuscript_from_item" && options.item && typeof document !== "undefined") {
+      const item = options.item;
+      const kanbanBtn = document.querySelector('.nav-item[data-view="view-manuscripts"]');
+      if (kanbanBtn) kanbanBtn.click();
+      setTimeout(() => {
+        if (typeof window.openManuscriptModal === "function") {
+          window.openManuscriptModal(null, {
+            title: item.title || "",
+            publication: item.publication || "",
+            abstract: item.abstract || "",
+            authors: item.authors || "",
+            doi: item.doi || "",
+            articleUrl: item.url || "",
+            zoteroItemKey: item.key || "",
+            zoteroUri: item.zoteroUri || "",
+            pdfUri: item.pdfUri || "",
+            citekey: item.citekey || "",
+            bibtex: item.bibtex || "",
+            citationApa: item.citationApa || "",
+            relatedItems: item.relatedItems || [],
+            collections: item.collections || [],
+            tags: item.tags || [],
+            status: "idea"
+          });
+          if (typeof window.showGlobalToast === "function") {
+            window.showGlobalToast(`已从 Zotero 文献《${(item.title || "").slice(0, 18)}…》导入元数据`, "success");
+          }
+        }
+      }, 200);
+    } else if (options.action === "link_item_to_manuscript" && options.item && typeof document !== "undefined") {
+      const item = options.item;
+      const kanbanBtn = document.querySelector('.nav-item[data-view="view-manuscripts"]');
+      if (kanbanBtn) kanbanBtn.click();
+      setTimeout(() => {
+        if (typeof window.showLinkManuscriptModal === "function") {
+          window.showLinkManuscriptModal(item);
+        }
+      }, 200);
+    } else if (options.action === "reader_excerpt" && typeof document !== "undefined") {
+      const kanbanBtn = document.querySelector('.nav-item[data-view="view-manuscripts"]');
+      if (kanbanBtn) kanbanBtn.click();
+      setTimeout(() => {
+        if (typeof window.openManuscriptModal === "function") {
+          const excerptText = options.excerpt ? `【PDF 第 ${options.page || 1} 页原文摘录】
+${options.excerpt}
+
+[📖 在 Zotero 阅读器中查看原文](${options.pdfLink || ""})` : options.item?.abstract || "";
+          window.openManuscriptModal(null, {
+            title: options.item?.title ? `研读笔记：${options.item.title}` : "PDF 摘录笔记",
+            publication: options.item?.publication || "",
+            abstract: excerptText,
+            authors: options.item?.authors || "",
+            doi: options.item?.doi || "",
+            articleUrl: options.pdfLink || options.item?.url || "",
+            zoteroItemKey: options.item?.key || "",
+            zoteroUri: options.item?.zoteroUri || "",
+            pdfUri: options.pdfLink || options.item?.pdfUri || "",
+            citekey: options.item?.citekey || "",
+            bibtex: options.item?.bibtex || "",
+            citationApa: options.item?.citationApa || "",
+            relatedItems: options.item?.relatedItems || [],
+            status: "idea"
+          });
+          if (typeof window.showGlobalToast === "function") {
+            window.showGlobalToast(`已从 PDF 第 ${options.page || 1} 页载入摘录内容与文献关联`, "success");
+          }
+        }
+      }, 200);
+    } else if (options.action === "create_from_collection" && typeof document !== "undefined") {
+      const kanbanBtn = document.querySelector('.nav-item[data-view="view-manuscripts"]');
+      if (kanbanBtn) kanbanBtn.click();
+      setTimeout(() => {
+        if (typeof window.openManuscriptModal === "function") {
+          const colItems = options.items || [];
+          const summary = colItems.slice(0, 5).map((it, idx) => `${idx + 1}. ${it.title} (${it.authors || ""} ${it.year || ""})`.trim()).join("\n");
+          window.openManuscriptModal(null, {
+            title: `${options.collectionName || "文献分类"} 论文写作管线`,
+            publication: "",
+            abstract: `基于 Zotero 分类【${options.collectionName || "文献分类"}】创建。
+共包含文献 ${colItems.length} 篇：
+${summary}${colItems.length > 5 ? "\n…" : ""}`,
+            authors: "",
+            doi: "",
+            zoteroItemKey: colItems[0]?.key || "",
+            zoteroUri: colItems[0]?.zoteroUri || "",
+            pdfUri: colItems[0]?.pdfUri || "",
+            status: "idea"
+          });
+          if (typeof window.showGlobalToast === "function") {
+            window.showGlobalToast(`已基于分类【${options.collectionName || ""}】初始化论文稿件管线`, "success");
+          }
+        }
+      }, 200);
+    } else if (options.manuscriptId && typeof document !== "undefined") {
+      const kanbanBtn = document.querySelector('.nav-item[data-view="view-manuscripts"]');
+      if (kanbanBtn) kanbanBtn.click();
+      setTimeout(() => {
+        const card = document.querySelector(`[data-manuscript-id="${options.manuscriptId}"]`) || document.querySelector(`[data-id="${options.manuscriptId}"]`);
+        if (card) {
+          card.scrollIntoView({ behavior: "smooth", block: "center" });
+          card.classList.add("highlight-pulse");
+          setTimeout(() => card.classList.remove("highlight-pulse"), 2500);
+        }
+      }, 300);
+    }
+  }
+
+  // src/modules/zotero-bridge/actions.ts
+  var bridgeActionMethods = {
     async getActiveItem() {
       try {
         const zotero = typeof window !== "undefined" ? window.Zotero || window.parent?.Zotero : null;
@@ -579,124 +661,7 @@
       }
       return false;
     },
-    handleHostNavigation(options) {
-      if (!options || typeof options !== "object" || typeof window === "undefined") return;
-      if (!window._researchflowWorkspaceReady) {
-        this._pendingNavigation = options;
-        return;
-      }
-      if (options.view && typeof document !== "undefined") {
-        const navBtn = document.querySelector(`.nav-item[data-view="${options.view}"]`);
-        if (navBtn) {
-          navBtn.click();
-        }
-      }
-      if (options.action === "create_manuscript_from_item" && options.item && typeof document !== "undefined") {
-        const item = options.item;
-        const kanbanBtn = document.querySelector('.nav-item[data-view="view-manuscripts"]');
-        if (kanbanBtn) kanbanBtn.click();
-        setTimeout(() => {
-          if (typeof window.openManuscriptModal === "function") {
-            window.openManuscriptModal(null, {
-              title: item.title || "",
-              publication: item.publication || "",
-              abstract: item.abstract || "",
-              authors: item.authors || "",
-              doi: item.doi || "",
-              articleUrl: item.url || "",
-              zoteroItemKey: item.key || "",
-              zoteroUri: item.zoteroUri || "",
-              pdfUri: item.pdfUri || "",
-              citekey: item.citekey || "",
-              bibtex: item.bibtex || "",
-              citationApa: item.citationApa || "",
-              relatedItems: item.relatedItems || [],
-              collections: item.collections || [],
-              tags: item.tags || [],
-              status: "idea"
-            });
-            if (typeof window.showGlobalToast === "function") {
-              window.showGlobalToast(`已从 Zotero 文献《${(item.title || "").slice(0, 18)}…》导入元数据`, "success");
-            }
-          }
-        }, 200);
-      } else if (options.action === "link_item_to_manuscript" && options.item && typeof document !== "undefined") {
-        const item = options.item;
-        const kanbanBtn = document.querySelector('.nav-item[data-view="view-manuscripts"]');
-        if (kanbanBtn) kanbanBtn.click();
-        setTimeout(() => {
-          if (typeof window.showLinkManuscriptModal === "function") {
-            window.showLinkManuscriptModal(item);
-          }
-        }, 200);
-      } else if (options.action === "reader_excerpt" && typeof document !== "undefined") {
-        const kanbanBtn = document.querySelector('.nav-item[data-view="view-manuscripts"]');
-        if (kanbanBtn) kanbanBtn.click();
-        setTimeout(() => {
-          if (typeof window.openManuscriptModal === "function") {
-            const excerptText = options.excerpt ? `【PDF 第 ${options.page || 1} 页原文摘录】
-${options.excerpt}
-
-[📖 在 Zotero 阅读器中查看原文](${options.pdfLink || ""})` : options.item?.abstract || "";
-            window.openManuscriptModal(null, {
-              title: options.item?.title ? `研读笔记：${options.item.title}` : "PDF 摘录笔记",
-              publication: options.item?.publication || "",
-              abstract: excerptText,
-              authors: options.item?.authors || "",
-              doi: options.item?.doi || "",
-              articleUrl: options.pdfLink || options.item?.url || "",
-              zoteroItemKey: options.item?.key || "",
-              zoteroUri: options.item?.zoteroUri || "",
-              pdfUri: options.pdfLink || options.item?.pdfUri || "",
-              citekey: options.item?.citekey || "",
-              bibtex: options.item?.bibtex || "",
-              citationApa: options.item?.citationApa || "",
-              relatedItems: options.item?.relatedItems || [],
-              status: "idea"
-            });
-            if (typeof window.showGlobalToast === "function") {
-              window.showGlobalToast(`已从 PDF 第 ${options.page || 1} 页载入摘录内容与文献关联`, "success");
-            }
-          }
-        }, 200);
-      } else if (options.action === "create_from_collection" && typeof document !== "undefined") {
-        const kanbanBtn = document.querySelector('.nav-item[data-view="view-manuscripts"]');
-        if (kanbanBtn) kanbanBtn.click();
-        setTimeout(() => {
-          if (typeof window.openManuscriptModal === "function") {
-            const colItems = options.items || [];
-            const summary = colItems.slice(0, 5).map((it, idx) => `${idx + 1}. ${it.title} (${it.authors || ""} ${it.year || ""})`.trim()).join("\n");
-            window.openManuscriptModal(null, {
-              title: `${options.collectionName || "文献分类"} 论文写作管线`,
-              publication: "",
-              abstract: `基于 Zotero 分类【${options.collectionName || "文献分类"}】创建。
-共包含文献 ${colItems.length} 篇：
-${summary}${colItems.length > 5 ? "\n…" : ""}`,
-              authors: "",
-              doi: "",
-              zoteroItemKey: colItems[0]?.key || "",
-              zoteroUri: colItems[0]?.zoteroUri || "",
-              pdfUri: colItems[0]?.pdfUri || "",
-              status: "idea"
-            });
-            if (typeof window.showGlobalToast === "function") {
-              window.showGlobalToast(`已基于分类【${options.collectionName || ""}】初始化论文稿件管线`, "success");
-            }
-          }
-        }, 200);
-      } else if (options.manuscriptId && typeof document !== "undefined") {
-        const kanbanBtn = document.querySelector('.nav-item[data-view="view-manuscripts"]');
-        if (kanbanBtn) kanbanBtn.click();
-        setTimeout(() => {
-          const card = document.querySelector(`[data-manuscript-id="${options.manuscriptId}"]`) || document.querySelector(`[data-id="${options.manuscriptId}"]`);
-          if (card) {
-            card.scrollIntoView({ behavior: "smooth", block: "center" });
-            card.classList.add("highlight-pulse");
-            setTimeout(() => card.classList.remove("highlight-pulse"), 2500);
-          }
-        }, 300);
-      }
-    },
+    handleHostNavigation,
     selectItemInZotero(itemKey, libraryID = null) {
       if (!itemKey || typeof window === "undefined") return;
       try {
@@ -731,6 +696,54 @@ ${summary}${colItems.length > 5 ? "\n…" : ""}`,
       } catch (_) {
       }
     }
+  };
+
+  // src/modules/zotero-bridge.ts
+  var ZoteroBridge = {
+    isZotero: false,
+    resolveZoteroItem,
+    resolveItem(itemKey, libraryID = null) {
+      return resolveZoteroItem(typeof window !== "undefined" ? window.Zotero || window.parent?.Zotero : null, itemKey, libraryID);
+    },
+    _pendingRequestId: 0,
+    _requestCallbacks: /* @__PURE__ */ new Map(),
+    _pendingNavigation: null,
+    _directPrefObserverSymbol: null,
+    init() {
+      this.detectEnvironment();
+      this.setupMessageListener();
+      this.initDirectPrefObserver();
+      if (typeof window !== "undefined") {
+        window.addEventListener("researchflow-workspace-ready", () => {
+          if (this._pendingNavigation) {
+            const options = this._pendingNavigation;
+            this._pendingNavigation = null;
+            this.handleHostNavigation(options);
+          }
+        });
+      }
+      if (this.isZotero && typeof document !== "undefined") {
+        document.documentElement.classList.add("zotero-env");
+        document.body?.classList?.add("zotero-env");
+        this.sendToHost({ type: "RESEARCHFLOW_READY" });
+        console.log("[ResearchFlow] Running in Zotero environment");
+        document.addEventListener("click", (e) => {
+          const link = e.target?.closest?.('a[href^="http"]');
+          if (link && !link.dataset.internal) {
+            e.preventDefault();
+            this.openExternal(link.href);
+          }
+        });
+      }
+      if (typeof window !== "undefined") {
+        const initialOptions = window.arguments?.[0]?.options || window._researchflowPending;
+        if (initialOptions) {
+          this.handleHostNavigation(initialOptions);
+        }
+      }
+    },
+    ...bridgeMessengerMethods,
+    ...bridgeActionMethods
   };
   if (typeof document !== "undefined") {
     if (document.readyState === "loading") {

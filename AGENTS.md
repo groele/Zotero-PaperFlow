@@ -101,15 +101,21 @@ npm run test:package
 - `tests/timeline-alerts.test.js`：时间轴里程碑与修回告警。
 
 ### 5.2 XPI 打包与自检
-打包脚本为 `tools/build-xpi.py`，调用 `scripts/release_package.py` 进行可复现打包和 CRLF/LF 归一化：
+打包脚本全面由纯 Node.js 现代流水线驱动（`scripts/package-xpi.mjs`），进行严格的可复现 ZIP 打包、CRLF/LF 归一化与 SHA-256/SHA-512 哈希同步，同时兼容保留 Python 历史脚本：
 ```bash
-# 构建并同步 update.json 哈希
-python tools/build-xpi.py --update-feeds
+# 纯 Node 构建并同步 update.json 哈希
+npm run build:xpi
+# 或: node scripts/package-xpi.mjs --update-feeds
 
-# 运行打包策略测试
+# 运行架构守卫（13 项 §5.9 / §3 / §4 / §5.2 规范静态断言）
+npm run guard
+
+# 运行打包策略测试与标签自检
+npm run test:package
+npm run test:tags
+
+# 兼容保留的 Python 打包链路测试
 python scripts/test-release-package.py
-
-# 标签语法与版本自检
 python scripts/release-tags.py --self-test
 ```
 

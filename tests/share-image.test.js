@@ -6,7 +6,6 @@ const os = require('node:os');
 const { test } = require('node:test');
 const root = path.resolve(__dirname, '..');
 const source = fs.readFileSync(path.join(root, 'chrome/content/scripts/index.js'), 'utf8');
-const method = source.slice(source.indexOf('    async saveShareImageFile('), source.indexOf('    async exportDatabaseFile('));
 const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aY1kAAAAASUVORK5CYII=', 'base64');
 
 function host(options = {}) {
@@ -18,14 +17,17 @@ function host(options = {}) {
     async show() { return options.show ? options.show() : (options.result ?? 0); }
   }
   const context = vm.createContext({ Uint8Array, ChromeUtils: { importESModule: () => ({ FilePicker }) },
-    Zotero: { getMainWindow: () => ({ browsingContext: {} }), logError() {} }, Services: {},
+    Zotero: { getMainWindow: () => ({ browsingContext: {} }), log() {}, logError() {}, Prefs: { get() {}, set() {} } },
+    Services: { wm: { getEnumerator: () => ({ hasMoreElements: () => false }) } },
+    PathUtils: { join: (...args) => args.join('/') },
     IOUtils: { async write(filePath, bytes) {
       if (options.writeError) throw new Error(options.writeError);
       if (options.realWrite) await fs.promises.writeFile(filePath, bytes);
       state.writes.push({ filePath, bytes: Buffer.from(bytes) });
     } }
   });
-  return { runtime: vm.runInContext(`({ ${method} })`, context), state };
+  vm.runInContext(source, context);
+  return { runtime: context.Zotero.ResearchFlow, state };
 }
 
 test('Save As writes the exact PNG to the selected Unicode path before confirming success', async () => {

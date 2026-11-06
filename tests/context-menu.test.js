@@ -7,8 +7,6 @@ const { test } = require('node:test');
 const root = path.resolve(__dirname, '..');
 const source = fs.readFileSync(path.join(root, 'chrome/content/scripts/index.js'), 'utf8');
 
-const getPrefCode = source.slice(source.indexOf('    getPref(key, defaultValue) {'), source.indexOf('    setPref(key, value) {'));
-const updateMenusCode = source.slice(source.indexOf('    updateReaderContextMenu() {'), source.indexOf('    async searchLibrary(query, limit = 15) {'));
 
 function createTestRuntime(prefs = {}) {
   const registeredMenus = [];
@@ -68,14 +66,8 @@ function createTestRuntime(prefs = {}) {
     }
   });
 
-  const script = `({
-    _menuManagerItem: null,
-    _menuManagerReader: null,
-    ${getPrefCode}
-    ${updateMenusCode}
-  })`;
-
-  const runtime = vm.runInContext(script, context);
+  vm.runInContext(source, context);
+  const runtime = context.Zotero.ResearchFlow;
   return { runtime, registeredMenus, unregisteredMenus, removedElements, mockDoc };
 }
 

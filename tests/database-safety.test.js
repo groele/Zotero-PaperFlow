@@ -2,13 +2,10 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
+const crypto = require('node:crypto');
 const { test } = require('node:test');
 
 const source = fs.readFileSync(path.join(__dirname, '../chrome/content/scripts/index.js'), 'utf8');
-const start = source.indexOf('    notifyDataChanged() {');
-const end = source.indexOf('    async saveShareImageFile(', start);
-assert.ok(start >= 0 && end > start, 'Host database methods must be present');
-const methods = source.slice(start, end);
 const plain = value => JSON.parse(JSON.stringify(value));
 const database = overrides => ({ schemaVersion: 7, revision: 3, researchAreas: [], projects: [],
   researchRecords: [], manuscripts: [], submissions: [], tasks: [], settings: {}, ...overrides });
@@ -23,9 +20,18 @@ function host(initial = database(), options = {}) {
   const state = { writes: [], notifications: 0, errors: [] };
   const context = vm.createContext({
     CHROME_ROOT: 'chrome://researchflow/content/',
-    Zotero: { logError: error => state.errors.push(String(error)), getMainWindow: () => ({ Localization: class {
-      formatValueSync(key, args) { return `${key}: ${JSON.stringify(args)}`; }
-    } }) },
+    TextEncoder, TextDecoder,
+    Zotero: {
+      log() {},
+      logError: error => state.errors.push(String(error)),
+      Prefs: { get() {}, set() {} },
+      Utilities: { Internal: { md5: text => crypto.createHash('md5').update(text).digest('hex') } },
+      getMainWindow: () => ({ Localization: class {
+        formatValueSync(key, args) { return key + ': ' + JSON.stringify(args); }
+      } })
+    },
+    Services: { wm: { getEnumerator: () => ({ hasMoreElements: () => false }) } },
+    PathUtils: { filename: path.posix.basename, parent: path.posix.dirname, join: path.posix.join },
     fetch: async () => ({ ok: false }),
     IOUtils: {
       exists: async file => files.has(file),
@@ -37,7 +43,10 @@ function host(initial = database(), options = {}) {
       }
     }
   });
-  const runtime = vm.runInContext(`({ _cachedData: null, ${methods} })`, context);
+  vm.runInContext(source, context);
+  const runtime = context.Zotero.ResearchFlow;
+  runtime._cachedData = null;
+  runtime.getSyncedSettingsFromPrefs = undefined;
   runtime.getDataFilePath = () => '/data.json';
   runtime.getBackupFilePath = () => '/backup.json';
   runtime.notifyDataChanged = () => { state.notifications++; };

@@ -1,5 +1,50 @@
 "use strict";
 (() => {
+  // src/modules/storage/types.ts
+  var SYNC_CREDENTIALS_KEY = "researchflow_sync_credentials";
+  var SYNC_SECRET_KEYS = /* @__PURE__ */ new Set(["token", "password", "accesstoken", "refreshtoken", "clientsecret", "authorization"]);
+  var DEFAULT_DB = {
+    schemaVersion: 7,
+    lastUpdated: 0,
+    updatedAt: null,
+    revision: 0,
+    deviceId: "",
+    researchAreas: [],
+    projects: [],
+    researchRecords: [],
+    manuscripts: [],
+    submissions: [],
+    tasks: [],
+    deletedEntities: {
+      researchAreas: [],
+      projects: [],
+      researchRecords: [],
+      manuscripts: [],
+      submissions: [],
+      tasks: []
+    },
+    settings: {
+      syncProviders: {
+        metadata: { provider: "local", config: {}, autoSync: true }
+      },
+      profile: {
+        displayName: "",
+        chineseName: "",
+        englishName: "",
+        affiliation: "",
+        orcid: "",
+        language: "en",
+        theme: "system"
+      },
+      journalPortals: [
+        { id: "acs", name: "ACS", url: "https://publish.acs.org/app/login?code=1000", color: "#002C6C", isDefault: true },
+        { id: "wiley", name: "Wiley", url: "https://submission.wiley.com/submission/dashboard", color: "#00A4E4", isDefault: true },
+        { id: "apl", name: "APL", url: "https://apl.peerx-press.org/cgi-bin/main.plex", color: "#D22630", isDefault: true },
+        { id: "nature", name: "Nature", url: "https://mts-ncomms.nature.com/cgi-bin/main.plex", color: "#B59E50", isDefault: true }
+      ]
+    }
+  };
+
   // src/modules/cloud-sync.ts
   function toBase64Utf8(obj) {
     const text = JSON.stringify(obj, null, 2);
@@ -160,69 +205,19 @@
     globalThis.module.exports = CloudSyncProvider;
   }
 
-  // src/modules/storage.ts
-  var SYNC_CREDENTIALS_KEY = "researchflow_sync_credentials";
-  var SYNC_SECRET_KEYS = /* @__PURE__ */ new Set(["token", "password", "accesstoken", "refreshtoken", "clientsecret", "authorization"]);
-  var DEFAULT_DB = {
-    schemaVersion: 7,
-    lastUpdated: 0,
-    updatedAt: null,
-    revision: 0,
-    deviceId: "",
-    researchAreas: [],
-    projects: [],
-    researchRecords: [],
-    manuscripts: [],
-    submissions: [],
-    tasks: [],
-    deletedEntities: {
-      researchAreas: [],
-      projects: [],
-      researchRecords: [],
-      manuscripts: [],
-      submissions: [],
-      tasks: []
-    },
-    settings: {
-      syncProviders: {
-        metadata: { provider: "local", config: {}, autoSync: true }
-        // Provider for JSON database sync
-      },
-      profile: {
-        displayName: "",
-        chineseName: "",
-        englishName: "",
-        affiliation: "",
-        orcid: "",
-        language: "en",
-        theme: "system"
-      },
-      journalPortals: [
-        { id: "acs", name: "ACS", url: "https://publish.acs.org/app/login?code=1000", color: "#002C6C", isDefault: true },
-        { id: "wiley", name: "Wiley", url: "https://submission.wiley.com/submission/dashboard", color: "#00A4E4", isDefault: true },
-        { id: "apl", name: "APL", url: "https://apl.peerx-press.org/cgi-bin/main.plex", color: "#D22630", isDefault: true },
-        { id: "nature", name: "Nature", url: "https://mts-ncomms.nature.com/cgi-bin/main.plex", color: "#B59E50", isDefault: true }
-      ]
-    }
-  };
-  var StorageEngine = class {
-    cache;
-    loadPromise;
-    syncing;
-    deviceIdPromise;
-    syncTimer;
-    syncCredentials;
+  // src/modules/storage/base.ts
+  var StorageBase = class {
+    cache = null;
+    loadPromise = null;
+    syncing = false;
+    deviceIdPromise = null;
+    syncTimer = null;
+    syncCredentials = null;
     commitQueue;
     enqueueCommit;
     _activeEditorSaves;
     _pendingEditorTargets;
     constructor() {
-      this.cache = null;
-      this.loadPromise = null;
-      this.syncing = false;
-      this.deviceIdPromise = null;
-      this.syncTimer = null;
-      this.syncCredentials = null;
       if (typeof RFPlatform !== "undefined" && RFPlatform.storage?.onChanged) {
         RFPlatform.storage.onChanged.addListener((changes, area) => {
           if (area === "local" && changes[SYNC_CREDENTIALS_KEY]) this.syncCredentials = null;
@@ -245,9 +240,89 @@
       if (typeof window === "undefined") return null;
       return window.Zotero || window.parent?.Zotero || window.arguments?.[0]?.Zotero || null;
     }
-    /**
-     * Initializes or fetches database from cache
-     */
+    async fetchWithTimeout(url, options = {}) {
+      const { timeout = 15e3, ...rest } = options;
+      const controller = new AbortController();
+      const id = setTimeout(() => controller.abort(), timeout);
+      try {
+        return await fetch(url, { ...rest, signal: controller.signal });
+      } finally {
+        clearTimeout(id);
+      }
+    }
+    async ensureDbShape(data, options = {}) {
+      const db = data && typeof data === "object" ? data : {};
+      db.schemaVersion = 7;
+      db.lastUpdated = typeof db.lastUpdated === "number" ? db.lastUpdated : Date.now();
+      db.updatedAt = typeof db.updatedAt === "string" ? db.updatedAt : (/* @__PURE__ */ new Date()).toISOString();
+      db.revision = typeof db.revision === "number" && Number.isFinite(db.revision) ? db.revision : 0;
+      db.deviceId = typeof db.deviceId === "string" && db.deviceId ? db.deviceId : await this.getDeviceId();
+      const collections = ["researchAreas", "projects", "researchRecords", "manuscripts", "submissions", "tasks"];
+      collections.forEach((name) => {
+        if (!Array.isArray(db[name])) db[name] = [];
+      });
+      db.deletedEntities = db.deletedEntities && typeof db.deletedEntities === "object" ? db.deletedEntities : {};
+      collections.forEach((name) => {
+        if (!Array.isArray(db.deletedEntities[name])) db.deletedEntities[name] = [];
+      });
+      db.settings = db.settings && typeof db.settings === "object" ? db.settings : {};
+      if (!db.settings.profile || typeof db.settings.profile !== "object") {
+        db.settings.profile = { ...DEFAULT_DB.settings.profile };
+      }
+      if (!Array.isArray(db.settings.journalPortals) || !db.settings.journalPortals.length) {
+        db.settings.journalPortals = [...DEFAULT_DB.settings.journalPortals];
+      }
+      if (!db.settings.syncProviders || typeof db.settings.syncProviders !== "object") {
+        db.settings.syncProviders = { ...DEFAULT_DB.settings.syncProviders };
+      }
+      if (!db.settings.syncProviders.metadata) {
+        db.settings.syncProviders.metadata = { provider: "local", config: {}, autoSync: true };
+      }
+      delete db.evidenceLocker;
+      delete db.aiSettings;
+      delete db.settings?.ai;
+      delete db.settings?.cloudSync;
+      delete db.settings?.evidenceLocker;
+      return db;
+    }
+    async getDeviceId() {
+      if (this.cache?.deviceId) return this.cache.deviceId;
+      if (this.deviceIdPromise) return this.deviceIdPromise;
+      this.deviceIdPromise = (async () => {
+        try {
+          if (typeof RFPlatform !== "undefined" && RFPlatform.storage?.local?.get) {
+            const res = await RFPlatform.storage.local.get("researchflow_device_id");
+            if (res?.researchflow_device_id) return res.researchflow_device_id;
+            const newId = "dev_" + Math.random().toString(36).substring(2, 10);
+            await RFPlatform.storage.local.set({ researchflow_device_id: newId });
+            return newId;
+          }
+        } catch (_) {
+        }
+        return "dev_default_" + Math.random().toString(36).substring(2, 6);
+      })();
+      return this.deviceIdPromise;
+    }
+    deepMerge(target, source) {
+      if (!source || typeof source !== "object") return target;
+      const output = Array.isArray(target) ? [...target] : { ...target };
+      Object.keys(source).forEach((key) => {
+        const srcVal = source[key];
+        const tgtVal = output[key];
+        if (Array.isArray(srcVal)) {
+          output[key] = [...srcVal];
+        } else if (srcVal && typeof srcVal === "object") {
+          output[key] = this.deepMerge(tgtVal && typeof tgtVal === "object" ? tgtVal : {}, srcVal);
+        } else {
+          output[key] = srcVal;
+        }
+      });
+      return output;
+    }
+  };
+
+  // src/modules/storage/persistence.ts
+  var StoragePersistence = class extends StorageBase {
     async loadAll() {
       if (this.cache) return JSON.parse(JSON.stringify(this.cache));
       if (!this.loadPromise) {
@@ -310,9 +385,6 @@
         return this.cache;
       }
     }
-    /**
-     * Saves database locally and schedules background cloud sync
-     */
     async saveAll(data, options = {}) {
       const notify = (state, error = "") => {
         if (typeof window !== "undefined" && window.dispatchEvent) {
@@ -453,7 +525,7 @@
       if (this.syncTimer) clearTimeout(this.syncTimer);
       this.syncTimer = setTimeout(() => {
         this.syncTimer = null;
-        this.syncDatabaseNow().catch(console.error);
+        this.syncDatabaseNow?.().catch(console.error);
       }, delayMs);
     }
     async persistLocal(data, options = {}) {
@@ -490,67 +562,10 @@
       localStorage.setItem("researchflow_db", JSON.stringify(safeData));
       return data;
     }
-    async fetchWithTimeout(url, options = {}) {
-      return fetch(url, { ...options, signal: options.signal || (typeof AbortSignal !== "undefined" && AbortSignal.timeout ? AbortSignal.timeout(2e4) : void 0) });
-    }
-    async ensureDbShape(data, options = {}) {
-      const now = Date.now();
-      const source = data && typeof data === "object" ? data : {};
-      const normalized = this.deepMerge(JSON.parse(JSON.stringify(DEFAULT_DB)), source);
-      delete normalized.evidence;
-      delete normalized.projectEvidenceLinks;
-      delete normalized.recordEvidenceLinks;
-      [
-        "researchAreas",
-        "projects",
-        "researchRecords",
-        "manuscripts",
-        "submissions",
-        "tasks"
-      ].forEach((key) => {
-        if (!Array.isArray(normalized[key])) normalized[key] = [];
-      });
-      normalized.deletedEntities = normalized.deletedEntities && typeof normalized.deletedEntities === "object" ? normalized.deletedEntities : {};
-      [
-        "researchAreas",
-        "projects",
-        "researchRecords",
-        "manuscripts",
-        "submissions",
-        "tasks"
-      ].forEach((key) => {
-        normalized.deletedEntities[key] = this.normalizeDeletionTombstones(normalized.deletedEntities[key]);
-      });
-      normalized.schemaVersion = Math.max(Number(normalized.schemaVersion) || 0, DEFAULT_DB.schemaVersion);
-      normalized.settings = this.deepMerge(DEFAULT_DB.settings, normalized.settings || {});
-      delete normalized.settings.ai;
-      delete normalized.settings.syncProviders.files;
-      const zotero = this.getZoteroInstance();
-      if (typeof zotero?.ResearchFlow?.getSyncedSettingsFromPrefs === "function") {
-        try {
-          normalized.settings = zotero.ResearchFlow.getSyncedSettingsFromPrefs(normalized.settings);
-        } catch (_) {
-        }
-      }
-      if (options.migrateCredentials === false) {
-        const metadata = normalized.settings?.syncProviders?.metadata;
-        if (metadata) metadata.config = this.getPublicSyncConfig(metadata.provider, metadata.config);
-      } else {
-        await this.migrateSyncCredentials(normalized);
-      }
-      normalized.deviceId = normalized.deviceId || await this.getDeviceId();
-      this.normalizeEntityMetadata(normalized);
-      if (options.stamp) {
-        normalized.lastUpdated = now;
-        normalized.updatedAt = new Date(now).toISOString();
-        normalized.revision = (Number(normalized.revision) || 0) + 1;
-      } else {
-        normalized.lastUpdated = Number(normalized.lastUpdated) || now;
-        normalized.updatedAt = normalized.updatedAt || new Date(normalized.lastUpdated).toISOString();
-        normalized.revision = Number(normalized.revision) || 0;
-      }
-      return normalized;
-    }
+  };
+
+  // src/modules/storage/tombstones.ts
+  var StorageTombstones = class extends StoragePersistence {
     recordEntityDeletion(database, collectionName, entityId) {
       if (!database || !entityId || !Array.isArray(database?.[collectionName])) return false;
       database.deletedEntities = database.deletedEntities && typeof database.deletedEntities === "object" ? database.deletedEntities : {};
@@ -779,81 +794,10 @@
         });
       });
     }
-    async getDeviceId() {
-      if (!this.deviceIdPromise) {
-        this.deviceIdPromise = (async () => {
-          const zotero = this.getZoteroInstance();
-          if (zotero?.Prefs) {
-            let devId = zotero.Prefs.get("extensions.researchflow.deviceId", true);
-            if (!devId) {
-              devId = "device_zotero_" + Math.random().toString(36).slice(2) + Date.now().toString(36);
-              zotero.Prefs.set("extensions.researchflow.deviceId", devId, true);
-            }
-            return devId;
-          }
-          if (typeof RFPlatform !== "undefined" && RFPlatform.storage?.local) {
-            return new Promise((resolve, reject) => {
-              RFPlatform.storage.local.get(["researchflow_device_id"], (result) => {
-                if (RFPlatform.runtime?.lastError) {
-                  reject(new Error(RFPlatform.runtime.lastError.message));
-                  return;
-                }
-                if (result?.researchflow_device_id) {
-                  resolve(result.researchflow_device_id);
-                  return;
-                }
-                const id = "device_" + Math.random().toString(36).slice(2) + Date.now().toString(36);
-                RFPlatform.storage.local.set({ researchflow_device_id: id }, () => {
-                  if (RFPlatform.runtime?.lastError) reject(new Error(RFPlatform.runtime.lastError.message));
-                  else resolve(id);
-                });
-              });
-            });
-          }
-          try {
-            let devId = typeof localStorage !== "undefined" ? localStorage.getItem("researchflow_device_id") : null;
-            if (!devId) {
-              devId = "device_" + Math.random().toString(36).slice(2) + Date.now().toString(36);
-              if (typeof localStorage !== "undefined") localStorage.setItem("researchflow_device_id", devId);
-            }
-            return devId;
-          } catch (_) {
-            return "device_fallback_" + Date.now();
-          }
-        })().catch((error) => {
-          this.deviceIdPromise = null;
-          throw error;
-        });
-      }
-      return this.deviceIdPromise;
-    }
-    /**
-     * Helper to deeply merge objects
-     */
-    deepMerge(target, source) {
-      const output = Object.assign({}, target);
-      if (isObject(target) && isObject(source)) {
-        Object.keys(source).forEach((key) => {
-          if (key === "__proto__" || key === "constructor" || key === "prototype") return;
-          if (isObject(source[key])) {
-            if (!(key in target)) {
-              Object.assign(output, { [key]: this.deepMerge({}, source[key]) });
-            } else {
-              output[key] = this.deepMerge(target[key], source[key]);
-            }
-          } else {
-            Object.assign(output, { [key]: source[key] });
-          }
-        });
-      }
-      return output;
-      function isObject(item) {
-        return item && typeof item === "object" && !Array.isArray(item);
-      }
-    }
-    /**
-     * Test connection for specific provider configurations
-     */
+  };
+
+  // src/modules/storage/cloud.ts
+  var StorageCloudSync = class extends StorageTombstones {
     async testConnection(provider, config) {
       try {
         if (provider === "webdav") {
@@ -900,9 +844,6 @@
         return { success: false, error: e.message };
       }
     }
-    /**
-     * Syncs the JSON database with the configured metadata cloud provider
-     */
     async syncDatabaseNow() {
       if (this.syncing) return { success: false, error: "Sync already in progress" };
       this.syncing = true;
@@ -1017,7 +958,6 @@
       };
       return JSON.stringify(clean(a)) !== JSON.stringify(clean(b));
     }
-    // --- WebDAV & GitHub Methods (Delegated to CloudSyncProvider) ---
     _getCloudProvider() {
       if (typeof CloudSyncProvider !== "undefined") return CloudSyncProvider;
       if (typeof globalThis !== "undefined" && globalThis.CloudSyncProvider) return globalThis.CloudSyncProvider;
@@ -1049,6 +989,10 @@
       if (provider?.saveToGitHub) return provider.saveToGitHub(this, config, db);
       throw new Error("CloudSyncProvider is not available");
     }
+  };
+
+  // src/modules/storage.ts
+  var StorageEngine = class extends StorageCloudSync {
   };
   var storage = new StorageEngine();
   if (typeof globalThis !== "undefined") {

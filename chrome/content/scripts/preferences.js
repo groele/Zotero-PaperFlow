@@ -1,6 +1,6 @@
 "use strict";
 (() => {
-  // src/modules/preferences.ts
+  // src/modules/preferences/schema.ts
   var DEFAULTS = {
     // 模块 1: 窗口与界面偏好
     windowMode: "tab",
@@ -141,24 +141,24 @@
       },
       {
         key: "autoLinkSelectedPaper",
-        label: "新建手稿时自动关联当前选中的文献",
-        desc: "若在主界面选中了某篇文献后打开新建弹窗，自动预填标题、作者、DOI 并建立关联。",
+        label: "新建手稿时自动关联当前选中文献",
+        desc: "从工具栏或全局菜单创建手稿时，若主界面正选中文献条目，自动预填标题并绑定关联。",
         l10nLabel: "researchflow-pref-field-auto-link-selected-paper-label",
         l10nDesc: "researchflow-pref-field-auto-link-selected-paper-desc",
         type: "check"
       },
       {
         key: "autoSyncChildNotes",
-        label: "手稿更新自动同步云端子笔记 (Child Notes)",
-        desc: "重要进展自动生成或更新标准 Zotero 文献子笔记，利用官方同步服务实现多端查看。",
+        label: "自动将手稿进展与回复矩阵同步至条目子笔记",
+        desc: "保存手稿或修回矩阵时，自动在 Zotero 文献条目下创建/更新富文本子笔记，便于多端同步。",
         l10nLabel: "researchflow-pref-field-auto-sync-child-notes-label",
         l10nDesc: "researchflow-pref-field-auto-sync-child-notes-desc",
         type: "check"
       },
       {
         key: "autoAddToPipelineCollection",
-        label: "自动将手稿文献归入专用分类 (Collection)",
-        desc: "新建手稿时自动将关联条目放入“PaperFlow 写作管线”分类，方便集中筛选归档。",
+        label: "流转手稿时自动归入 📝 投稿管线 虚拟分类",
+        desc: "为进入实际撰写与投稿阶段的文献在对应文库创建统一分类目录，集中归拢管线成果。",
         l10nLabel: "researchflow-pref-field-auto-add-to-pipeline-collection-label",
         l10nDesc: "researchflow-pref-field-auto-add-to-pipeline-collection-desc",
         type: "check"
@@ -167,37 +167,37 @@
     workflow: [
       {
         key: "showJournalPortals",
-        label: "投稿系统快速跳转导航 (Journal Portals)",
-        desc: "在投稿管理视图顶部常驻 ACS, Wiley, Nature 等各大出版社投审稿系统直达链接。",
+        label: "投稿轮次展示期刊一键导航与官方投稿入口",
+        desc: "在投稿轮次卡片中提供 Elsevier, Springer, Nature, IEEE 等出版商一键查重与系统直达。",
         l10nLabel: "researchflow-pref-field-show-journal-portals-label",
         l10nDesc: "researchflow-pref-field-show-journal-portals-desc",
         type: "check"
       },
       {
         key: "collapseEmptyKanbanStages",
-        label: "手稿看板自动折叠无卡片阶段",
-        desc: "当某个阶段（如“组内评审”）无进行中稿件时自动紧凑折叠，节省横向滚动空间。",
+        label: "手稿看板自动折叠暂无卡片的空阶段列",
+        desc: "精简大屏横向视野，仅聚焦当前有在研或审稿手稿的活跃阶段。",
         l10nLabel: "researchflow-pref-field-collapse-empty-kanban-stages-label",
         l10nDesc: "researchflow-pref-field-collapse-empty-kanban-stages-desc",
         type: "check"
       },
       {
         key: "defaultRebuttalExportFormat",
-        label: "审稿回复矩阵 (Rebuttal) 默认导出格式",
-        desc: "导出点对点作者回复信时的首选排版模板。",
+        label: "审稿回复函 (Point-by-Point) 默认导出格式",
+        desc: "一键生成作者回应时的首选文档排版规范。",
         l10nLabel: "researchflow-pref-field-default-rebuttal-export-format-label",
         l10nDesc: "researchflow-pref-field-default-rebuttal-export-format-desc",
         type: "select",
         options: [
-          ["latex", "LaTeX (*.tex，含 tcolorbox 彩色意见框与学术版面)", "researchflow-pref-opt-rebuttal-latex"],
-          ["markdown", "Markdown (*.md，标准学术排版与审稿人表格)", "researchflow-pref-opt-rebuttal-markdown"],
-          ["html", "Word 友好网页 (*.html，支持直接复制粘贴至 MS Word)", "researchflow-pref-opt-rebuttal-html"]
+          ["latex", "LaTeX 论文审稿回复专用模板 (.tex)", "researchflow-pref-opt-rebuttal-format-latex"],
+          ["markdown", "Markdown 标准格式 (.md，兼容 Typora 与 Obsidian)", "researchflow-pref-opt-rebuttal-format-markdown"],
+          ["html", "HTML 打印就绪回复信 (.html)", "researchflow-pref-opt-rebuttal-format-html"]
         ]
       },
       {
         key: "enableAcceptanceCelebration",
-        label: "手稿被接收时的彩带庆祝动效 (Celebration)",
-        desc: "当稿件流转至“已接收 (Accepted)”状态时，全屏播放学术喜报礼花动画。",
+        label: "手稿录用 (Accepted) 时播放科研礼炮庆祝动画",
+        desc: "当将手稿阶段拖拽或更新至已录用时，触发全屏礼花彩带动画，致敬严谨科研成果。",
         l10nLabel: "researchflow-pref-field-enable-acceptance-celebration-label",
         l10nDesc: "researchflow-pref-field-enable-acceptance-celebration-desc",
         type: "check"
@@ -206,241 +206,161 @@
     storage: [
       {
         key: "autoSync",
-        label: "修改后自动保存并触发多云同步",
-        desc: "在工作台进行任何编辑操作后，自动持久化至本地 JSON 并按配置调度 WebDAV/GitHub 同步。",
+        label: "工作台数据变更自动保存至本地磁盘",
+        desc: "每次编辑卡片、填写审稿回复后自动进行原子写入，确保无惧异常断电或关闭。",
         l10nLabel: "researchflow-pref-field-auto-sync-label",
         l10nDesc: "researchflow-pref-field-auto-sync-desc",
         type: "check"
       },
       {
         key: "autoBackupOnSave",
-        label: "关键操作前自动保留独立灾备快照",
-        desc: "在全量导入或执行冲突覆盖前，自动在数据目录生成备份快照（可一键安全回退）。",
+        label: "保存时自动生成安全快照 (Backup Snapshot)",
+        desc: "在 Zotero 数据目录维护多历史副本，供随时灾备还原与多端冲突检测。",
         l10nLabel: "researchflow-pref-field-auto-backup-on-save-label",
         l10nDesc: "researchflow-pref-field-auto-backup-on-save-desc",
         type: "check"
       },
       {
         key: "importMode",
-        label: "外部数据导入默认策略",
-        desc: "从 JSON 文件导入手稿数据时的合并规则。",
+        label: "外部备份导入默认策略",
+        desc: "从 JSON 备份文件恢复数据时采用的合并机制。",
         l10nLabel: "researchflow-pref-field-import-mode-label",
         l10nDesc: "researchflow-pref-field-import-mode-desc",
         type: "select",
         options: [
-          ["merge", "🔀 智能双向合并 (保留本地与外部较新版本，安全优先)", "researchflow-pref-opt-import-mode-merge"],
-          ["replace", "⚠️ 完全覆盖替换 (清除当前工作区所有既有数据)", "researchflow-pref-opt-import-mode-replace"]
+          ["merge", "🔀 增量安全合并 (按更新时间戳保留更新记录，保留现有独有手稿)", "researchflow-pref-opt-import-mode-merge"],
+          ["overwrite", "⚠️ 完全覆盖模式 (清空当前全部手稿与投稿记录，严格以导入文件为准)", "researchflow-pref-opt-import-mode-overwrite"]
         ]
       }
     ]
   };
-  var PREFIX = "extensions.researchflow.";
-  var HTML = "http://www.w3.org/1999/xhtml";
-  var ResearchFlow_Preferences = {
-    init(windowContext) {
-      const doc = windowContext?.document;
-      if (!doc) return;
-      const setStatus = (el, msg, isError = false) => {
-        if (!el) return;
-        el.textContent = msg;
-        el.style.color = isError ? "var(--material-error, #d9383a)" : "var(--material-success, #2e7d32)";
-        setTimeout(() => {
-          if (el) el.textContent = "";
-        }, 4500);
-      };
-      const getPref = (key) => {
-        try {
-          if (Zotero.Prefs) {
-            const val = Zotero.Prefs.get(`${PREFIX}${key}`, true);
-            return val !== void 0 ? val : DEFAULTS[key];
-          }
-        } catch (_) {
-        }
-        return DEFAULTS[key];
-      };
-      const setPref = (key, val) => {
-        try {
-          if (Zotero.Prefs) {
-            Zotero.Prefs.set(`${PREFIX}${key}`, val, true);
-          }
-        } catch (_) {
-        }
-      };
-      const renderGroup = (containerId, groupKey) => {
-        const container = doc.getElementById(containerId);
-        if (!container) return;
-        container.replaceChildren();
-        const fields = FIELDS[groupKey] || [];
-        fields.forEach((field) => {
-          const row = doc.createElementNS(HTML, "div");
-          row.className = "rf-pref-row";
-          if (field.subordinate) row.classList.add("subordinate-row");
-          const info = doc.createElementNS(HTML, "div");
-          info.className = "rf-pref-info";
-          const label = doc.createElementNS(HTML, "label");
-          label.className = "rf-pref-label";
-          if (field.l10nLabel) label.setAttribute("data-l10n-id", field.l10nLabel);
-          label.textContent = field.label;
-          const desc = doc.createElementNS(HTML, "div");
-          desc.className = "rf-pref-desc";
-          if (field.l10nDesc) desc.setAttribute("data-l10n-id", field.l10nDesc);
-          desc.textContent = field.desc;
-          info.append(label, desc);
-          const ctrl = doc.createElementNS(HTML, "div");
-          ctrl.className = "rf-pref-ctrl";
-          if (field.type === "check") {
-            const checkbox = doc.createElementNS(HTML, "input");
-            checkbox.type = "checkbox";
-            checkbox.id = `rf-pref-${field.key}`;
-            checkbox.checked = Boolean(getPref(field.key));
-            checkbox.addEventListener("change", () => {
-              setPref(field.key, checkbox.checked);
-              updateDependencies();
-            });
-            ctrl.append(checkbox);
-          } else if (field.type === "select") {
-            const select = doc.createElementNS(HTML, "select");
-            select.id = `rf-pref-${field.key}`;
-            field.options.forEach(([optVal, optLabel, optL10n]) => {
-              const opt = doc.createElementNS(HTML, "option");
-              opt.value = optVal;
-              if (optL10n) opt.setAttribute("data-l10n-id", optL10n);
-              opt.textContent = optLabel;
-              select.append(opt);
-            });
-            select.value = String(getPref(field.key));
-            select.addEventListener("change", () => {
-              setPref(field.key, select.value);
-              updateDependencies();
-            });
-            ctrl.append(select);
-          }
-          row.append(info, ctrl);
-          container.append(row);
-        });
-      };
-      const updateDependencies = () => {
-      };
-      renderGroup("rf-pref-window-container", "window");
-      renderGroup("rf-pref-integration-container", "integration");
-      renderGroup("rf-pref-workflow-container", "workflow");
-      renderGroup("rf-pref-storage-container", "storage");
-      updateDependencies();
-      doc.getElementById("rf-btn-reset-defaults")?.addEventListener("click", () => {
-        Object.entries(DEFAULTS).forEach(([key, val]) => {
-          setPref(key, val);
-        });
-        renderGroup("rf-pref-window-container", "window");
-        renderGroup("rf-pref-integration-container", "integration");
-        renderGroup("rf-pref-workflow-container", "workflow");
-        renderGroup("rf-pref-storage-container", "storage");
-        updateDependencies();
-      });
-      doc.getElementById("rf-btn-open-workspace")?.addEventListener("click", () => {
-        Zotero?.ResearchFlow?.openResearchFlow?.({ currentWindowType: "tab" }, windowContext, "tab");
-      });
-      doc.getElementById("rf-btn-open-subwindow")?.addEventListener("click", () => {
-        Zotero?.ResearchFlow?.openStandaloneWindow?.({}, windowContext, "subwindow");
-      });
-      doc.getElementById("rf-btn-open-window")?.addEventListener("click", () => {
-        Zotero?.ResearchFlow?.openStandaloneWindow?.({}, windowContext, "window");
-      });
-      doc.getElementById("rf-btn-open-cloud-settings")?.addEventListener("click", () => {
-        Zotero?.ResearchFlow?.openResearchFlow?.({ view: "view-settings" }, windowContext, "tab");
-      });
-      doc.getElementById("rf-btn-export-db")?.addEventListener("click", async () => {
-        const status = doc.getElementById("rf-import-status");
-        try {
-          if (!Zotero?.ResearchFlow?.exportDatabaseFile) throw new Error("PaperFlow 宿主尚未就绪");
-          const result = await Zotero.ResearchFlow.exportDatabaseFile();
-          if (result?.cancelled) return;
-          if (!result?.success) throw new Error(result?.error || "数据库导出失败");
-          setStatus(status, `✅ 数据库已导出至：${result.filePath}`);
-        } catch (e) {
-          setStatus(status, `❌ 导出失败：${e.message}`, true);
-        }
-      });
-      doc.getElementById("rf-btn-import-file")?.addEventListener("click", async () => {
-        const statusEl = doc.getElementById("rf-import-status");
-        try {
-          if (!Zotero?.ResearchFlow?.importDatabaseFile) throw new Error("PaperFlow 宿主尚未就绪");
-          const mode = doc.getElementById("rf-import-mode")?.value || "merge";
-          const result = await Zotero.ResearchFlow.importDatabaseFile(mode);
-          if (result?.cancelled) return;
-          if (!result?.success) throw new Error(result?.error || "数据库导入失败");
-          setStatus(statusEl, `✅ 导入成功！(${mode === "merge" ? "已智能合并" : "已完全替换"}，当前共 ${result.data?.manuscripts?.length || 0} 个稿件管线)`);
-        } catch (e) {
-          setStatus(statusEl, `❌ 导入失败：${e.message}`, true);
-        }
-      });
-      doc.getElementById("rf-btn-restore-backup")?.addEventListener("click", async () => {
-        const statusEl = doc.getElementById("rf-import-status");
-        try {
-          if (!Zotero?.ResearchFlow?.restoreBackupDatabase) throw new Error("PaperFlow 宿主尚未就绪");
-          const res = await Zotero.ResearchFlow.restoreBackupDatabase();
-          if (statusEl) {
-            setStatus(statusEl, `✅ 备份恢复成功！(当前共 ${res?.manuscripts?.length || 0} 个稿件管线)`);
-          }
-        } catch (e) {
-          setStatus(statusEl, `❌ 恢复备份失败：${e.message}`, true);
-        }
-      });
-      doc.getElementById("rf-btn-conflict-recovery")?.addEventListener("click", () => {
-        Zotero?.ResearchFlow?.openStandaloneWindow?.({ view: "view-settings", settingsOnly: true }, windowContext, "window");
-      });
-      doc.getElementById("rf-btn-export-diag")?.addEventListener("click", async () => {
-        const status = doc.getElementById("rf-import-status");
-        try {
-          const db = await Zotero?.ResearchFlow?.loadDatabase?.();
-          const diag = {
-            exportedAt: (/* @__PURE__ */ new Date()).toISOString(),
-            zoteroVersion: Zotero.version,
-            paperflowVersion: Zotero?.ResearchFlow?.version || "15.0.0",
-            schemaVersion: db?.schemaVersion,
-            counts: {
-              manuscripts: db?.manuscripts?.length || 0,
-              submissions: db?.submissions?.length || 0,
-              projects: db?.projects?.length || 0,
-              tasks: db?.tasks?.length || 0
-            }
-          };
-          if (!Zotero?.ResearchFlow?.exportDiagnosticsFile) throw new Error("PaperFlow 宿主尚未就绪");
-          const result = await Zotero.ResearchFlow.exportDiagnosticsFile(diag);
-          if (result?.cancelled) return;
-          if (!result?.success) throw new Error(result?.error || "诊断报告导出失败");
-          setStatus(status, `✅ 诊断报告已导出至：${result.filePath}`);
-        } catch (e) {
-          setStatus(status, `❌ 诊断报告导出失败：${e.message}`, true);
-        }
-      });
+
+  // src/modules/preferences/controller.ts
+  function getPrefValue(key) {
+    if (typeof Zotero === "undefined" || !Zotero.Prefs) {
+      return DEFAULTS[key];
     }
-  };
-  if (typeof window !== "undefined") {
-    window.ResearchFlow_Preferences = ResearchFlow_Preferences;
-    const paneId = "researchflow-preferences-pane";
-    const start = () => {
-      if (!window.document.getElementById(paneId)) return false;
-      ResearchFlow_Preferences.init(window);
-      return true;
-    };
-    if (!start()) {
-      const observer = new window.MutationObserver(() => {
-        if (start()) {
-          observer.disconnect();
-          window.removeEventListener("unload", onUnload);
-        }
+    const val = Zotero.Prefs.get(`extensions.researchflow.${key}`, true);
+    return val !== void 0 && val !== null ? val : DEFAULTS[key];
+  }
+  function setPrefValue(key, value) {
+    if (typeof Zotero === "undefined" || !Zotero.Prefs) return;
+    Zotero.Prefs.set(`extensions.researchflow.${key}`, value, true);
+  }
+  function buildSettingRow(field, doc) {
+    const row = doc.createElement("div");
+    row.className = "rf-pref-row";
+    row.id = `rf-pref-row-${field.key}`;
+    const info = doc.createElement("div");
+    info.className = "rf-pref-info";
+    const label = doc.createElement("div");
+    label.className = "rf-pref-label";
+    if (field.l10nLabel) label.setAttribute("data-l10n-id", field.l10nLabel);
+    label.textContent = field.label;
+    const desc = doc.createElement("div");
+    desc.className = "rf-pref-desc";
+    if (field.l10nDesc) desc.setAttribute("data-l10n-id", field.l10nDesc);
+    desc.textContent = field.desc;
+    info.appendChild(label);
+    info.appendChild(desc);
+    row.appendChild(info);
+    const ctrl = doc.createElement("div");
+    ctrl.className = "rf-pref-ctrl";
+    const currentVal = getPrefValue(field.key);
+    if (field.type === "check") {
+      const input = doc.createElement("input");
+      input.type = "checkbox";
+      input.id = `rf-pref-${field.key}`;
+      input.checked = Boolean(currentVal);
+      input.addEventListener("change", () => {
+        setPrefValue(field.key, input.checked);
+        updateSubordinateStates(doc);
       });
-      const onUnload = () => {
-        try {
-          observer.disconnect();
-        } catch (_) {
-        }
-      };
-      window.addEventListener("unload", onUnload, { once: true });
-      observer.observe(window.document.documentElement, { childList: true, subtree: true });
+      ctrl.appendChild(input);
+    } else if (field.type === "select") {
+      const select = doc.createElement("select");
+      select.id = `rf-pref-${field.key}`;
+      for (const [val, text, l10nId] of field.options) {
+        const opt = doc.createElement("option");
+        opt.value = val;
+        opt.textContent = text;
+        if (l10nId) opt.setAttribute("data-l10n-id", l10nId);
+        if (val === currentVal) opt.selected = true;
+        select.appendChild(opt);
+      }
+      select.addEventListener("change", () => {
+        setPrefValue(field.key, select.value);
+      });
+      ctrl.appendChild(select);
+    }
+    row.appendChild(ctrl);
+    return row;
+  }
+  function updateSubordinateStates(doc) {
+    const windowMode = getPrefValue("windowMode");
+    const subCompactRow = doc.getElementById("rf-pref-row-subwindowCompactMode");
+    const subTopRow = doc.getElementById("rf-pref-row-subwindowAlwaysOnTop");
+    const isSubwindow = windowMode === "subwindow";
+    if (subCompactRow) {
+      subCompactRow.classList.toggle("rf-disabled", !isSubwindow);
+      const input = subCompactRow.querySelector("input");
+      if (input) input.disabled = !isSubwindow;
+    }
+    if (subTopRow) {
+      subTopRow.classList.toggle("rf-disabled", !isSubwindow);
+      const input = subTopRow.querySelector("input");
+      if (input) input.disabled = !isSubwindow;
     }
   }
-  if (typeof globalThis !== "undefined") {
-    globalThis.ResearchFlow_Preferences = ResearchFlow_Preferences;
+  function renderPreferencesSection(containerId, sectionKey, doc) {
+    const container = doc.getElementById(containerId);
+    if (!container) return;
+    container.innerHTML = "";
+    const fields = FIELDS[sectionKey] || [];
+    for (const field of fields) {
+      container.appendChild(buildSettingRow(field, doc));
+    }
+  }
+  function initPreferencesWindow(win) {
+    const doc = win.document;
+    renderPreferencesSection("rf-window-settings-list", "window", doc);
+    renderPreferencesSection("rf-integration-settings-list", "integration", doc);
+    renderPreferencesSection("rf-workflow-settings-list", "workflow", doc);
+    renderPreferencesSection("rf-storage-settings-list", "storage", doc);
+    updateSubordinateStates(doc);
+    const windowModeSelect = doc.getElementById("rf-pref-windowMode");
+    if (windowModeSelect) {
+      windowModeSelect.addEventListener("change", () => {
+        updateSubordinateStates(doc);
+      });
+    }
+    const resetBtn = doc.getElementById("rf-btn-reset-defaults");
+    if (resetBtn) {
+      resetBtn.addEventListener("click", () => {
+        if (typeof Zotero !== "undefined" && Zotero.Prefs) {
+          for (const [key, val] of Object.entries(DEFAULTS)) {
+            Zotero.Prefs.set(`extensions.researchflow.${key}`, val, true);
+          }
+          initPreferencesWindow(win);
+        }
+      });
+    }
+  }
+
+  // src/modules/preferences.ts
+  var ResearchFlow_Preferences = {
+    DEFAULTS,
+    FIELDS,
+    getPrefValue,
+    setPrefValue,
+    buildSettingRow,
+    updateSubordinateStates,
+    renderPreferencesSection,
+    initPreferencesWindow
+  };
+  if (typeof window !== "undefined") {
+    window.initPreferencesWindow = initPreferencesWindow;
+    window.DEFAULTS = DEFAULTS;
+    window.FIELDS = FIELDS;
   }
 })();

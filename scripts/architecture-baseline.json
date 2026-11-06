@@ -1,0 +1,26 @@
+{
+  "policy": "freeze-and-shrink",
+  "maxSourceLines": 360,
+  "capturedAt": "2026-11-06",
+  "debtCleared": true,
+  "note": "Known §5.9 debt. Listed files may stay at or below the recorded line count, but must never grow; any other source file above 360 lines fails the guard. Remove an entry only after splitting that module below 360 lines. Every entry must still exist and must still exceed the ceiling - stale entries are rejected by the baseline integrity test.",
+  "lastReleasedVersion": "15.1.0",
+  "splitHistory": [
+    {
+      "version": "15.1.0",
+      "date": "2026-11-06",
+      "resolved": [
+        "Deconstructed monolithic src/index.ts (2,280 lines) into modular host/ domain submodules (65 lines)",
+        "Decomposed src/modules/storage.ts (1,015 lines) into storage/ layered inheritance chain (28 lines)",
+        "Decomposed src/modules/zotero-bridge.ts (780 lines) into zotero-bridge/ submodules (79 lines)",
+        "Decomposed src/modules/academic-sync.ts (632 lines) into academic-sync/ submodules (141 lines)",
+        "Decomposed src/modules/preferences.ts (481 lines) into preferences/ submodules (41 lines)",
+        "Decomposed src/modules/academic-citation.ts (430 lines) into academic-citation/ submodules (60 lines)",
+        "Decomposed src/host/database-storage.ts and src/modules/zotero-bridge/actions.ts <= 360 lines",
+        "100% compliance across all 45 source files in src/ (all <= 360 lines); debtCleared = true with 0 oversized modules",
+        "Pure modern Node.js build, packaging, architecture guard, and verification pipeline (zero Python dependency)"
+      ]
+    }
+  ],
+  "oversized": {}
+}

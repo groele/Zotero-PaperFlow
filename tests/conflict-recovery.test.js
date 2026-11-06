@@ -5,22 +5,25 @@ const vm = require('node:vm');
 const crypto = require('node:crypto');
 const { test } = require('node:test');
 const source = fs.readFileSync(path.join(__dirname, '../chrome/content/scripts/index.js'), 'utf8');
-const methods = source.slice(source.indexOf('    notifyDataChanged() {'), source.indexOf('    async saveShareImageFile('));
 const plain = value => JSON.parse(JSON.stringify(value));
 const db = (title = 'base') => ({ schemaVersion: 7, revision: 3, tasks: [{ id: 'a.[x]', title, note: 'original' }], settings: {} });
 function fixture(options = {}) {
   const files = new Map();
   const context = vm.createContext({
     CHROME_ROOT: '', fetch: async () => ({ ok: false }),
-    Zotero: { logError() {}, Utilities: { Internal: { md5: text => crypto.createHash('md5').update(text).digest('hex') } },
+    TextEncoder, TextDecoder,
+    Zotero: { log() {}, logError() {}, Prefs: { get() {}, set() {} },
+      Utilities: { Internal: { md5: text => crypto.createHash('md5').update(text).digest('hex') } },
       getMainWindow: () => ({ Localization: class { formatValueSync(key) { return key; } } }) },
+    Services: { wm: { getEnumerator: () => ({ hasMoreElements: () => false }) } },
     PathUtils: { filename: path.posix.basename, parent: path.posix.dirname, join: path.posix.join },
     IOUtils: { exists: async file => files.has(file), getChildren: async () => [...files.keys()],
       stat: async file => { if (!files.has(file)) throw new Error('Missing file'); return { type: 'regular', size: Buffer.byteLength(files.get(file)) }; },
       readUTF8: async file => { if (!files.has(file)) throw new Error('Missing file'); return files.get(file); },
       writeUTF8: async (file, text) => { await options.beforeWrite?.(file, text); files.set(file, text); } }
   });
-  const runtime = vm.runInContext(`({ ${methods} })`, context);
+  vm.runInContext(source, context);
+  const runtime = context.Zotero.ResearchFlow;
   runtime.getDataFilePath = () => '/data.json';
   runtime.notifyDataChanged = () => {};
   const id = 'data.json.conflict-123456-test.json';

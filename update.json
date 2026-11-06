@@ -3,9 +3,9 @@
     "zotero-paperflow@groele.org": {
       "updates": [
         {
-          "version": "15.0.9",
-          "update_link": "https://github.com/groele/Zotero-PaperFlow/releases/download/v15.0.9/zotero-paperflow-15.0.9.xpi",
-          "update_hash": "sha512:f9341d25c60ceeb1d8d4a387b545b2b7a703e302022e8340df5ba7f21394101137bcf6ae926796e392b5cee81400f78ef781d929f34878c5308158eb0407bae9",
+          "version": "15.1.0",
+          "update_link": "https://github.com/groele/Zotero-PaperFlow/releases/download/v15.1.0/zotero-paperflow-15.1.0.xpi",
+          "update_hash": "sha512:720c4c4a4d6983602574610facd04dcf78cf7b8e45f57f9a4a5b56ffa296a7fa331db19d34dd72641437ede70baabe8e80d11126dd0a171306f30abb1e8ae808",
           "applications": {
             "zotero": {
               "strict_min_version": "10.0",
@@ -18,9 +18,9 @@
     "researchflow@groele.org": {
       "updates": [
         {
-          "version": "15.0.9",
-          "update_link": "https://github.com/groele/Zotero-PaperFlow/releases/download/v15.0.9/zotero-paperflow-15.0.9.xpi",
-          "update_hash": "sha512:f9341d25c60ceeb1d8d4a387b545b2b7a703e302022e8340df5ba7f21394101137bcf6ae926796e392b5cee81400f78ef781d929f34878c5308158eb0407bae9",
+          "version": "15.1.0",
+          "update_link": "https://github.com/groele/Zotero-PaperFlow/releases/download/v15.1.0/zotero-paperflow-15.1.0.xpi",
+          "update_hash": "sha512:720c4c4a4d6983602574610facd04dcf78cf7b8e45f57f9a4a5b56ffa296a7fa331db19d34dd72641437ede70baabe8e80d11126dd0a171306f30abb1e8ae808",
           "applications": {
             "zotero": {
               "strict_min_version": "10.0",

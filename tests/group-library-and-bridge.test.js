@@ -179,13 +179,9 @@ test('addItemToPipelineCollection respects autoAddToPipelineCollection preferenc
     }
   };
 
-  const codeStart = indexSource.indexOf('    async addItemToPipelineCollection(item) {');
-  const codeEnd = indexSource.indexOf('    showToast(title, message, type = \'info\', duration = 3500) {');
-  assert.ok(codeStart > 0 && codeEnd > codeStart, 'addItemToPipelineCollection must be found');
-  const methodCode = indexSource.slice(codeStart, codeEnd);
-
   const context = vm.createContext(sandbox);
-  const fn = vm.runInContext(`({ ${methodCode} }).addItemToPipelineCollection`, context);
+  vm.runInContext(indexSource, context);
+  const fn = context.Zotero.ResearchFlow.addItemToPipelineCollection;
 
   const res = await fn.call(runtime, mockItem);
   assert.equal(res, null, 'addItemToPipelineCollection must return null when preference is disabled');
