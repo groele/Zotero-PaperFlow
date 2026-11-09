@@ -200,7 +200,7 @@
     }
     sub.updatedAt = (/* @__PURE__ */ new Date()).toISOString();
   }
-  function syncManuscriptStatusFromSubmission2(sub, database = db) {
+  function syncManuscriptStatusFromSubmission(sub, database = db) {
     if (!sub?.manuscriptId || !database || !Array.isArray(database.manuscripts)) return false;
     const man = database.manuscripts.find((m) => m.id === sub.manuscriptId);
     if (!man) return false;
@@ -378,52 +378,107 @@
   // src/modules/dashboard-view/timeline-alerts.ts
   function renderTimelineAlerts() {
     const reviewMilestones = document.getElementById("dashboard-pending-milestones");
-    if (reviewMilestones) window.RFUI?.setHTML?.(reviewMilestones, "");
-    const alertsList = document.getElementById("dashboard-alerts-list") || reviewMilestones;
-    if (!alertsList) return;
-    const w = window;
-    w.RFUI.setHTML(alertsList, "");
-    const alerts = [];
-    (db.submissions || []).forEach((sub) => {
-      if (isAcceptedSubmission(sub) || sub.status === "rejected") return;
-      const man = db.manuscripts.find((m) => m.id === sub.manuscriptId);
-      const title = man ? man.title : sub.title || t("untitledManuscript");
-      const journalName = getSubmissionJournalName(sub);
+    if (!reviewMilestones) return;
+    window.RFUI?.setHTML?.(reviewMilestones, "");
+    const timelineAlerts = [];
+    (db.submissions || []).filter((s) => s.status !== "rejected").forEach((sub) => {
+      const man = (db.manuscripts || []).find((m) => m.id === sub.manuscriptId);
+      if (man) {
+        const currentSub = window.RFCore?.getCurrentSubmission?.(db, man.id);
+        if (currentSub && currentSub.id !== sub.id) return;
+      }
+      const isAcceptedOrPublished = hasPublicationStatus(sub) || isAcceptedSubmission(sub) || Boolean(man && (hasPublicationStatus(man) || man.status === "accepted" || man.status === "published"));
+      const isPublished = sub.status === "published" || man && man.status === "published";
+      if (isPublished) return;
       (sub.timelineNodes || []).forEach((node) => {
-        const status = computeNodeStatus(node);
-        const isReviewDeadline = Boolean(node.dueDate);
-        const isDecisionNotice = Boolean(node.reviewDecision);
-        const dueEndTime = node.dueDate ? (/* @__PURE__ */ new Date(`${normalizeDateString(node.dueDate)}T23:59:59`)).getTime() : 0;
-        const isDecisionStillRelevant = isDecisionNotice && (!dueEndTime || dueEndTime >= Date.now());
-        if (status === "overdue" || status === "due_soon" || status === "blocked" || isReviewDeadline || isDecisionStillRelevant) {
-          alerts.push({ sub, node, status, title, journalName });
+        const computedStatus = computeNodeStatus(node);
+        const nodeKey = node.key || inferKey(node);
+        if (isAcceptedOrPublished) {
+          if (node.type !== "publication" || nodeKey === "accept") return;
         }
+        if (computedStatus === "completed") return;
+        const importantType = node.type === "review" || node.type === "revision" || node.type === "publication";
+        const hasTimelineDate = Boolean(node.dueDate || node.planDate || node.completeDate);
+        const actionable = computedStatus === "overdue" || computedStatus === "due_soon" || computedStatus === "blocked" || node.status === "active";
+        if (!actionable && !hasTimelineDate) return;
+        if (!importantType && !actionable) return;
+        const alertDate = node.dueDate || node.planDate || (node.type === "review" ? sub.revisionDueDate : "") || node.completeDate || "";
+        if (!alertDate && computedStatus !== "blocked") return;
+        timelineAlerts.push({
+          sub,
+          node,
+          computedStatus,
+          title: `${getSubmissionJournalName(sub)}: ${getTimelineNodeDisplayName(node)}`,
+          date: alertDate,
+          manTitle: man ? man.title : t("untitledManuscript")
+        });
       });
     });
-    if (alerts.length === 0) {
-      w.RFUI.setHTML(alertsList, `<p class="empty-state">${t("noUrgentEvents")}</p>`);
-      return;
-    }
-    alerts.sort((a, b) => new Date(getNodeDate(a.node) || 0).getTime() - new Date(getNodeDate(b.node) || 0).getTime()).slice(0, 6).forEach(({ sub, node, status, title, journalName }) => {
-      const el = document.createElement("div");
-      el.className = "recent-item";
-      const dueDate = normalizeDateString(node.dueDate);
-      const dateStr = dueDate || getNodeDate(node) || t("noDate");
-      const relativeStr = dueDate ? getRelativeDayLabel(dueDate) : "";
-      const decisionLabel = node.reviewDecision ? node.reviewDecision === "major" ? t("majorRevision") : t("minorRevision") : "";
-      const alertLabel = dueDate ? `${t("deadlineShort")} ${formatShortDate(dueDate)}${relativeStr ? ` · ${relativeStr}` : ""}` : getNodeStatusLabel(status);
-      w.RFUI.setHTML(el, `
-        <div class="recent-item-header">
-          <span class="badge ${status === "overdue" || status === "blocked" ? "badge-danger" : "badge-warning"}">${escapeHTML(alertLabel)}</span>
-          ${decisionLabel ? `<span class="badge badge-info">${escapeHTML(decisionLabel)}</span>` : ""}
-          <span class="recent-item-date">${escapeHTML(dateStr)}</span>
-        </div>
-        <div class="recent-item-title">${escapeHTML(getTimelineNodeDisplayName(node))} · ${escapeHTML(journalName)}</div>
-        <div class="text-muted" style="font-size:12px;">${escapeHTML(title)}</div>
-      `);
-      el.addEventListener("click", () => openStageDrawer(sub.id, node.id));
-      alertsList.appendChild(el);
+    const statusRank = { overdue: 0, blocked: 1, due_soon: 2, in_progress: 3, not_started: 4, upcoming: 5 };
+    timelineAlerts.sort((a, b) => {
+      const ra = statusRank[a.computedStatus] ?? 9;
+      const rb = statusRank[b.computedStatus] ?? 9;
+      if (ra !== rb) return ra - rb;
+      return new Date(a.date || "2999-12-31").getTime() - new Date(b.date || "2999-12-31").getTime();
     });
+    const btnExportAllIcs = document.getElementById("btn-dashboard-export-all-ics");
+    if (btnExportAllIcs && !btnExportAllIcs.dataset.listenerAttached) {
+      btnExportAllIcs.dataset.listenerAttached = "true";
+      btnExportAllIcs.addEventListener("click", () => {
+        const activeSubs = (db.submissions || []).filter((s) => s.revisionDueDate && s.status !== "accepted" && s.status !== "published");
+        if (activeSubs.length === 0) {
+          showGlobalToast(t("noDeadlinesToExport") || (currentLanguage === "zh" ? "当前未发现已设置修回截止日期的活跃稿件。" : "No active submissions with revision due dates found."), "warning");
+          return;
+        }
+        const rfCal = window.RFCalendar;
+        if (rfCal?.generateSubmissionCalendarFeed && rfCal?.triggerCalendarDownload) {
+          const feed = rfCal.generateSubmissionCalendarFeed(activeSubs, db.manuscripts, { calName: "PaperFlow All Revision Deadlines" });
+          rfCal.triggerCalendarDownload(feed, "paperflow_all_deadlines.ics");
+          showGlobalToast(t("calendarExportedToast") || (currentLanguage === "zh" ? "修回截止日历 (.ics) 已导出！" : "Revision deadline calendar (.ics) exported."), "success");
+        }
+      });
+    }
+    if (timelineAlerts.length === 0) {
+      window.RFUI?.setHTML?.(reviewMilestones, `<p class="empty-state">${t("noUrgentEvents")}</p>`);
+    } else {
+      timelineAlerts.slice(0, 5).forEach((alert) => {
+        const item = document.createElement("div");
+        item.className = "recent-item";
+        item.title = alert.manTitle;
+        const title = document.createElement("span");
+        title.className = "recent-item-title";
+        title.textContent = alert.title;
+        const badge = document.createElement("span");
+        const badgeClass = alert.computedStatus === "overdue" || alert.computedStatus === "blocked" ? "danger" : alert.computedStatus === "due_soon" ? "warning" : "info";
+        badge.className = `badge badge-${badgeClass}`;
+        badge.textContent = getNodeStatusLabel(alert.computedStatus);
+        const date = document.createElement("span");
+        date.className = "recent-item-date";
+        date.textContent = alert.date ? formatShortDate(alert.date) : t("noDate");
+        item.appendChild(title);
+        item.appendChild(badge);
+        item.appendChild(date);
+        if (alert.sub?.revisionDueDate) {
+          const icsBtn = document.createElement("button");
+          icsBtn.type = "button";
+          icsBtn.className = "btn-secondary btn-icon";
+          icsBtn.style.cssText = "font-size:11px; padding:2px 6px; border-radius:3px; margin-left:4px; height:22px;";
+          icsBtn.title = t("exportCalendarIcs") || "导出修回日历 (.ics)";
+          icsBtn.textContent = "📅";
+          icsBtn.addEventListener("click", (e) => {
+            e.stopPropagation();
+            const rfCal = window.RFCalendar;
+            if (rfCal?.generateSubmissionCalendarFeed && rfCal?.triggerCalendarDownload) {
+              const feed = rfCal.generateSubmissionCalendarFeed([alert.sub], db.manuscripts, { calName: `${getSubmissionJournalName(alert.sub)} Revision Deadline` });
+              rfCal.triggerCalendarDownload(feed, `revision_deadline_${alert.sub.id}.ics`);
+              showGlobalToast(t("calendarExportedToast") || "修回截止日历 (.ics) 已导出！", "success");
+            }
+          });
+          item.appendChild(icsBtn);
+        }
+        reviewMilestones.appendChild(item);
+      });
+    }
   }
   var init_timeline_alerts = __esm({
     "src/modules/dashboard-view/timeline-alerts.ts"() {
@@ -434,38 +489,85 @@
 
   // src/modules/dashboard-view/card-interactions.ts
   function bindPipelineCardInteractions(card, sub) {
-    card.querySelectorAll(".interactive-capsule, .interactive-dot, .btn-event-edit").forEach((cap) => {
-      cap.addEventListener("click", (e) => {
+    card.querySelectorAll(".dot.interactive-dot").forEach((dot) => {
+      dot.addEventListener("click", (e) => {
         e.stopPropagation();
-        const sId = cap.getAttribute("data-sub-id");
-        const nId = cap.getAttribute("data-node-id");
-        if (sId && nId) openStageDrawer(sId, nId);
+        const nodeId = dot.getAttribute("data-node-id");
+        const subId = dot.getAttribute("data-sub-id") || sub.id;
+        if (subId && nodeId) openStageDrawer(subId, nodeId);
       });
     });
-    card.querySelectorAll(".btn-event-delete").forEach((btn) => {
-      btn.addEventListener("click", async (e) => {
+    const latestWindow = card.querySelector(".latest-window");
+    if (latestWindow) {
+      latestWindow.addEventListener("click", (e) => {
         e.stopPropagation();
-        const sId = btn.getAttribute("data-sub-id");
-        const nId = btn.getAttribute("data-node-id");
-        const targetSub = db.submissions.find((s) => s.id === sId);
-        const targetNode = targetSub?.timelineNodes?.find((n) => n.id === nId);
-        if (!targetSub || !targetNode) return;
-        if (!confirm(tf("confirmDeleteEvent", { name: getTimelineNodeDisplayName(targetNode) }))) return;
-        deleteTimelineNode(targetSub, nId);
-        syncManuscriptStatusFromSubmission(targetSub);
-        const w = window;
-        await w.storage.saveAll(db);
-        renderDashboard();
-        renderKanban();
-        renderSubmissions();
-        showGlobalToast(t("eventRemovedToast"), "success");
+        const latestId = latestWindow.getAttribute("data-latest-id");
+        const subId = latestWindow.getAttribute("data-sub-id") || sub.id;
+        if (latestId) {
+          openStageDrawer(subId, latestId);
+        } else {
+          toggleInlineStageEditor(card, true);
+        }
       });
+    }
+    card.querySelector(".btn-pipeline-open")?.addEventListener("click", (e) => {
+      e.stopPropagation();
+      if (typeof navigateToSubmissionDetails === "function") {
+        navigateToSubmissionDetails(sub.id);
+      }
     });
-    card.querySelectorAll(".btn-inline-add-event").forEach((btn) => {
-      btn.addEventListener("click", (e) => {
-        e.stopPropagation();
-        toggleInlineStageEditor(card);
-      });
+    card.querySelector(".btn-pipeline-add")?.addEventListener("click", (e) => {
+      e.stopPropagation();
+      toggleInlineStageEditor(card, true);
+    });
+    card.querySelector(".btn-pipeline-manage")?.addEventListener("click", (e) => {
+      e.stopPropagation();
+      if (typeof openTimelineEventManager === "function") {
+        openTimelineEventManager(sub.id);
+      }
+    });
+    card.querySelector(".btn-pipeline-share")?.addEventListener("click", (e) => {
+      e.stopPropagation();
+      const shareFn = typeof openSubmissionSharePreview === "function" ? openSubmissionSharePreview : openSubmissionShareModal;
+      if (typeof shareFn === "function") {
+        shareFn(sub.id, e.currentTarget);
+      }
+    });
+    card.querySelector(".zotero-card-badge")?.addEventListener("click", (e) => {
+      e.stopPropagation();
+      const badge = e.currentTarget;
+      const key = badge.getAttribute("data-item-key");
+      const rawLib = badge.getAttribute("data-library-id");
+      const libId = rawLib ? Number(rawLib) || rawLib : null;
+      if (key && typeof ZoteroBridge !== "undefined") {
+        ZoteroBridge.selectItemInZotero(key, libId);
+      }
+    });
+    card.querySelector(".zotero-citekey-badge")?.addEventListener("click", (e) => {
+      e.stopPropagation();
+      const badge = e.currentTarget;
+      const ck = badge.getAttribute("data-citekey");
+      if (ck && typeof ZoteroBridge !== "undefined") {
+        const curLang = typeof currentLanguage !== "undefined" ? currentLanguage : "en";
+        ZoteroBridge.copyText(`[@${ck}]`, curLang === "zh" ? `已复制 Citation Key: [@${ck}]` : `Copied Citation Key: [@${ck}]`);
+      }
+    });
+    card.querySelector(".zotero-pdf-badge")?.addEventListener("click", (e) => {
+      e.stopPropagation();
+      const badge = e.currentTarget;
+      const key = badge.getAttribute("data-item-key");
+      const rawLib = badge.getAttribute("data-library-id");
+      const libId = rawLib ? Number(rawLib) || rawLib : null;
+      if (key && typeof ZoteroBridge !== "undefined") {
+        ZoteroBridge.openPdf(key, null, libId);
+      }
+    });
+    card.querySelector(".btn-inline-stage-cancel")?.addEventListener("click", (e) => {
+      e.stopPropagation();
+      const btn = e.currentTarget;
+      if (btn?.disabled) return;
+      toggleInlineStageEditor(card, false);
+      card.querySelector(".btn-pipeline-add")?.focus?.();
     });
     const inlineEditor = card.querySelector(".inline-stage-editor");
     if (inlineEditor) {
@@ -473,15 +575,7 @@
         syncInlineStagePreset(inlineEditor);
       });
       inlineEditor.querySelector(".inline-stage-type")?.addEventListener("change", () => {
-        const typeSelect = inlineEditor.querySelector(".inline-stage-type");
-        const keySelect = inlineEditor.querySelector(".inline-stage-key");
-        const isReview = typeSelect?.value === "review" || keySelect?.value === "r1_comments" || keySelect?.value === "r2_comments";
-        inlineEditor.classList.toggle("is-review", Boolean(isReview));
-        const deadlineField = inlineEditor.querySelector(".inline-stage-deadline-field");
-        const decisionField = inlineEditor.querySelector(".inline-stage-decision-field");
-        if (deadlineField) deadlineField.hidden = !isReview;
-        if (decisionField) decisionField.hidden = !isReview;
-        updateInlineStageDeadlineStatus(inlineEditor);
+        syncInlineStagePreset(inlineEditor);
       });
       inlineEditor.querySelector(".inline-stage-deadline")?.addEventListener("input", () => {
         updateInlineStageDeadlineStatus(inlineEditor);
@@ -490,57 +584,34 @@
         e.stopPropagation();
         resetInlineStageEditor(inlineEditor);
       });
-      inlineEditor.querySelector(".btn-inline-stage-cancel")?.addEventListener("click", (e) => {
-        e.stopPropagation();
-        toggleInlineStageEditor(card, false);
-      });
       inlineEditor.querySelector(".btn-inline-stage-save")?.addEventListener("click", async (e) => {
         e.stopPropagation();
-        const saveButton = inlineEditor.querySelector(".btn-inline-stage-save");
-        if (saveButton?.disabled) return;
-        setInlineStageBusy(inlineEditor, true, t("autoSaveSaving"));
+        const saveBtn = inlineEditor.querySelector(".btn-inline-stage-save");
+        if (saveBtn?.disabled) return;
+        setInlineStageBusy(inlineEditor, true);
+        let errorMessage = "";
         try {
           await saveInlineStageEvent(inlineEditor);
+        } catch (error) {
+          errorMessage = error?.message || t("autoSaveFailed");
+          showGlobalToast(errorMessage, "error");
         } finally {
-          if (inlineEditor.isConnected) setInlineStageBusy(inlineEditor, false);
+          if (inlineEditor.isConnected) setInlineStageBusy(inlineEditor, false, errorMessage);
         }
       });
-      inlineEditor.querySelectorAll("input, select").forEach((field) => {
-        field.addEventListener("keydown", async (e) => {
-          if (e.key === "Enter") {
-            e.preventDefault();
-            const saveButton = inlineEditor.querySelector(".btn-inline-stage-save");
-            if (saveButton?.disabled) return;
-            setInlineStageBusy(inlineEditor, true, t("autoSaveSaving"));
-            try {
-              await saveInlineStageEvent(inlineEditor);
-            } finally {
-              if (inlineEditor.isConnected) setInlineStageBusy(inlineEditor, false);
-            }
-          } else if (e.key === "Escape") {
-            e.preventDefault();
-            toggleInlineStageEditor(card, false);
-          }
+      inlineEditor.addEventListener("keydown", (event) => {
+        if (event.key !== "Escape" || inlineEditor.querySelector(".btn-inline-stage-save")?.hasAttribute("disabled")) return;
+        event.preventDefault();
+        event.stopPropagation();
+        toggleInlineStageEditor(card, false);
+        card.querySelector(".btn-pipeline-add")?.focus?.();
+      });
+      inlineEditor.querySelectorAll(".inline-stage-fields input").forEach((input) => {
+        input.addEventListener("keydown", (event) => {
+          if (event.key !== "Enter" || event.isComposing) return;
+          event.preventDefault();
+          inlineEditor.querySelector(".btn-inline-stage-save")?.click?.();
         });
-      });
-    }
-    card.querySelector(".btn-share-submission")?.addEventListener("click", (e) => {
-      e.stopPropagation();
-      openSubmissionShareModal(sub.id);
-    });
-    card.querySelector(".btn-open-submission-detail")?.addEventListener("click", (e) => {
-      e.stopPropagation();
-      openSubmissionForEditing(sub, { switchView: true, focusEditCenter: true });
-    });
-    const pZotBadge = card.querySelector(".pipeline-zotero-badge");
-    if (pZotBadge) {
-      pZotBadge.addEventListener("click", (e) => {
-        e.stopPropagation();
-        const key = pZotBadge.getAttribute("data-item-key");
-        if (key && typeof ZoteroBridge !== "undefined") {
-          const linkedMan = db.manuscripts?.find((item) => item.id === sub.manuscriptId);
-          ZoteroBridge.selectItemInZotero(key, linkedMan?.zoteroLibraryID);
-        }
       });
     }
   }
@@ -596,223 +667,233 @@
   function bindDashboardControls() {
     document.getElementById("btn-pipeline-compact")?.addEventListener("click", () => setPipelineViewMode(false));
     document.getElementById("btn-pipeline-expanded")?.addEventListener("click", () => setPipelineViewMode(true));
-    const filterCardBindings = [
-      ["card-filter-accepted", "accepted"],
-      ["card-filter-active", "active"],
-      ["card-filter-all", "all"]
-    ];
-    filterCardBindings.forEach(([id, filter]) => {
-      const el = document.getElementById(id);
-      if (!el) return;
-      el.addEventListener("click", () => setDashboardFilter(filter));
-      el.addEventListener("keydown", (e) => {
-        if (e.key === "Enter" || e.key === " ") {
-          e.preventDefault();
-          setDashboardFilter(filter);
-        }
-      });
+    document.getElementById("btn-pipeline-view-toggle")?.addEventListener("click", () => {
+      const isExpanded = document.getElementById("dashboard-gantt")?.classList.contains("expanded");
+      setPipelineViewMode(!isExpanded);
     });
   }
   function renderDashboard2() {
-    if (window.RFUI?.isViewDeferred?.("view-dashboard")) return;
-    const allSubmissions = sortDashboardSubmissions(db.submissions || []);
-    const allAnalyses = allSubmissions.map((sub) => ({ sub, analysis: analyzeSubmission(sub) }));
-    const acceptedSubs = allSubmissions.filter((s) => isAcceptedSubmission(s));
-    const activeSubs = allSubmissions.filter((s) => !isAcceptedSubmission(s) && s.status !== "rejected");
-    window.RFUI.animateMetricValue(document.getElementById("stat-accepted-papers"), acceptedSubs.length);
-    window.RFUI.animateMetricValue(document.getElementById("stat-active-subs"), activeSubs.length);
-    window.RFUI.animateMetricValue(document.getElementById("stat-total-attempts"), allSubmissions.length);
-    updateDashboardFilterUI();
-    const expSubmitAvg = average(allAnalyses.map((x) => x.analysis.expToSubmit));
-    const submitNowAvg = average(allAnalyses.filter((x) => !x.analysis.accepted && x.sub.status !== "rejected").map((x) => x.analysis.submitToNow));
-    const r1NowAvg = average(allAnalyses.filter((x) => !x.analysis.accepted && x.sub.status !== "rejected").map((x) => x.analysis.r1ToNow));
-    const submitAcceptAvg = average(allAnalyses.filter((x) => x.analysis.accepted).map((x) => x.analysis.submitToAccept));
-    const fmtMetric = (val) => val === null ? "—" : `${val} ${t("days")}`;
-    window.RFUI.animateMetricValue(document.getElementById("metric-exp-submit"), fmtMetric(expSubmitAvg));
-    window.RFUI.animateMetricValue(document.getElementById("metric-submit-now"), fmtMetric(submitNowAvg));
-    window.RFUI.animateMetricValue(document.getElementById("metric-r1-now"), fmtMetric(r1NowAvg));
-    window.RFUI.animateMetricValue(document.getElementById("metric-submit-accept"), fmtMetric(submitAcceptAvg));
-    renderTimelineAlerts();
-    const ganttBox = document.getElementById("dashboard-gantt");
-    if (!ganttBox) return;
-    window.RFUI.setHTML(ganttBox, "");
-    setPipelineViewMode(isPipelineExpanded);
-    const visibleSubmissions = allSubmissions.filter((sub) => {
-      if (currentDashboardFilter === "accepted") return isAcceptedSubmission(sub);
-      if (currentDashboardFilter === "active") return !isAcceptedSubmission(sub) && sub.status !== "rejected";
-      return true;
-    });
-    if (visibleSubmissions.length === 0) {
-      window.RFUI.setHTML(ganttBox, `<p class="empty-state">${t("noPipelines")}</p>`);
-      return;
-    }
-    visibleSubmissions.forEach((sub, idx) => {
-      const man = db.manuscripts.find((m) => m.id === sub.manuscriptId);
-      const titleDisplay = window.RFUI.getPipelineTitleDisplay({
-        title: man ? man.title : sub.title || t("untitledManuscript")
-      });
-      const manTitle = titleDisplay.displayTitle;
-      const fullManTitle = titleDisplay.fullTitle;
-      const firstAuthor = getSubmissionFirstAuthor(sub, man);
-      const submissionDoi = getSubmissionDoi(sub);
-      const journalName = getSubmissionJournalName(sub);
-      const articleUrl = getSubmissionArticleUrl(sub);
-      const analysis = analyzeSubmission(sub);
-      const d = analysis.display;
-      const latestType = analysis.latest ? typeMeta[analysis.latest.type] || typeMeta.special : { labelKey: "typeNoEvent", color: "#64748b" };
-      const latestTypeLabel = t(latestType.labelKey);
-      const card = document.createElement("div");
-      card.className = "pipeline-card";
-      card.style?.setProperty?.("--card-index", String(idx));
-      const sortedNodes = autoSortNodes(sub.timelineNodes || []);
-      let trackHtml = "";
-      if (sortedNodes.length === 0) {
-        trackHtml = `
-        <div class="pipeline-empty-track btn-inline-add-event" data-sub-id="${sub.id}" title="${escapeHTML(t("clickAddEvent"))}">
-          <span>+ ${t("addEventStart")}</span>
-        </div>
-      `;
-      } else {
-        const firstDateStr = sortedNodes[0]?.completeDate || sortedNodes[0]?.planDate || sortedNodes[0]?.dueDate;
-        const firstDate = firstDateStr ? new Date(firstDateStr) : null;
-        const capsules = sortedNodes.map((node, index) => {
-          const computedStatus = computeNodeStatus(node);
-          const icon = getCapsuleIcon(computedStatus, node.type);
-          const rawDateStr = getNodeDate(node);
-          const dateStr = formatShortDate(rawDateStr);
-          let deltaStr = "";
-          if (index > 0 && firstDate && rawDateStr) {
-            const curDate = new Date(rawDateStr);
-            if (!isNaN(firstDate.getTime()) && !isNaN(curDate.getTime())) {
-              const diffDays = Math.round((curDate.getTime() - firstDate.getTime()) / (1e3 * 60 * 60 * 24));
-              if (diffDays > 0) deltaStr = `+${diffDays}${t("dayUnitShort")}`;
-            }
-          }
-          const typeClass = `type-${node.type || "research"}`;
-          const statusLabel = getNodeStatusLabel(computedStatus);
-          const dueNote = node.dueDate ? ` | ${t("deadlineShort")}: ${node.dueDate}` : "";
-          const decisionNote = node.reviewDecision ? ` | ${node.reviewDecision === "major" ? t("majorRevision") : t("minorRevision")}` : "";
-          const tooltip = `${getTimelineNodeDisplayName(node)} (${statusLabel})${rawDateStr ? " - " + rawDateStr : ""}${dueNote}${decisionNote}${node.notes ? ": " + node.notes : ""}`;
-          return `
-          <button type="button" class="stage-capsule status-${computedStatus} ${typeClass} interactive-capsule"
-               data-sub-id="${sub.id}" data-node-id="${node.id}" title="${escapeHTML(tooltip)}">
-            <span class="capsule-icon">${icon}</span>
-            <span class="capsule-name">${escapeHTML(getTimelineNodeDisplayName(node))}</span>
-            ${dateStr ? `<span class="capsule-date">${dateStr}</span>` : ""}
-            ${deltaStr ? `<span class="capsule-delta">${deltaStr}</span>` : ""}
-          </button>
-        `;
-        }).join('<div class="stage-connector"></div>');
-        trackHtml = `<div class="pipeline-capsule-track">${capsules}</div>`;
+    const w = window;
+    if (w.RFUI?.isViewDeferred?.("view-dashboard")) return;
+    const manuscriptsById = new Map((db.manuscripts || []).map((manuscript) => [manuscript.id, manuscript]));
+    const allSubmissions = db.submissions || [];
+    const visibleSubmissions = allSubmissions.filter((s) => s.status !== "rejected");
+    let timelineChanged = false;
+    visibleSubmissions.forEach((sub) => {
+      if (!Array.isArray(sub.timelineNodes) || sub.timelineNodes.length === 0) {
+        sub.timelineNodes = typeof buildDefaultSubmissionTimeline === "function" ? buildDefaultSubmissionTimeline(sub) : [];
+        timelineChanged = true;
       }
-      const milestoneDots = d.milestones.map((m) => `
-      <div class="milestone" title="${escapeHTML(m.name)}: ${escapeHTML(m.date || t("noDate"))}${m.node ? " · " + escapeHTML(t("clickEditEvent")) : ""}">
-        <span class="dot ${m.date ? "active" : ""} ${m.emphasis ? "emphasis" : ""} ${m.today ? "today" : ""} ${m.node ? "interactive-dot" : ""}"
-          ${m.node ? `data-sub-id="${escapeHTML(sub.id)}" data-node-id="${escapeHTML(m.node.id)}"` : ""}
-          style="${m.date ? `color:${m.color};border-color:${m.color};${m.emphasis ? `background:${m.color};color:#fff;` : ""}` : ""}"></span>
-        <div class="m-name" style="${m.emphasis ? `color:${m.color};font-weight:750;` : ""}">${escapeHTML(m.name)}</div>
-        <div class="m-date">${escapeHTML(m.date ? formatShortDate(m.date) : "—")}</div>
-      </div>
-    `).join("");
-      const expSubmitBadge = analysis.expToSubmit !== null && d.mode !== "prepare" ? `<span>${t("expSubmitShort")} <strong style="color:hsl(var(--text-primary));">${analysis.expToSubmit} ${t("days")}</strong></span>` : "";
-      const zoteroItemKey = man?.zoteroItemKey || "";
-      const zoteroBadgeHtml = zoteroItemKey ? `
-      <span class="zotero-card-badge pipeline-zotero-badge" data-item-key="${escapeHTML(zoteroItemKey)}" title="${escapeHTML(currentLanguage === "zh" ? "在 Zotero 文献库中定位该条目" : "Locate in Zotero library")}" style="cursor:pointer;">
-        <svg width="10" height="10" viewBox="0 0 16 16" fill="currentColor"><path d="M2 3h12v2H6.4l5.6 6v2H2v-2h7.6L4 5V3z"/></svg>
-        Zotero
-      </span>
-    ` : "";
-      const doiMetaHtml = submissionDoi ? `<span>${escapeHTML(t("doiLabel"))} ${articleUrl ? `<a class="doi-link" href="${escapeHTML(articleUrl)}" target="_blank" rel="noopener noreferrer">${escapeHTML(submissionDoi)}</a>` : `<strong style="color:hsl(var(--text-primary));">${escapeHTML(submissionDoi)}</strong>`}</span>` : "";
-      let countdownBadgeHtml = "";
-      if (sub.revisionDueDate && !analysis.accepted && sub.status !== "rejected") {
-        const cd = window.RFCalendar?.getRevisionCountdownMeta ? window.RFCalendar.getRevisionCountdownMeta(sub.revisionDueDate) : null;
-        if (cd) {
-          countdownBadgeHtml = `<span class="meta-badge ${escapeHTML(cd.badgeClass)}" title="${escapeHTML(cd.title)}" style="font-weight:700;">${escapeHTML(cd.icon)} ${escapeHTML(cd.text)}</span>`;
+      if (typeof normalizeSubmissionTimeline === "function") {
+        timelineChanged = normalizeSubmissionTimeline(sub) || timelineChanged;
+      }
+    });
+    const acceptedCount = visibleSubmissions.filter((s) => isAcceptedSubmission(s)).length;
+    const activeCount = visibleSubmissions.filter((s) => !isAcceptedSubmission(s)).length;
+    const totalCount = allSubmissions.length;
+    const statAccepted = document.getElementById("stat-accepted-submissions");
+    if (statAccepted) statAccepted.textContent = String(acceptedCount);
+    const statActive = document.getElementById("stat-active-submissions");
+    if (statActive) statActive.textContent = String(activeCount);
+    const statTotal = document.getElementById("stat-total-submissions");
+    if (statTotal) statTotal.textContent = String(totalCount);
+    const filterLabel = document.getElementById("dashboard-filter-label");
+    if (filterLabel) filterLabel.textContent = getDashboardFilterLabel();
+    const manuscriptPipelines = [];
+    const processedSubIds = /* @__PURE__ */ new Set();
+    (db.manuscripts || []).forEach((man) => {
+      const sub = w.RFCore?.getCurrentSubmission?.(db, man.id);
+      if (sub && sub.status !== "rejected") {
+        manuscriptPipelines.push({ manuscript: man, submission: sub });
+        processedSubIds.add(sub.id);
+      }
+    });
+    (db.submissions || []).forEach((sub) => {
+      if (sub.status !== "rejected" && !processedSubIds.has(sub.id)) {
+        if (!sub.manuscriptId || !manuscriptsById.has(sub.manuscriptId)) {
+          manuscriptPipelines.push({ manuscript: null, submission: sub });
+          processedSubIds.add(sub.id);
         }
       }
-      const totalEvents = analysis.events.length;
-      const completedEvents = analysis.events.filter((e) => e.completeDate || e.status === "completed").length;
-      const progressPct = analysis.accepted ? 100 : totalEvents > 0 ? Math.min(95, Math.max(12, Math.round(completedEvents / totalEvents * 100))) : 15;
-      const progressColor = analysis.accepted ? "#10b981" : sub.status === "revision" ? "#f59e0b" : sub.status === "rejected" ? "#ef4444" : "#e11d48";
-      window.RFUI.setHTML(card, `
-      <div class="pipeline-top">
-        <div class="pipeline-title-block">
-          <div class="title-line">
-            <span class="index-badge">${idx + 1}</span>
-            <span class="paper-title" ${titleDisplay.showTooltip ? `title="${escapeHTML(fullManTitle)}"` : ""}>${escapeHTML(manTitle)}</span>
-            <span class="journal-pill" title="${escapeHTML(journalName)}">${escapeHTML(journalName)}</span>
-            ${sub.externalManuscriptId ? `<span class="meta-badge" style="font-family:monospace; color:#6366f1; border-color:rgba(99,102,241,0.3); background:rgba(99,102,241,0.06);" title="Manuscript ID">${escapeHTML(sub.externalManuscriptId)}</span>` : ""}
-            ${countdownBadgeHtml}
-            ${zoteroBadgeHtml}
-            ${articleUrl ? `<a class="meta-badge article-link-badge" href="${escapeHTML(articleUrl)}" target="_blank" rel="noopener noreferrer">${escapeHTML(t("articlePage"))}</a>` : ""}
-            <span class="state-pill" style="background:${analysis.stateColor}14;color:${analysis.stateColor};border-color:${analysis.stateColor}33;">
-              ${escapeHTML(analysis.stateLabel)} · ${escapeHTML(analysis.stateNote)}
+    });
+    const analyses = manuscriptPipelines.map((p) => analyzeSubmission(p.submission));
+    const expSubmit = analyses.map((a) => a.expToSubmit).filter((v) => v !== null && !isNaN(v) && v >= 0);
+    const submitNow = analyses.filter((a) => !a.accepted).map((a) => a.submitToNow).filter((v) => v !== null && !isNaN(v) && v >= 0);
+    const r1Now = analyses.filter((a) => !a.accepted).map((a) => a.r1ToNow).filter((v) => v !== null && !isNaN(v) && v >= 0);
+    const submitAccept = analyses.filter((a) => a.accepted).map((a) => a.submitToAccept).filter((v) => v !== null && !isNaN(v) && v >= 0);
+    if (typeof applyLanguage === "function") applyLanguage();
+    const avgText = (arr) => arr.length ? `${Math.round(arr.reduce((s, n) => s + n, 0) / arr.length)}${t("dayUnitShort")}` : "—";
+    const elExpSubmit = document.getElementById("mExpSubmit");
+    if (elExpSubmit) {
+      elExpSubmit.textContent = avgText(expSubmit);
+      elExpSubmit.parentElement?.setAttribute("title", currentLanguage === "zh" ? `各个稿件平均值：基于 ${expSubmit.length} 篇有实验记录的稿件` : `Average across manuscripts: based on ${expSubmit.length} manuscripts with experiment records`);
+    }
+    const elSubmitNow = document.getElementById("mSubmitNow");
+    if (elSubmitNow) {
+      elSubmitNow.textContent = avgText(submitNow);
+      elSubmitNow.parentElement?.setAttribute("title", currentLanguage === "zh" ? `各个稿件平均值：基于 ${submitNow.length} 篇在审稿件` : `Average across manuscripts: based on ${submitNow.length} manuscripts in review`);
+    }
+    const elR1Now = document.getElementById("mR1Now");
+    if (elR1Now) {
+      elR1Now.textContent = avgText(r1Now);
+      elR1Now.parentElement?.setAttribute("title", currentLanguage === "zh" ? `各个稿件平均值：基于 ${r1Now.length} 篇一审修回中的稿件` : `Average across manuscripts: based on ${r1Now.length} manuscripts awaiting post-R1 decisions`);
+    }
+    const elSubmitAccept = document.getElementById("mSubmitAccept");
+    if (elSubmitAccept) {
+      elSubmitAccept.textContent = avgText(submitAccept);
+      elSubmitAccept.parentElement?.setAttribute("title", currentLanguage === "zh" ? `各个稿件平均值：基于 ${submitAccept.length} 篇已接收/发表的稿件` : `Average across manuscripts: based on ${submitAccept.length} accepted manuscripts`);
+    }
+    const ganttBox = document.getElementById("dashboard-gantt");
+    if (!ganttBox) return;
+    w.RFUI.setHTML(ganttBox, "");
+    let submissionsList = visibleSubmissions;
+    if (currentDashboardFilter === "accepted") {
+      submissionsList = submissionsList.filter(isAcceptedSubmission);
+    } else if (currentDashboardFilter === "active") {
+      submissionsList = submissionsList.filter((s) => !isAcceptedSubmission(s));
+    }
+    submissionsList = sortDashboardSubmissions(submissionsList);
+    if (submissionsList.length === 0) {
+      w.RFUI.setHTML(ganttBox, `<p class="empty-state">${t("noPipelines")}</p>`);
+    } else {
+      submissionsList.forEach((sub, index) => {
+        const displayIndex = submissionsList.length - index;
+        const man = manuscriptsById.get(sub.manuscriptId);
+        const manTitle = man ? man.title : sub.title || t("untitledManuscript");
+        const journalName = getSubmissionJournalName(sub);
+        const firstAuthor = getSubmissionFirstAuthor(sub, man);
+        const a = analyzeSubmission(sub);
+        let stageClass = "stage-active";
+        if (a.accepted || sub.status === "accepted" || sub.status === "published") {
+          stageClass = "stage-accepted";
+        } else if ((sub.status || "").includes("revision")) {
+          stageClass = "stage-revision";
+        } else {
+          const sortedNodes = autoSortNodes(sub.timelineNodes || []);
+          const hasOverdue = sortedNodes.some((n) => {
+            const s = computeNodeStatus(n);
+            return s === "overdue" || s === "blocked";
+          });
+          if (hasOverdue) stageClass = "stage-exception";
+        }
+        const card = document.createElement("div");
+        card.className = `pipeline-card ${stageClass}`;
+        card.style?.setProperty?.("--card-index", String(index));
+        card.style?.setProperty?.("--state-color", a.stateColor);
+        const latestMeta = a.latest ? getTimelineTypeMeta(a.latest.type) : { color: "#64748b", label: t("typeNoEvent") };
+        const latestDate = a.latest ? getNodeDate(a.latest) : "";
+        const latestRelative = latestDate ? getRelativeDateLabel(latestDate) : "";
+        const reviewNode = [...sub.timelineNodes || []].filter((node) => isReviewTimelineNode(node) && node.dueDate).sort((left, right) => new Date(left.dueDate).getTime() - new Date(right.dueDate).getTime())[0];
+        const reviewDeadlineHtml = reviewNode ? `<div class="latest-deadline ${computeNodeStatus(reviewNode) === "overdue" ? "is-overdue" : ""}">${escapeHTML(t("eventDeadline"))}：${escapeHTML(formatShortDate(reviewNode.dueDate))}${reviewNode.reviewDecision ? ` · ${escapeHTML(getReviewDecisionLabel(reviewNode.reviewDecision))}` : ""}</div>` : "";
+        const submissionDoi = getSubmissionDoi(sub);
+        const articleUrl = getSubmissionArticleUrl(sub);
+        const doiHtml = submissionDoi ? `<a class="doi-link" href="${escapeHTML(articleUrl || `https://doi.org/${submissionDoi}`)}" target="_blank" rel="noopener noreferrer">${t("doiLabel")}: ${escapeHTML(submissionDoi)}</a>` : articleUrl ? `<a class="doi-link" href="${escapeHTML(articleUrl)}" target="_blank" rel="noopener noreferrer">${t("articlePage")}</a>` : `<span class="doi-missing">${t("doiNotSet")}</span>`;
+        const milestones = a.display.milestones.filter((m) => m.name && m.date !== void 0);
+        const count = Math.max(2, milestones.length);
+        const timelineIsActive = a.display.pending && ["submitted", "under_review", "revision"].includes(normalizeSubmissionStatus(sub.status));
+        let railHtml = `
+        <div class="event-rail ${timelineIsActive ? "is-tracking" : ""}" style="--count:${count}">
+          <div class="rail-track ${a.display.pending ? "pending" : ""}"></div>
+      `;
+        milestones.forEach((m) => {
+          const isInteractive = Boolean(m.node);
+          railHtml += `
+          <div class="milestone">
+            <div class="dot-wrap">
+              <div class="dot ${m.emphasis ? "emphasis" : ""} ${m.today ? "today" : ""} ${isInteractive ? "interactive-dot" : ""}"
+                   style="--dot-color:${m.color || a.display.color}; ${isInteractive ? "cursor: pointer;" : ""}"
+                   ${isInteractive ? `data-node-id="${escapeHTML(m.node.id)}" data-sub-id="${escapeHTML(sub.id)}" title="${escapeHTML(t("clickEditEvent"))}: ${escapeHTML(m.name)}"` : ""}></div>
+            </div>
+            <div class="milestone-name">${escapeHTML(m.name)}</div>
+            <div class="milestone-date">${m.date ? formatShortDate(m.date) : "—"}</div>
+          </div>
+        `;
+        });
+        railHtml += `
+        </div>
+        <div class="rail-caption">
+          <span>${t("keyEventRail")}</span>
+          <span class="caption-highlight">${a.display.pending ? t("countingNow") : t("completedInterval")}</span>
+        </div>
+      `;
+        w.RFUI.setHTML(card, `
+        <!-- Col 1: Manuscript Info -->
+        <div class="project-info">
+          <div class="project-heading-row">
+            <span class="submission-index">${displayIndex}</span>
+            <div class="journal" title="${escapeHTML(journalName)}">${escapeHTML(journalName)}</div>
+            ${sub.externalManuscriptId ? `<span class="badge badge-purple" style="font-size:10px; padding:1px 6px; border-radius:3px;" title="Manuscript ID: ${escapeHTML(sub.externalManuscriptId)}">ID: ${escapeHTML(sub.externalManuscriptId)}</span>` : ""}
+            <span class="pipeline-compact-status" style="--state-color:${a.stateColor}">${escapeHTML(a.stateLabel)}</span>
+          </div>
+          <h3 class="project-title" title="${escapeHTML(manTitle)}">${escapeHTML(manTitle)}</h3>
+          <div class="project-meta">
+            <span>${tf("nodesSaved", { count: (sub.timelineNodes || []).length })}</span>
+            <span>${t("timelineSortedBySubmissionDate")}: ${a.submitDate ? escapeHTML(formatShortDate(a.submitDate)) : t("noDate")}</span>
+            <span>${t("expSubmitShort")} ${a.expToSubmit === null ? "—" : a.expToSubmit + t("dayUnitShort")}</span>
+            <span>${t("timelineDateSource")}: ${escapeHTML(a.submitDateSource)}</span>
+            <span class="pipeline-first-author ${firstAuthor ? "" : "is-empty"}" title="${escapeHTML(t("firstAuthorLabel"))}: ${escapeHTML(firstAuthor || t("firstAuthorNotSet"))}">
+              <span class="pipeline-first-author-label">${escapeHTML(t("firstAuthorLabel"))}:</span>
+              <strong>${escapeHTML(firstAuthor || t("firstAuthorNotSet"))}</strong>
             </span>
           </div>
-          <div class="subline">
-            <span>${escapeHTML(t("firstAuthorLabel"))} <strong style="color:hsl(var(--text-primary));">${escapeHTML(firstAuthor || t("firstAuthorNotSet"))}</strong></span>
-            <span>${t("milestoneSubmission")} <strong style="color:hsl(var(--text-primary));">${escapeHTML(analysis.submitDate || "—")}</strong></span>
-            <span>${t("milestoneR1Comments")} <strong style="color:hsl(var(--text-primary));">${escapeHTML(analysis.r1Date || "—")}</strong></span>
-            <span>${t("milestoneAcceptance")} <strong style="color:hsl(var(--text-primary));">${escapeHTML(analysis.acceptDate || "—")}</strong></span>
-            ${doiMetaHtml}
-            ${expSubmitBadge}
-            <span>${tf("nodesSaved", { count: analysis.events.length })}</span>
+          <div class="pipeline-link-row">
+            ${doiHtml}
+            ${man?.zoteroItemKey ? `
+              <span class="zotero-card-badge" data-item-key="${escapeHTML(man.zoteroItemKey)}" data-library-id="${escapeHTML(man.zoteroLibraryID || "")}" title="${escapeHTML(currentLanguage === "zh" ? "在 Zotero 文献库中选中此条目" : "Select in Zotero library")}" style="margin-left: 6px;">
+                <svg width="11" height="11" viewBox="0 0 16 16" fill="currentColor"><path d="M2 3h12v2H6.4l5.6 6v2H2v-2h7.6L4 5V3z"/></svg>
+                Zotero
+              </span>
+              ${man.citekey ? `<span class="zotero-citekey-badge" data-citekey="${escapeHTML(man.citekey)}" title="${escapeHTML(currentLanguage === "zh" ? "点击复制 Citation Key" : "Click to copy Citation Key")}">[@${escapeHTML(man.citekey)}]</span>` : ""}
+              ${man.pdfUri ? `<span class="zotero-pdf-badge" data-item-key="${escapeHTML(man.zoteroItemKey)}" data-library-id="${escapeHTML(man.zoteroLibraryID || "")}" title="${escapeHTML(currentLanguage === "zh" ? "在 Zotero 阅读器中打开 PDF" : "Open PDF in Zotero reader")}">📖 PDF</span>` : ""}
+            ` : ""}
           </div>
-          <div class="pipeline-progress-bar-wrap" title="Pipeline Completion: ${progressPct}%">
-            <div class="pipeline-progress-bar-fill" style="width:${progressPct}%; background:${progressColor};"></div>
-          </div>
-        </div>
-        <div class="pipeline-actions">
-          <button class="btn-secondary btn-sm btn-inline-add-event" data-sub-id="${escapeHTML(sub.id)}" type="button">${t("addEvent")}</button>
-          <button class="btn-secondary btn-sm btn-share-submission" data-sub-id="${escapeHTML(sub.id)}" type="button">${escapeHTML(t("shareJourney"))}</button>
-          <button class="btn-secondary btn-sm btn-open-submission-detail" data-sub-id="${escapeHTML(sub.id)}" type="button">${t("openSubmissionDetails")}</button>
-        </div>
-      </div>
-
-      ${buildInlineStageEditor(sub.id)}
-
-      <div class="pipeline-middle">
-        <div class="key-track">
-          <div class="track-top">
-            <span>${t("keyEventRail")}</span>
-            <span>${d.pending ? t("countingNow") : t("completedInterval")}</span>
-          </div>
-          <div class="milestones" style="grid-template-columns:repeat(${d.milestones.length}, minmax(82px, 1fr));">
-            ${milestoneDots}
+          <div class="pipeline-actions" style="margin-top: 12px; display: flex; gap: 8px;">
+            <button type="button" class="btn-secondary btn-sm btn-pipeline-open" data-sub-id="${escapeHTML(sub.id)}" aria-label="${escapeHTML(t("openSubmissionDetails"))}: ${escapeHTML(manTitle)}">${escapeHTML(t("openSubmissionDetails"))}</button>
+            <button class="btn-secondary btn-sm btn-pipeline-add" data-sub-id="${escapeHTML(sub.id)}">${t("addEvent")}</button>
+            <button class="btn-secondary btn-sm btn-pipeline-manage" data-sub-id="${escapeHTML(sub.id)}">${t("manageEvents")}</button>
+            <button class="btn-secondary btn-sm btn-pipeline-share" data-sub-id="${escapeHTML(sub.id)}" title="${escapeHTML(t("shareJourney"))}" aria-label="${escapeHTML(t("shareJourney"))}: ${escapeHTML(manTitle)}">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="m8.6 10.5 6.8-4M8.6 13.5l6.8 4"/></svg>
+              <span>${escapeHTML(t("shareJourney"))}</span>
+            </button>
           </div>
         </div>
 
-        <div class="focus-metric" style="background:${d.bg};border-color:${d.border};">
-          <div>
-            <div class="fm-label" style="color:${d.color};">${escapeHTML(d.label)}</div>
-            <div class="fm-caption">${escapeHTML(d.caption)}</div>
-          </div>
-          <div class="fm-value" style="color:${d.color};">
-            ${d.value ?? "—"}<span class="unit">${d.value !== null && d.value !== void 0 ? t("days") : ""}</span>
-          </div>
-        </div>
-
-        <div class="latest-box">
-          <div>
-            <div class="lb-head">
-              <span class="lb-title">${t("latestEvent")}</span>
-              <span class="type-pill" style="background:${latestType.color}14;color:${latestType.color};border-color:${latestType.color}33;">${escapeHTML(latestTypeLabel)}</span>
+        <!-- Col 2: Middle Core Panel -->
+        <div class="core-panel" style="--panel-color:${a.display.color}; --panel-bg:${a.display.bg}; --panel-border:${a.display.border}">
+          <div class="core-head">
+            <div>
+              <div class="core-label">${escapeHTML(a.display.label)}</div>
+              <div class="core-sub">${escapeHTML(a.display.caption)}</div>
             </div>
-            <div class="lb-event">${escapeHTML(analysis.latest ? getTimelineNodeDisplayName(analysis.latest) : t("noEventYet"))}</div>
+            <div class="core-value"><strong>${a.display.value === null ? "—" : a.display.value}</strong><span>${t("days")}</span></div>
           </div>
-          <div class="lb-meta">
-            <span>${escapeHTML(analysis.latest ? getNodeDate(analysis.latest) || t("noDate") : "")}</span>
-            <span>${escapeHTML(analysis.latest?.notes || "")}</span>
-          </div>
+          ${railHtml}
         </div>
-      </div>
 
-      ${trackHtml}
-      ${buildTimelineEventManager(sub)}
-    `);
-      ganttBox.appendChild(card);
-      bindPipelineCardInteractions(card, sub);
-    });
+        <!-- Col 3: Latest Node Window -->
+        <div class="latest-window" data-sub-id="${escapeHTML(sub.id)}" data-latest-id="${a.latest ? escapeHTML(a.latest.id) : ""}">
+          <div class="latest-head">
+            <span>${t("latestEvent")}</span>
+            <span class="node-type" style="--node-color:${latestMeta.color}">${escapeHTML(latestMeta.label)}</span>
+          </div>
+          <div class="latest-title">${a.latest ? escapeHTML(getTimelineNodeDisplayName(a.latest)) : t("noEventYet")}</div>
+          <div class="latest-date">${a.latest ? `${latestDate ? escapeHTML(formatShortDate(latestDate)) : t("noDate")}${latestRelative ? ` · ${escapeHTML(latestRelative)}` : ""}` : t("addEventStart")}</div>
+          ${reviewDeadlineHtml}
+          <div class="latest-note">${a.latest ? escapeHTML(a.latest.notes || t("clickEditEvent")) : t("clickAddEvent")}</div>
+        </div>
+
+        <!-- Col 4: State Box -->
+        <div class="state-box">
+          <span class="state-pill" style="--state-color:${a.stateColor}">${escapeHTML(a.stateLabel)}</span>
+          <div class="state-note">${escapeHTML(a.stateNote)}</div>
+        </div>
+        ${buildInlineStageEditor(sub.id)}
+      `);
+        ganttBox.appendChild(card);
+        bindPipelineCardInteractions(card, sub);
+      });
+    }
+    renderTimelineAlerts();
   }
   var init_pipeline_renderer = __esm({
     "src/modules/dashboard-view/pipeline-renderer.ts"() {
@@ -854,7 +935,7 @@
         sortDashboardSubmissions,
         createTimelineNode,
         markSubmissionRejected,
-        syncManuscriptStatusFromSubmission: syncManuscriptStatusFromSubmission2,
+        syncManuscriptStatusFromSubmission,
         syncManuscriptStatusesFromSubmissions,
         clearOnlinePublicationCompletion,
         syncLinkedSubmissionsFromManuscript,

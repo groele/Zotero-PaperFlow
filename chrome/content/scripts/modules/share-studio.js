@@ -525,7 +525,8 @@
         savePngBlobWithPath,
         copyPngBlobToClipboard,
         clearActiveSharePreview,
-        openSubmissionShareModal
+        openSubmissionShareModal,
+        openSubmissionSharePreview: openSubmissionShareModal
       };
       if (typeof globalThis !== "undefined") {
         Object.assign(globalThis, shareStudioExports);

@@ -1,4 +1,5 @@
 declare var db: any;
+declare var currentLanguage: string;
 declare var ZoteroBridge: any;
 declare function t(key: string): string;
 declare function tf(key: string, vars?: any): string;
@@ -9,51 +10,107 @@ declare function updateInlineStageDeadlineStatus(editor: any): void;
 declare function resetInlineStageEditor(editor: any): void;
 declare function setInlineStageBusy(editor: any, busy: boolean, message?: string): void;
 declare function saveInlineStageEvent(editor: any): Promise<void>;
+declare function openSubmissionSharePreview(subId: string, triggerBtn?: any): Promise<void>;
 declare function openSubmissionShareModal(subId: string): Promise<void>;
-declare function openSubmissionForEditing(subOrId: any, options?: any): void;
-declare function deleteTimelineNode(sub: any, nodeId: string): any;
-declare function syncManuscriptStatusFromSubmission(sub: any, database?: any): boolean;
+declare function navigateToSubmissionDetails(subId: string): void;
+declare function openTimelineEventManager(subId: string): void;
 declare function renderDashboard(): void;
-declare function renderKanban(): void;
-declare function renderSubmissions(): void;
 declare function showGlobalToast(message: string, type?: string): void;
-declare function getTimelineNodeDisplayName(node: any): string;
 
 export function bindPipelineCardInteractions(card: HTMLElement, sub: any): void {
-  card.querySelectorAll('.interactive-capsule, .interactive-dot, .btn-event-edit').forEach((cap: any) => {
-    cap.addEventListener('click', (e: Event) => {
+  // 1. Interactive timeline dots in Col 2
+  card.querySelectorAll('.dot.interactive-dot').forEach((dot: any) => {
+    dot.addEventListener('click', (e: Event) => {
       e.stopPropagation();
-      const sId = cap.getAttribute('data-sub-id');
-      const nId = cap.getAttribute('data-node-id');
-      if (sId && nId) openStageDrawer(sId, nId);
+      const nodeId = dot.getAttribute('data-node-id');
+      const subId = dot.getAttribute('data-sub-id') || sub.id;
+      if (subId && nodeId) openStageDrawer(subId, nodeId);
     });
   });
 
-  card.querySelectorAll('.btn-event-delete').forEach((btn: any) => {
-    btn.addEventListener('click', async (e: Event) => {
+  // 2. Latest node window in Col 3
+  const latestWindow = card.querySelector('.latest-window');
+  if (latestWindow) {
+    latestWindow.addEventListener('click', (e: Event) => {
       e.stopPropagation();
-      const sId = btn.getAttribute('data-sub-id');
-      const nId = btn.getAttribute('data-node-id');
-      const targetSub = db.submissions.find((s: any) => s.id === sId);
-      const targetNode = targetSub?.timelineNodes?.find((n: any) => n.id === nId);
-      if (!targetSub || !targetNode) return;
-      if (!confirm(tf('confirmDeleteEvent', { name: getTimelineNodeDisplayName(targetNode) }))) return;
-      deleteTimelineNode(targetSub, nId);
-      syncManuscriptStatusFromSubmission(targetSub);
-      const w = window as any;
-      await w.storage.saveAll(db);
-      renderDashboard();
-      renderKanban();
-      renderSubmissions();
-      showGlobalToast(t('eventRemovedToast'), 'success');
+      const latestId = latestWindow.getAttribute('data-latest-id');
+      const subId = latestWindow.getAttribute('data-sub-id') || sub.id;
+      if (latestId) {
+        openStageDrawer(subId, latestId);
+      } else {
+        toggleInlineStageEditor(card, true);
+      }
     });
+  }
+
+  // 3. Action buttons in Col 1
+  card.querySelector('.btn-pipeline-open')?.addEventListener('click', (e: Event) => {
+    e.stopPropagation();
+    if (typeof navigateToSubmissionDetails === 'function') {
+      navigateToSubmissionDetails(sub.id);
+    }
   });
 
-  card.querySelectorAll('.btn-inline-add-event').forEach((btn: any) => {
-    btn.addEventListener('click', (e: Event) => {
-      e.stopPropagation();
-      toggleInlineStageEditor(card);
-    });
+  card.querySelector('.btn-pipeline-add')?.addEventListener('click', (e: Event) => {
+    e.stopPropagation();
+    toggleInlineStageEditor(card, true);
+  });
+
+  card.querySelector('.btn-pipeline-manage')?.addEventListener('click', (e: Event) => {
+    e.stopPropagation();
+    if (typeof openTimelineEventManager === 'function') {
+      openTimelineEventManager(sub.id);
+    }
+  });
+
+  card.querySelector('.btn-pipeline-share')?.addEventListener('click', (e: Event) => {
+    e.stopPropagation();
+    const shareFn = typeof openSubmissionSharePreview === 'function' ? openSubmissionSharePreview : openSubmissionShareModal;
+    if (typeof shareFn === 'function') {
+      shareFn(sub.id, e.currentTarget);
+    }
+  });
+
+  // 4. Zotero Badges in Col 1
+  card.querySelector('.zotero-card-badge')?.addEventListener('click', (e: Event) => {
+    e.stopPropagation();
+    const badge = e.currentTarget as HTMLElement;
+    const key = badge.getAttribute('data-item-key');
+    const rawLib = badge.getAttribute('data-library-id');
+    const libId = rawLib ? (Number(rawLib) || rawLib) : null;
+    if (key && typeof ZoteroBridge !== 'undefined') {
+      ZoteroBridge.selectItemInZotero(key, libId);
+    }
+  });
+
+  card.querySelector('.zotero-citekey-badge')?.addEventListener('click', (e: Event) => {
+    e.stopPropagation();
+    const badge = e.currentTarget as HTMLElement;
+    const ck = badge.getAttribute('data-citekey');
+    if (ck && typeof ZoteroBridge !== 'undefined') {
+      const curLang = typeof currentLanguage !== 'undefined' ? currentLanguage : 'en';
+      ZoteroBridge.copyText(`[@${ck}]`, curLang === 'zh' ? `已复制 Citation Key: [@${ck}]` : `Copied Citation Key: [@${ck}]`);
+    }
+  });
+
+  card.querySelector('.zotero-pdf-badge')?.addEventListener('click', (e: Event) => {
+    e.stopPropagation();
+    const badge = e.currentTarget as HTMLElement;
+    const key = badge.getAttribute('data-item-key');
+    const rawLib = badge.getAttribute('data-library-id');
+    const libId = rawLib ? (Number(rawLib) || rawLib) : null;
+    if (key && typeof ZoteroBridge !== 'undefined') {
+      ZoteroBridge.openPdf(key, null, libId);
+    }
+  });
+
+  // 5. Inline Stage Editor bindings
+  card.querySelector('.btn-inline-stage-cancel')?.addEventListener('click', (e: Event) => {
+    e.stopPropagation();
+    const btn = e.currentTarget as HTMLButtonElement;
+    if (btn?.disabled) return;
+    toggleInlineStageEditor(card, false);
+    (card.querySelector('.btn-pipeline-add') as HTMLElement)?.focus?.();
   });
 
   const inlineEditor = card.querySelector('.inline-stage-editor') as HTMLElement | null;
@@ -62,15 +119,7 @@ export function bindPipelineCardInteractions(card: HTMLElement, sub: any): void 
       syncInlineStagePreset(inlineEditor);
     });
     inlineEditor.querySelector('.inline-stage-type')?.addEventListener('change', () => {
-      const typeSelect = inlineEditor.querySelector('.inline-stage-type') as HTMLSelectElement | null;
-      const keySelect = inlineEditor.querySelector('.inline-stage-key') as HTMLSelectElement | null;
-      const isReview = typeSelect?.value === 'review' || keySelect?.value === 'r1_comments' || keySelect?.value === 'r2_comments';
-      inlineEditor.classList.toggle('is-review', Boolean(isReview));
-      const deadlineField = inlineEditor.querySelector('.inline-stage-deadline-field') as HTMLElement | null;
-      const decisionField = inlineEditor.querySelector('.inline-stage-decision-field') as HTMLElement | null;
-      if (deadlineField) deadlineField.hidden = !isReview;
-      if (decisionField) decisionField.hidden = !isReview;
-      updateInlineStageDeadlineStatus(inlineEditor);
+      syncInlineStagePreset(inlineEditor);
     });
     inlineEditor.querySelector('.inline-stage-deadline')?.addEventListener('input', () => {
       updateInlineStageDeadlineStatus(inlineEditor);
@@ -79,60 +128,34 @@ export function bindPipelineCardInteractions(card: HTMLElement, sub: any): void 
       e.stopPropagation();
       resetInlineStageEditor(inlineEditor);
     });
-    inlineEditor.querySelector('.btn-inline-stage-cancel')?.addEventListener('click', (e: Event) => {
-      e.stopPropagation();
-      toggleInlineStageEditor(card, false);
-    });
     inlineEditor.querySelector('.btn-inline-stage-save')?.addEventListener('click', async (e: Event) => {
       e.stopPropagation();
-      const saveButton = inlineEditor.querySelector('.btn-inline-stage-save') as HTMLButtonElement | null;
-      if (saveButton?.disabled) return;
-      setInlineStageBusy(inlineEditor, true, t('autoSaveSaving'));
+      const saveBtn = inlineEditor.querySelector('.btn-inline-stage-save') as HTMLButtonElement | null;
+      if (saveBtn?.disabled) return;
+      setInlineStageBusy(inlineEditor, true);
+      let errorMessage = '';
       try {
         await saveInlineStageEvent(inlineEditor);
+      } catch (error: any) {
+        errorMessage = error?.message || t('autoSaveFailed');
+        showGlobalToast(errorMessage, 'error');
       } finally {
-        if (inlineEditor.isConnected) setInlineStageBusy(inlineEditor, false);
+        if (inlineEditor.isConnected) setInlineStageBusy(inlineEditor, false, errorMessage);
       }
     });
-    inlineEditor.querySelectorAll('input, select').forEach((field: any) => {
-      field.addEventListener('keydown', async (e: KeyboardEvent) => {
-        if (e.key === 'Enter') {
-          e.preventDefault();
-          const saveButton = inlineEditor.querySelector('.btn-inline-stage-save') as HTMLButtonElement | null;
-          if (saveButton?.disabled) return;
-          setInlineStageBusy(inlineEditor, true, t('autoSaveSaving'));
-          try {
-            await saveInlineStageEvent(inlineEditor);
-          } finally {
-            if (inlineEditor.isConnected) setInlineStageBusy(inlineEditor, false);
-          }
-        } else if (e.key === 'Escape') {
-          e.preventDefault();
-          toggleInlineStageEditor(card, false);
-        }
+    inlineEditor.addEventListener('keydown', (event: any) => {
+      if (event.key !== 'Escape' || inlineEditor.querySelector('.btn-inline-stage-save')?.hasAttribute('disabled')) return;
+      event.preventDefault();
+      event.stopPropagation();
+      toggleInlineStageEditor(card, false);
+      (card.querySelector('.btn-pipeline-add') as HTMLElement)?.focus?.();
+    });
+    inlineEditor.querySelectorAll('.inline-stage-fields input').forEach((input: any) => {
+      input.addEventListener('keydown', (event: any) => {
+        if (event.key !== 'Enter' || event.isComposing) return;
+        event.preventDefault();
+        (inlineEditor.querySelector('.btn-inline-stage-save') as HTMLButtonElement)?.click?.();
       });
-    });
-  }
-
-  card.querySelector('.btn-share-submission')?.addEventListener('click', (e: Event) => {
-    e.stopPropagation();
-    openSubmissionShareModal(sub.id);
-  });
-
-  card.querySelector('.btn-open-submission-detail')?.addEventListener('click', (e: Event) => {
-    e.stopPropagation();
-    openSubmissionForEditing(sub, { switchView: true, focusEditCenter: true });
-  });
-
-  const pZotBadge = card.querySelector('.pipeline-zotero-badge');
-  if (pZotBadge) {
-    pZotBadge.addEventListener('click', (e: Event) => {
-      e.stopPropagation();
-      const key = pZotBadge.getAttribute('data-item-key');
-      if (key && typeof ZoteroBridge !== 'undefined') {
-        const linkedMan = db.manuscripts?.find((item: any) => item.id === sub.manuscriptId);
-        ZoteroBridge.selectItemInZotero(key, linkedMan?.zoteroLibraryID);
-      }
     });
   }
 }
