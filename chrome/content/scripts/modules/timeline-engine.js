@@ -1121,7 +1121,7 @@
     }
   });
 
-  // src/modules/timeline-engine/calendar-and-status.ts
+  // src/modules/timeline-engine/status-lifecycle.ts
   function isAcceptedSubmission(sub) {
     return Boolean(sub && analyzeSubmission(sub).accepted);
   }
@@ -1305,6 +1305,14 @@
       title: isZh ? `修回截止日期：${dueDate}（还剩 ${diffDays} 天）` : `Revision due date: ${dueDate} (${diffDays} days remaining)`
     };
   }
+  var init_status_lifecycle = __esm({
+    "src/modules/timeline-engine/status-lifecycle.ts"() {
+      "use strict";
+      init_normalizer_and_analyzer();
+    }
+  });
+
+  // src/modules/timeline-engine/calendar-export.ts
   function formatIcsDate(dateStr) {
     if (!dateStr) return "";
     const d = new Date(dateStr);
@@ -1407,10 +1415,10 @@
     return typeof escapeLatex === "function" ? escapeLatex : void 0;
   }
   var RFCalendar;
-  var init_calendar_and_status = __esm({
-    "src/modules/timeline-engine/calendar-and-status.ts"() {
+  var init_calendar_export = __esm({
+    "src/modules/timeline-engine/calendar-export.ts"() {
       "use strict";
-      init_normalizer_and_analyzer();
+      init_status_lifecycle();
       RFCalendar = {
         getRevisionCountdownMeta: getRevisionCountdownMeta2,
         formatIcsDate,
@@ -1419,6 +1427,15 @@
         generateSubmissionCalendarFeed,
         triggerCalendarDownload
       };
+    }
+  });
+
+  // src/modules/timeline-engine/calendar-and-status.ts
+  var init_calendar_and_status = __esm({
+    "src/modules/timeline-engine/calendar-and-status.ts"() {
+      "use strict";
+      init_status_lifecycle();
+      init_calendar_export();
     }
   });
 

@@ -4,8 +4,11 @@
 
 /* Domain CSS Module Imports */
 @import url("dashboard.css");
+@import url("pipeline-capsule.css");
+@import url("event-rail.css");
 @import url("kanban.css");
 @import url("submissions.css");
+@import url("journal-portals.css");
 @import url("review-matrix.css");
 @import url("modals.css");
 @import url("zotero-drawer.css");
