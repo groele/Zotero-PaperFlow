@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
   <script src="scripts/zotero-window-polyfill.js"></script>
@@ -70,15 +70,15 @@
 
         <!-- Stats row -->
         <div class="grid-cols-3">
-          <button type="button" class="glass-card stat-box interactive-stat-card filter-accepted" id="card-filter-accepted" aria-pressed="false">
+          <button type="button" class="glass-card stat-box interactive-stat-card filter-accepted" id="card-filter-accepted" data-filter="accepted" aria-pressed="false">
             <h4 style="display:flex; align-items:center; gap:6px;">🎉 Accepted & Published <span class="filter-tip">Click to filter</span></h4>
             <div class="stat-number gradient-text-emerald" id="stat-accepted-submissions">0</div>
           </button>
-          <button type="button" class="glass-card stat-box interactive-stat-card filter-active" id="card-filter-active" aria-pressed="false">
+          <button type="button" class="glass-card stat-box interactive-stat-card filter-active" id="card-filter-active" data-filter="active" aria-pressed="false">
             <h4 style="display:flex; align-items:center; gap:6px;">🕒 Active In-Review <span class="filter-tip">Click to filter</span></h4>
             <div class="stat-number gradient-text-indigo" id="stat-active-submissions">0</div>
           </button>
-          <button type="button" class="glass-card stat-box interactive-stat-card filter-all active" id="card-filter-all" aria-pressed="true">
+          <button type="button" class="glass-card stat-box interactive-stat-card filter-all active" id="card-filter-all" data-filter="all" aria-pressed="true">
             <h4 style="display:flex; align-items:center; gap:6px;">📊 Total Submissions <span class="filter-tip">Click to filter</span></h4>
             <div class="stat-number gradient-text-rose" id="stat-total-submissions">0</div>
           </button>

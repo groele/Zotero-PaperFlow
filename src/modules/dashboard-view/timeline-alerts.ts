@@ -13,6 +13,7 @@ declare function getNodeStatusLabel(status: string): string;
 declare function inferKey(node: any): string;
 declare function getTimelineNodeDisplayName(node: any): string;
 declare function showGlobalToast(message: string, type?: string): void;
+declare function openStageDrawer(subId: string, nodeId: string): void;
 
 export function renderTimelineAlerts(): void {
   const reviewMilestones = document.getElementById('dashboard-pending-milestones');
@@ -101,6 +102,12 @@ export function renderTimelineAlerts(): void {
       const item = document.createElement('div');
       item.className = 'recent-item';
       item.title = alert.manTitle;
+      item.style.cursor = 'pointer';
+      item.addEventListener('click', () => {
+        if (typeof openStageDrawer === 'function') {
+          openStageDrawer(alert.sub.id, alert.node.id);
+        }
+      });
 
       const title = document.createElement('span');
       title.className = 'recent-item-title';

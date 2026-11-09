@@ -63,12 +63,14 @@ export function bindPipelineCardInteractions(card: HTMLElement, sub: any): void 
     }
   });
 
-  card.querySelector('.btn-pipeline-share')?.addEventListener('click', (e: Event) => {
-    e.stopPropagation();
-    const shareFn = typeof openSubmissionSharePreview === 'function' ? openSubmissionSharePreview : openSubmissionShareModal;
-    if (typeof shareFn === 'function') {
-      shareFn(sub.id, e.currentTarget);
-    }
+  card.querySelectorAll('.btn-pipeline-share').forEach((btn: any) => {
+    btn.addEventListener('click', (e: Event) => {
+      e.stopPropagation();
+      const shareFn = typeof openSubmissionSharePreview === 'function' ? openSubmissionSharePreview : openSubmissionShareModal;
+      if (typeof shareFn === 'function') {
+        shareFn(sub.id, e.currentTarget);
+      }
+    });
   });
 
   // 4. Zotero Badges in Col 1

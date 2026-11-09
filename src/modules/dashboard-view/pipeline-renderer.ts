@@ -31,19 +31,20 @@ export function bindDashboardControls(): void {
   }
 
   // Dashboard filter buttons
-  document.querySelectorAll('.interactive-stat-card').forEach((btn: any) => {
-    if (!btn.dataset.filterBound) {
+  const filterMap: Record<string, string> = {
+    'card-filter-accepted': 'accepted',
+    'card-filter-active': 'active',
+    'card-filter-all': 'all'
+  };
+  Object.entries(filterMap).forEach(([id, filter]) => {
+    const btn = document.getElementById(id);
+    if (btn && !btn.dataset.filterBound) {
       btn.dataset.filterBound = 'true';
+      btn.dataset.filter = filter;
       btn.addEventListener('click', (e: Event) => {
         e.preventDefault();
         const g = typeof window !== 'undefined' ? (window as any) : (globalThis as any);
-        const filter = btn.dataset.filter || 'all';
         g.currentDashboardFilter = filter;
-        document.querySelectorAll('.interactive-stat-card').forEach((b: any) => {
-          b.classList.toggle('active', (b.dataset.filter || 'all') === filter);
-        });
-        const labelEl = document.getElementById('dashboard-filter-label');
-        if (labelEl) labelEl.textContent = getDashboardFilterLabel();
         renderDashboard();
       });
     }
@@ -57,7 +58,36 @@ export function renderDashboard(): void {
   const currentDashboardFilter = w.currentDashboardFilter || 'all';
   const manuscriptsById = new Map((db.manuscripts || []).map((m: any) => [m.id, m]));
   const visibleManuscripts = db.manuscripts || [];
-  const visibleSubmissions = (db.submissions || []).filter((s: any) => !s.deleted && !s.isDeleted);
+  const allSubmissions = (db.submissions || []).filter((s: any) => !s.deleted && !s.isDeleted);
+  const visibleSubmissions = allSubmissions.filter((s: any) => s.status !== 'rejected');
+
+  // 0. Update top 3 KPI stat counters and interactive filter cards
+  const acceptedCount = visibleSubmissions.filter(isAcceptedSubmission).length;
+  const activeCount = visibleSubmissions.filter((s: any) => !isAcceptedSubmission(s)).length;
+  const totalCount = allSubmissions.length;
+
+  const elAccepted = document.getElementById('stat-accepted-submissions');
+  if (elAccepted) elAccepted.textContent = String(acceptedCount);
+  const elActive = document.getElementById('stat-active-submissions');
+  if (elActive) elActive.textContent = String(activeCount);
+  const elTotal = document.getElementById('stat-total-submissions');
+  if (elTotal) elTotal.textContent = String(totalCount);
+
+  const filterCards = [
+    { id: 'card-filter-accepted', filter: 'accepted' },
+    { id: 'card-filter-active', filter: 'active' },
+    { id: 'card-filter-all', filter: 'all' }
+  ];
+  filterCards.forEach(({ id, filter }) => {
+    const el = document.getElementById(id);
+    if (el) {
+      const isActive = currentDashboardFilter === filter;
+      el.classList.toggle('active', isActive);
+      el.setAttribute('aria-pressed', String(isActive));
+    }
+  });
+  const filterLabelEl = document.getElementById('dashboard-filter-label');
+  if (filterLabelEl) filterLabelEl.textContent = getDashboardFilterLabel();
 
   // Group by manuscript: select canonical submission or keep independent
   const processedSubIds = new Set<string>();

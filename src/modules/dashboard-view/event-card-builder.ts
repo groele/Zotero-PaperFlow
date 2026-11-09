@@ -117,10 +117,14 @@ export function buildPipelineEventCard(
     <!-- Col 1: Manuscript Info -->
     <div class="project-info">
       <div class="project-heading-row">
-        <span class="submission-index">${displayIndex}</span>
+        <span class="submission-index" title="${escapeHTML(t('submissionRound') || '序号')}">${displayIndex}</span>
         <div class="journal" title="${escapeHTML(journalName)}">${escapeHTML(journalName)}</div>
         ${sub.externalManuscriptId ? `<span class="badge badge-purple" style="font-size:10px; padding:1px 6px; border-radius:3px;" title="Manuscript ID: ${escapeHTML(sub.externalManuscriptId)}">ID: ${escapeHTML(sub.externalManuscriptId)}</span>` : ''}
         <span class="pipeline-compact-status" style="--state-color:${a.stateColor}">${escapeHTML(a.stateLabel)}</span>
+        <button type="button" class="btn-pipeline-share btn-quick-share" data-sub-id="${escapeHTML(sub.id)}" title="${escapeHTML(t('shareJourney'))}" aria-label="${escapeHTML(t('shareJourney'))}: ${escapeHTML(manTitle)}">
+          <svg viewBox="0 0 24 24" aria-hidden="true" width="13" height="13"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="m8.6 10.5 6.8-4M8.6 13.5l6.8 4"/></svg>
+          <span>${escapeHTML(t('shareJourney'))}</span>
+        </button>
       </div>
       <h3 class="project-title" title="${escapeHTML(manTitle)}">${escapeHTML(manTitle)}</h3>
       <div class="project-meta">
@@ -144,12 +148,12 @@ export function buildPipelineEventCard(
           ${man.pdfUri ? `<span class="zotero-pdf-badge" data-item-key="${escapeHTML(man.zoteroItemKey)}" data-library-id="${escapeHTML(man.zoteroLibraryID || '')}" title="${escapeHTML(currentLanguage === 'zh' ? '在 Zotero 阅读器中打开 PDF' : 'Open PDF in Zotero reader')}">📖 PDF</span>` : ''}
         ` : ''}
       </div>
-      <div class="pipeline-actions" style="margin-top: 12px; display: flex; gap: 8px;">
+      <div class="pipeline-actions" style="margin-top: 10px; display: flex; gap: 8px; flex-wrap: wrap;">
         <button type="button" class="btn-secondary btn-sm btn-pipeline-open" data-sub-id="${escapeHTML(sub.id)}" aria-label="${escapeHTML(t('openSubmissionDetails'))}: ${escapeHTML(manTitle)}">${escapeHTML(t('openSubmissionDetails'))}</button>
-        <button class="btn-secondary btn-sm btn-pipeline-add" data-sub-id="${escapeHTML(sub.id)}">${t('addEvent')}</button>
-        <button class="btn-secondary btn-sm btn-pipeline-manage" data-sub-id="${escapeHTML(sub.id)}">${t('manageEvents')}</button>
-        <button class="btn-secondary btn-sm btn-pipeline-share" data-sub-id="${escapeHTML(sub.id)}" title="${escapeHTML(t('shareJourney'))}" aria-label="${escapeHTML(t('shareJourney'))}: ${escapeHTML(manTitle)}">
-          <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="m8.6 10.5 6.8-4M8.6 13.5l6.8 4"/></svg>
+        <button type="button" class="btn-secondary btn-sm btn-pipeline-add" data-sub-id="${escapeHTML(sub.id)}">${t('addEvent')}</button>
+        <button type="button" class="btn-secondary btn-sm btn-pipeline-manage" data-sub-id="${escapeHTML(sub.id)}">${t('manageEvents')}</button>
+        <button type="button" class="btn-secondary btn-sm btn-pipeline-share" data-sub-id="${escapeHTML(sub.id)}" title="${escapeHTML(t('shareJourney'))}" aria-label="${escapeHTML(t('shareJourney'))}: ${escapeHTML(manTitle)}">
+          <svg viewBox="0 0 24 24" aria-hidden="true" width="13" height="13"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="m8.6 10.5 6.8-4M8.6 13.5l6.8 4"/></svg>
           <span>${escapeHTML(t('shareJourney'))}</span>
         </button>
       </div>

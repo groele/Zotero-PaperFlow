@@ -337,21 +337,21 @@
   background: linear-gradient(135deg, #2869df, #1850b8);
   color: #f6faff;
   box-shadow: 0 3px 7px hsl(218 76% 45% / 0.18);
-  font-size: 14px;
-  font-weight: 600;
+  font-size: 14.5px;
+  font-weight: 700;
   font-variant-numeric: tabular-nums;
 }
 .project-info .journal {
   min-width: 0;
   min-height: 32px;
   margin-bottom: 0;
-  padding: 5px 13px;
+  padding: 5px 14px;
   border-radius: 999px;
   border-color: hsl(216 76% 55% / 0.22);
   color: hsl(var(--journal-ink));
   background: linear-gradient(110deg, hsl(214 90% 56% / 0.11), hsl(206 90% 65% / 0.045));
-  font-size: 13px;
-  font-weight: 600;
+  font-size: 14px;
+  font-weight: 700;
   line-height: 1.55;
 }
 .project-info .journal::before {

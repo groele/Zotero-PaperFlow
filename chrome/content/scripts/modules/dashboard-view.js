@@ -473,6 +473,12 @@
         const item = document.createElement("div");
         item.className = "recent-item";
         item.title = alert.manTitle;
+        item.style.cursor = "pointer";
+        item.addEventListener("click", () => {
+          if (typeof openStageDrawer === "function") {
+            openStageDrawer(alert.sub.id, alert.node.id);
+          }
+        });
         const title = document.createElement("span");
         title.className = "recent-item-title";
         title.textContent = alert.title;
@@ -554,12 +560,14 @@
         openTimelineEventManager(sub.id);
       }
     });
-    card.querySelector(".btn-pipeline-share")?.addEventListener("click", (e) => {
-      e.stopPropagation();
-      const shareFn = typeof openSubmissionSharePreview === "function" ? openSubmissionSharePreview : openSubmissionShareModal;
-      if (typeof shareFn === "function") {
-        shareFn(sub.id, e.currentTarget);
-      }
+    card.querySelectorAll(".btn-pipeline-share").forEach((btn) => {
+      btn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        const shareFn = typeof openSubmissionSharePreview === "function" ? openSubmissionSharePreview : openSubmissionShareModal;
+        if (typeof shareFn === "function") {
+          shareFn(sub.id, e.currentTarget);
+        }
+      });
     });
     card.querySelector(".zotero-card-badge")?.addEventListener("click", (e) => {
       e.stopPropagation();
@@ -755,10 +763,14 @@
     <!-- Col 1: Manuscript Info -->
     <div class="project-info">
       <div class="project-heading-row">
-        <span class="submission-index">${displayIndex}</span>
+        <span class="submission-index" title="${escapeHTML(t("submissionRound") || "序号")}">${displayIndex}</span>
         <div class="journal" title="${escapeHTML(journalName)}">${escapeHTML(journalName)}</div>
         ${sub.externalManuscriptId ? `<span class="badge badge-purple" style="font-size:10px; padding:1px 6px; border-radius:3px;" title="Manuscript ID: ${escapeHTML(sub.externalManuscriptId)}">ID: ${escapeHTML(sub.externalManuscriptId)}</span>` : ""}
         <span class="pipeline-compact-status" style="--state-color:${a.stateColor}">${escapeHTML(a.stateLabel)}</span>
+        <button type="button" class="btn-pipeline-share btn-quick-share" data-sub-id="${escapeHTML(sub.id)}" title="${escapeHTML(t("shareJourney"))}" aria-label="${escapeHTML(t("shareJourney"))}: ${escapeHTML(manTitle)}">
+          <svg viewBox="0 0 24 24" aria-hidden="true" width="13" height="13"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="m8.6 10.5 6.8-4M8.6 13.5l6.8 4"/></svg>
+          <span>${escapeHTML(t("shareJourney"))}</span>
+        </button>
       </div>
       <h3 class="project-title" title="${escapeHTML(manTitle)}">${escapeHTML(manTitle)}</h3>
       <div class="project-meta">
@@ -782,12 +794,12 @@
           ${man.pdfUri ? `<span class="zotero-pdf-badge" data-item-key="${escapeHTML(man.zoteroItemKey)}" data-library-id="${escapeHTML(man.zoteroLibraryID || "")}" title="${escapeHTML(currentLanguage === "zh" ? "在 Zotero 阅读器中打开 PDF" : "Open PDF in Zotero reader")}">📖 PDF</span>` : ""}
         ` : ""}
       </div>
-      <div class="pipeline-actions" style="margin-top: 12px; display: flex; gap: 8px;">
+      <div class="pipeline-actions" style="margin-top: 10px; display: flex; gap: 8px; flex-wrap: wrap;">
         <button type="button" class="btn-secondary btn-sm btn-pipeline-open" data-sub-id="${escapeHTML(sub.id)}" aria-label="${escapeHTML(t("openSubmissionDetails"))}: ${escapeHTML(manTitle)}">${escapeHTML(t("openSubmissionDetails"))}</button>
-        <button class="btn-secondary btn-sm btn-pipeline-add" data-sub-id="${escapeHTML(sub.id)}">${t("addEvent")}</button>
-        <button class="btn-secondary btn-sm btn-pipeline-manage" data-sub-id="${escapeHTML(sub.id)}">${t("manageEvents")}</button>
-        <button class="btn-secondary btn-sm btn-pipeline-share" data-sub-id="${escapeHTML(sub.id)}" title="${escapeHTML(t("shareJourney"))}" aria-label="${escapeHTML(t("shareJourney"))}: ${escapeHTML(manTitle)}">
-          <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="m8.6 10.5 6.8-4M8.6 13.5l6.8 4"/></svg>
+        <button type="button" class="btn-secondary btn-sm btn-pipeline-add" data-sub-id="${escapeHTML(sub.id)}">${t("addEvent")}</button>
+        <button type="button" class="btn-secondary btn-sm btn-pipeline-manage" data-sub-id="${escapeHTML(sub.id)}">${t("manageEvents")}</button>
+        <button type="button" class="btn-secondary btn-sm btn-pipeline-share" data-sub-id="${escapeHTML(sub.id)}" title="${escapeHTML(t("shareJourney"))}" aria-label="${escapeHTML(t("shareJourney"))}: ${escapeHTML(manTitle)}">
+          <svg viewBox="0 0 24 24" aria-hidden="true" width="13" height="13"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="m8.6 10.5 6.8-4M8.6 13.5l6.8 4"/></svg>
           <span>${escapeHTML(t("shareJourney"))}</span>
         </button>
       </div>
@@ -846,19 +858,20 @@
         setPipelineViewMode(!Boolean(g.isPipelineExpanded));
       });
     }
-    document.querySelectorAll(".interactive-stat-card").forEach((btn) => {
-      if (!btn.dataset.filterBound) {
+    const filterMap = {
+      "card-filter-accepted": "accepted",
+      "card-filter-active": "active",
+      "card-filter-all": "all"
+    };
+    Object.entries(filterMap).forEach(([id, filter]) => {
+      const btn = document.getElementById(id);
+      if (btn && !btn.dataset.filterBound) {
         btn.dataset.filterBound = "true";
+        btn.dataset.filter = filter;
         btn.addEventListener("click", (e) => {
           e.preventDefault();
           const g = typeof window !== "undefined" ? window : globalThis;
-          const filter = btn.dataset.filter || "all";
           g.currentDashboardFilter = filter;
-          document.querySelectorAll(".interactive-stat-card").forEach((b) => {
-            b.classList.toggle("active", (b.dataset.filter || "all") === filter);
-          });
-          const labelEl = document.getElementById("dashboard-filter-label");
-          if (labelEl) labelEl.textContent = getDashboardFilterLabel();
           renderDashboard2();
         });
       }
@@ -870,7 +883,32 @@
     const currentDashboardFilter2 = w.currentDashboardFilter || "all";
     const manuscriptsById = new Map((db.manuscripts || []).map((m) => [m.id, m]));
     const visibleManuscripts = db.manuscripts || [];
-    const visibleSubmissions = (db.submissions || []).filter((s) => !s.deleted && !s.isDeleted);
+    const allSubmissions = (db.submissions || []).filter((s) => !s.deleted && !s.isDeleted);
+    const visibleSubmissions = allSubmissions.filter((s) => s.status !== "rejected");
+    const acceptedCount = visibleSubmissions.filter(isAcceptedSubmission).length;
+    const activeCount = visibleSubmissions.filter((s) => !isAcceptedSubmission(s)).length;
+    const totalCount = allSubmissions.length;
+    const elAccepted = document.getElementById("stat-accepted-submissions");
+    if (elAccepted) elAccepted.textContent = String(acceptedCount);
+    const elActive = document.getElementById("stat-active-submissions");
+    if (elActive) elActive.textContent = String(activeCount);
+    const elTotal = document.getElementById("stat-total-submissions");
+    if (elTotal) elTotal.textContent = String(totalCount);
+    const filterCards = [
+      { id: "card-filter-accepted", filter: "accepted" },
+      { id: "card-filter-active", filter: "active" },
+      { id: "card-filter-all", filter: "all" }
+    ];
+    filterCards.forEach(({ id, filter }) => {
+      const el = document.getElementById(id);
+      if (el) {
+        const isActive = currentDashboardFilter2 === filter;
+        el.classList.toggle("active", isActive);
+        el.setAttribute("aria-pressed", String(isActive));
+      }
+    });
+    const filterLabelEl = document.getElementById("dashboard-filter-label");
+    if (filterLabelEl) filterLabelEl.textContent = getDashboardFilterLabel();
     const processedSubIds = /* @__PURE__ */ new Set();
     const manuscriptPipelines = [];
     visibleManuscripts.forEach((m) => {

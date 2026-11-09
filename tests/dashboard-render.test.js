@@ -324,5 +324,38 @@ test('pipeline view toggle switches between compact and expanded modes and updat
   assert.equal(icon.textContent, '▤');
 });
 
+test('renderDashboard computes top KPI stat counters and renders prominent share buttons', () => {
+  const { context, elements } = setupEnvironment();
+  const mockData = {
+    manuscripts: [
+      { id: 'man_1', title: 'Paper 1', status: 'under_review' },
+      { id: 'man_2', title: 'Paper 2', status: 'accepted' }
+    ],
+    submissions: [
+      { id: 'sub_1', manuscriptId: 'man_1', targetJournal: 'Nano Letters', status: 'under_review', timelineNodes: [] },
+      { id: 'sub_2', manuscriptId: 'man_2', targetJournal: 'Advanced Materials', status: 'accepted', timelineNodes: [] }
+    ],
+    settings: { profile: { theme: 'system', language: 'zh' } }
+  };
+  vm.runInContext('db = ' + JSON.stringify(mockData) + '; currentLanguage = "zh";', context);
+
+  assert.doesNotThrow(() => {
+    context.renderDashboard();
+  });
+
+  // Top 3 KPI stat counters
+  const elAccepted = elements.get('stat-accepted-submissions');
+  const elActive = elements.get('stat-active-submissions');
+  const elTotal = elements.get('stat-total-submissions');
+
+  assert.equal(elAccepted.textContent, '1', 'Accepted submissions count is 1');
+  assert.equal(elActive.textContent, '1', 'Active in-review submissions count is 1');
+  assert.equal(elTotal.textContent, '2', 'Total submissions count is 2');
+
+  // Dashboard gantt contains cards
+  const gantt = elements.get('dashboard-gantt');
+  assert.equal(gantt.children.length, 2, '2 pipeline cards rendered');
+});
+
 
 
