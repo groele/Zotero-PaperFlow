@@ -1,0 +1,255 @@
+
+.academic-capture-review strong,
+.academic-capture-review span {
+  display: block;
+}
+
+.academic-capture-review strong {
+  color: hsl(var(--text-muted));
+  font-size: 9px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.academic-capture-review span {
+  margin-top: 3px;
+  overflow: hidden;
+  color: hsl(var(--text-primary));
+  font-size: 12px;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.academic-capture-confidence {
+  min-width: 82px;
+  padding-left: 14px;
+  border-left: 1px solid hsl(var(--card-border));
+  text-align: right;
+}
+
+.academic-capture-confidence span {
+  color: hsl(var(--accent-emerald));
+  font-size: 17px;
+}
+
+.academic-capture-chooser-help {
+  max-width: 520px;
+  margin-top: 4px;
+  font-size: 11.5px;
+  line-height: 1.45;
+}
+
+.academic-capture-chooser,
+.academic-capture-result-list {
+  display: grid;
+  gap: 10px;
+}
+
+.academic-capture-count {
+  display: flex;
+  align-items: baseline;
+  gap: 5px;
+  color: hsl(var(--text-muted));
+  font-size: 11px;
+}
+
+.academic-capture-count strong {
+  color: hsl(var(--accent-purple));
+  font-size: 18px;
+}
+
+.academic-capture-count span {
+  margin-left: auto;
+  font-family: ui-monospace, "Cascadia Code", monospace;
+  font-size: 10px;
+}
+
+.academic-capture-result {
+  display: grid;
+  grid-template-columns: 32px minmax(0, 1fr) 24px;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 12px;
+  border: 1px solid hsl(var(--card-border));
+  border-radius: 12px;
+  background: hsl(var(--card-bg) / 0.64);
+  color: hsl(var(--text-primary));
+  text-align: left;
+  transition: border-color var(--transition-fast), transform var(--transition-fast), background var(--transition-fast);
+}
+
+.academic-capture-result:hover,
+.academic-capture-result:focus-visible {
+  border-color: hsl(var(--accent-purple) / 0.46);
+  background: hsl(var(--accent-purple) / 0.06);
+  transform: translateX(-3px);
+}
+
+.academic-result-index {
+  color: hsl(var(--accent-purple));
+  font-family: ui-monospace, "Cascadia Code", monospace;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.academic-result-copy {
+  min-width: 0;
+}
+
+.academic-result-copy strong,
+.academic-result-copy span,
+.academic-result-copy small {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.academic-result-copy strong {
+  font-size: 12.5px;
+}
+
+.academic-result-copy span,
+.academic-result-copy small {
+  margin-top: 3px;
+  color: hsl(var(--text-muted));
+  font-size: 10.5px;
+}
+
+.academic-result-arrow {
+  color: hsl(var(--accent-cyan));
+  font-size: 18px;
+}
+
+.modal-card.submission-capture-card .modal-header h2 {
+  font-family: Georgia, "Songti SC", serif;
+  font-size: 25px;
+  letter-spacing: -0.02em;
+}
+
+.submission-capture-review {
+  position: relative;
+  display: grid;
+  gap: 15px;
+  padding: 18px;
+  overflow: hidden;
+  border: 1px solid hsl(var(--accent-purple) / 0.22);
+  border-radius: 16px;
+  background:
+    radial-gradient(circle at 100% 0, hsl(var(--accent-purple) / 0.12), transparent 38%),
+    hsl(var(--card-bg) / 0.68);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.72);
+}
+
+.capture-review-heading {
+  display: grid;
+  grid-template-columns: 38px minmax(0, 1fr);
+  gap: 12px;
+  align-items: start;
+}
+
+.capture-review-mark {
+  width: 38px;
+  height: 38px;
+  display: grid;
+  place-items: center;
+  color: white;
+  border-radius: 12px;
+  background: linear-gradient(145deg, hsl(var(--accent-purple)), hsl(var(--accent-cyan)));
+  box-shadow: 0 9px 22px hsl(var(--accent-purple) / 0.25);
+  font-size: 17px;
+  font-weight: 800;
+}
+
+.capture-review-title-line {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.capture-review-title-line h3 {
+  margin: 0;
+  font-size: 16px;
+}
+
+.capture-review-heading p {
+  margin: 5px 0 0;
+  color: hsl(var(--text-muted));
+  font-size: 12px;
+  line-height: 1.55;
+}
+
+.capture-confidence,
+.capture-fields-count {
+  display: inline-flex;
+  align-items: center;
+  width: fit-content;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 750;
+  letter-spacing: 0.02em;
+}
+
+.capture-confidence {
+  padding: 4px 8px;
+  color: hsl(var(--accent-emerald));
+  border: 1px solid hsl(var(--accent-emerald) / 0.24);
+  background: hsl(var(--accent-emerald) / 0.08);
+}
+
+.capture-confidence-low {
+  color: #b45309;
+  border-color: rgba(180, 83, 9, 0.22);
+  background: rgba(245, 158, 11, 0.09);
+}
+
+.capture-fields-count {
+  margin-top: 9px;
+  padding: 3px 7px;
+  color: hsl(var(--accent-purple));
+  background: hsl(var(--accent-purple) / 0.08);
+}
+
+.capture-project-field {
+  padding: 13px;
+  border-radius: 12px;
+  background: hsl(var(--accent-purple) / 0.055);
+}
+
+.capture-review-grid {
+  gap: 12px;
+}
+
+@media (max-width: 680px) {
+  body.submission-capture-mode .modal-backdrop,
+body.academic-capture-mode .modal-backdrop {
+    padding: 12px;
+  }
+  .modal-card.submission-capture-card,
+.modal-card.academic-capture-card {
+    width: calc(100vw - 24px);
+    max-width: none;
+    max-height: 88vh;
+    padding: 18px;
+  }
+  .capture-review-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid var(--glass-border);
+  padding-bottom: 12px;
+}
+
+.modal-header h2 {
+  font-size: 20px;
+  font-family: var(--font-display);
+}
+

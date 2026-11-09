@@ -1,0 +1,301 @@
+
+.workflow-context-grid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.workflow-context-item {
+  min-width: 0;
+  padding: 10px;
+  border: 1px solid hsl(var(--card-border) / 0.62);
+  border-radius: 9px;
+  background: hsl(var(--card-bg) / 0.44);
+}
+
+.workflow-context-item span {
+  display: block;
+  margin-bottom: 4px;
+  color: hsl(var(--text-muted));
+  font-size: 9.5px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.workflow-context-item strong {
+  display: block;
+  color: hsl(var(--text-primary));
+  font-size: 12px;
+  line-height: 1.25;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.workflow-edit-summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 12px;
+  padding: 12px;
+  border: 1px solid hsl(var(--accent-cyan) / 0.18);
+  border-radius: 10px;
+  background:
+    linear-gradient(135deg, hsl(var(--accent-cyan) / 0.08), transparent 46%),
+    hsl(var(--card-bg) / 0.48);
+}
+
+.workflow-edit-summary-copy {
+  min-width: 0;
+}
+
+.workflow-edit-summary-kicker {
+  display: block;
+  margin-bottom: 4px;
+  color: hsl(var(--accent-cyan));
+  font-size: 9.5px;
+  font-weight: 850;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.workflow-edit-summary-copy strong {
+  display: block;
+  color: hsl(var(--text-primary));
+  font-size: 13px;
+  line-height: 1.3;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.workflow-edit-summary-copy p {
+  margin-top: 3px;
+  color: hsl(var(--text-muted));
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.workflow-edit-summary-actions {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.workflow-edit-summary-button {
+  min-height: 36px;
+}
+
+.workflow-edit-summary-button .svg-icon {
+  width: 15px;
+  height: 15px;
+}
+
+.submission-edit-center {
+  padding: 0;
+  overflow: hidden;
+  border-color: hsl(var(--accent-cyan) / 0.34);
+  background:
+    linear-gradient(135deg, hsl(var(--accent-cyan) / 0.11), transparent 42%),
+    linear-gradient(315deg, hsl(var(--accent-purple) / 0.07), transparent 30%),
+    hsl(var(--card-bg) / 0.88);
+  box-shadow: 0 18px 52px hsl(var(--accent-cyan) / 0.08);
+}
+
+.submission-entry-editor-card {
+  flex: 0 0 auto;
+  position: relative;
+  outline: 1px solid hsl(var(--accent-cyan) / 0.18);
+}
+
+.submission-entry-editor-card > * {
+  position: relative;
+  z-index: 2;
+}
+
+.submission-entry-editor-card::before {
+  content: "ENTRY EDITOR";
+  position: absolute;
+  top: 10px;
+  right: 12px;
+  color: hsl(var(--accent-cyan));
+  font-size: 9px;
+  font-weight: 850;
+  letter-spacing: 0.08em;
+  z-index: 3;
+}
+
+.submission-entry-editor-card.submission-edit-center-focused {
+  border-color: hsl(var(--accent-cyan) / 0.72);
+  outline: 2px solid hsl(var(--accent-cyan) / 0.42);
+  animation: submissionEditFocusPulse 2.35s ease;
+  box-shadow:
+    0 0 0 1px hsl(var(--accent-cyan) / 0.32),
+    0 20px 58px hsl(var(--accent-cyan) / 0.18);
+}
+
+.submission-entry-editor-card.submission-edit-center-focused::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background:
+    linear-gradient(135deg, hsl(var(--accent-cyan) / 0.16), hsl(var(--accent-purple) / 0.08) 48%, transparent 78%),
+    hsl(var(--accent-cyan) / 0.045);
+  border: 2px solid hsl(var(--accent-cyan) / 0.46);
+  box-shadow: inset 0 0 0 1px hsl(var(--accent-cyan) / 0.18);
+  pointer-events: none;
+  z-index: 1;
+  animation: submissionEditFocusOverlayPulse 2.35s ease;
+}
+
+.submission-entry-editor-card.submission-edit-center-focused .submission-edit-center-head {
+  background:
+    linear-gradient(135deg, hsl(var(--accent-cyan) / 0.16), hsl(var(--accent-purple) / 0.06)),
+    hsl(var(--card-bg) / 0.88);
+  border-bottom-color: hsl(var(--accent-cyan) / 0.34);
+}
+
+@keyframes submissionEditFocusPulse {
+  0% {
+    border-color: hsl(var(--accent-cyan) / 0.9);
+    outline-color: hsl(var(--accent-cyan) / 0.65);
+    transform: translateY(-1px);
+  }
+  55% {
+    border-color: hsl(var(--accent-purple) / 0.64);
+    outline-color: hsl(var(--accent-purple) / 0.5);
+  }
+  100% {
+    border-color: hsl(var(--accent-cyan) / 0.34);
+    outline-color: hsl(var(--accent-cyan) / 0.18);
+    transform: translateY(0);
+  }
+}
+
+@keyframes submissionEditFocusOverlayPulse {
+  0% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0.58;
+  }
+}
+
+.submission-edit-center-error {
+  border-color: hsl(var(--accent-rose) / 0.32);
+  background:
+    linear-gradient(135deg, hsl(var(--accent-rose) / 0.08), transparent 40%),
+    hsl(var(--card-bg) / 0.9);
+}
+
+.submission-edit-center-error .submission-edit-emblem {
+  border-color: hsl(var(--accent-rose) / 0.28);
+  background: hsl(var(--accent-rose) / 0.1);
+  color: hsl(var(--accent-rose));
+}
+
+.submission-edit-center-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 18px 18px 14px;
+  border-bottom: 1px solid hsl(var(--card-border));
+}
+
+.submission-edit-title-row {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.submission-edit-title-row h3 {
+  margin: 0;
+  font-size: 17px;
+  line-height: 1.2;
+  letter-spacing: 0;
+}
+
+.submission-edit-title-row p {
+  margin-top: 3px;
+  color: hsl(var(--text-muted));
+  font-size: 11.5px;
+  line-height: 1.45;
+}
+
+.submission-edit-emblem,
+.submission-edit-section-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  border: 1px solid hsl(var(--accent-cyan) / 0.22);
+  background: hsl(var(--accent-cyan) / 0.1);
+  color: hsl(var(--accent-cyan));
+}
+
+.submission-edit-emblem {
+  width: 38px;
+  height: 38px;
+  border-radius: 10px;
+  box-shadow: 0 10px 28px hsl(var(--accent-cyan) / 0.12);
+}
+
+.submission-edit-emblem .svg-icon,
+.submission-edit-section-icon .svg-icon {
+  width: 17px;
+  height: 17px;
+  stroke-width: 2;
+}
+
+.submission-edit-badges {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  align-items: center;
+}
+
+.submission-edit-section {
+  margin: 12px 14px 0;
+  padding: 12px;
+  border: 1px solid hsl(var(--card-border) / 0.58);
+  border-radius: 10px;
+  background: hsl(var(--card-bg) / 0.38);
+  transition: border-color var(--transition-fast), background-color var(--transition-fast);
+}
+
+.submission-edit-section + .submission-edit-section {
+  border-top: 1px solid hsl(var(--card-border) / 0.58);
+}
+
+.submission-edit-section:hover {
+  border-color: hsl(var(--accent-cyan) / 0.22);
+  background: hsl(var(--card-bg) / 0.5);
+}
+
+.submission-edit-section-head {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+  color: hsl(var(--text-primary));
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.submission-edit-section-head-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}

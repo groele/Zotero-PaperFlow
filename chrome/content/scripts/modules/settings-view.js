@@ -1,3 +1,11 @@
+/**
+ * ----------------------------------------------------------------------------------
+ * ⚡ AUTO-GENERATED BUNDLE BY ESBUILD - DO NOT EDIT DIRECTLY
+ * ----------------------------------------------------------------------------------
+ * Source authority: `src/` TypeScript modules (100% strictly <= 360 lines).
+ * Target runtime: Gecko 153+ / Firefox 140+ (minify: false for Error Console audit)
+ * ----------------------------------------------------------------------------------
+ */
 "use strict";
 (() => {
   // src/modules/settings-view/sync-routing.ts
@@ -202,7 +210,7 @@
     const deletedCount = (key) => Array.isArray(sourceDb?.deletedEntities?.[key]) ? sourceDb.deletedEntities[key].length : 0;
     return {
       app: "Zotero PaperFlow",
-      version: "16.3.1",
+      version: "16.3.2",
       exportedAt: (/* @__PURE__ */ new Date()).toISOString(),
       environment: {
         language: currentLanguage,

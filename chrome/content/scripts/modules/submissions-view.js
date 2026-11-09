@@ -1,3 +1,11 @@
+/**
+ * ----------------------------------------------------------------------------------
+ * ⚡ AUTO-GENERATED BUNDLE BY ESBUILD - DO NOT EDIT DIRECTLY
+ * ----------------------------------------------------------------------------------
+ * Source authority: `src/` TypeScript modules (100% strictly <= 360 lines).
+ * Target runtime: Gecko 153+ / Firefox 140+ (minify: false for Error Console audit)
+ * ----------------------------------------------------------------------------------
+ */
 "use strict";
 (() => {
   var __getOwnPropNames = Object.getOwnPropertyNames;
@@ -1387,7 +1395,7 @@
       <div class="submission-review-preview" id="submission-review-preview"></div>
     </div>
   `);
-    detailPanel.dataset.rfRenderVersion = typeof RF_OPTIONS_RENDER_VERSION !== "undefined" ? RF_OPTIONS_RENDER_VERSION : "16.3.1";
+    detailPanel.dataset.rfRenderVersion = typeof RF_OPTIONS_RENDER_VERSION !== "undefined" ? RF_OPTIONS_RENDER_VERSION : "16.3.2";
     detailPanel.dataset.rfEditorMounted = "true";
     detailPanel.dataset.currentSubmissionId = sub.id;
     detailPanel.scrollTop = 0;

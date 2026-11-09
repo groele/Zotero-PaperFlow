@@ -1,0 +1,256 @@
+
+.capsule-name {
+  font-weight: 600;
+  font-size: 11px;
+  line-height: 1.2;
+  color: inherit;
+}
+
+.capsule-date {
+  font-size: 9px;
+  font-weight: 500;
+  opacity: 0.7;
+  line-height: 1.2;
+}
+
+/* Expanded view capsules */
+.pipeline-cards-container.expanded .capsule-stage {
+  padding: 8px 16px;
+}
+
+.pipeline-cards-container.expanded .capsule-name {
+  font-size: 12px;
+}
+
+.pipeline-cards-container.expanded .capsule-date {
+  font-size: 10px;
+}
+
+/* ================================================ */
+/* Capsule Status Color System                       */
+/* ================================================ */
+
+/* Completed — green */
+.capsule-completed {
+  background: #ecfdf5;
+  color: #065f46;
+  border-color: #a7f3d0;
+}
+@media (prefers-color-scheme: dark) {
+  .capsule-completed {
+    background: rgba(16, 185, 129, 0.1);
+    color: #6ee7b7;
+    border-color: rgba(16, 185, 129, 0.25);
+  }
+}
+
+/* In Progress — blue */
+.capsule-in-progress {
+  background: #eff6ff;
+  color: #1e40af;
+  border-color: #93c5fd;
+  animation: capsulePulse 2.5s infinite ease-in-out;
+}
+@media (prefers-color-scheme: dark) {
+  .capsule-in-progress {
+    background: rgba(59, 130, 246, 0.1);
+    color: #93c5fd;
+    border-color: rgba(59, 130, 246, 0.3);
+  }
+}
+
+@keyframes capsulePulse {
+  0%, 100% { box-shadow: 0 2px 8px rgba(59, 130, 246, 0.08); }
+  50% { box-shadow: 0 2px 16px rgba(59, 130, 246, 0.22); }
+}
+
+/* Upcoming — gray-blue */
+.capsule-upcoming {
+  background: #f8fafc;
+  color: #475569;
+  border-color: #e2e8f0;
+}
+@media (prefers-color-scheme: dark) {
+  .capsule-upcoming {
+    background: rgba(255, 255, 255, 0.04);
+    color: hsl(var(--text-muted));
+    border-color: rgba(255, 255, 255, 0.08);
+  }
+}
+
+/* Not Started — gray */
+.capsule-not-started {
+  background: #f1f5f9;
+  color: #94a3b8;
+  border-color: #e2e8f0;
+  opacity: 0.7;
+}
+@media (prefers-color-scheme: dark) {
+  .capsule-not-started {
+    background: rgba(255, 255, 255, 0.02);
+    color: hsl(var(--text-placeholder));
+    border-color: rgba(255, 255, 255, 0.05);
+  }
+}
+
+/* Due Soon — orange */
+.capsule-due-soon {
+  background: #fffbeb;
+  color: #92400e;
+  border-color: #fcd34d;
+}
+@media (prefers-color-scheme: dark) {
+  .capsule-due-soon {
+    background: rgba(245, 158, 11, 0.1);
+    color: #fcd34d;
+    border-color: rgba(245, 158, 11, 0.3);
+  }
+}
+
+/* Overdue — red */
+.capsule-overdue {
+  background: #fef2f2;
+  color: #991b1b;
+  border-color: #fca5a5;
+  animation: capsuleAlarm 1.5s infinite ease-in-out;
+}
+@media (prefers-color-scheme: dark) {
+  .capsule-overdue {
+    background: rgba(239, 68, 68, 0.1);
+    color: #fca5a5;
+    border-color: rgba(239, 68, 68, 0.3);
+  }
+}
+
+@keyframes capsuleAlarm {
+  0%, 100% { box-shadow: 0 2px 8px rgba(239, 68, 68, 0.1); }
+  50% { box-shadow: 0 2px 16px rgba(239, 68, 68, 0.25); }
+}
+
+/* Milestone — purple/gold */
+.capsule-milestone {
+  background: #f5f3ff;
+  color: #5b21b6;
+  border-color: #c4b5fd;
+  font-weight: 600;
+}
+@media (prefers-color-scheme: dark) {
+  .capsule-milestone {
+    background: rgba(139, 92, 246, 0.1);
+    color: #c4b5fd;
+    border-color: rgba(139, 92, 246, 0.3);
+  }
+}
+
+/* Blocked — dark red */
+.capsule-blocked {
+  background: #fef2f2;
+  color: #7f1d1d;
+  border-color: #f87171;
+  text-decoration: line-through;
+  opacity: 0.8;
+}
+@media (prefers-color-scheme: dark) {
+  .capsule-blocked {
+    background: rgba(239, 68, 68, 0.08);
+    color: #f87171;
+    border-color: rgba(239, 68, 68, 0.25);
+  }
+}
+
+.stage-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.stage-editor-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.stage-quick-row,
+.stage-modal-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.stage-modal-actions {
+  justify-content: flex-end;
+  margin-top: 8px;
+}
+
+.stage-modal-actions .btn-danger {
+  margin-right: auto;
+}
+
+/* Dark Mode Dropdown option overrides for contrast */
+select option {
+  background-color: #131722 !important;
+  color: #f1f5f9 !important;
+}
+@media (prefers-color-scheme: light) {
+  select option {
+    background-color: #ffffff !important;
+    color: #0f172a !important;
+  }
+}
+
+/* Interactive Stat Filter Cards */
+.interactive-stat-card {
+  width: 100%;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  position: relative;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+  overflow: hidden;
+}
+
+.interactive-stat-card:focus-visible {
+  outline: 3px solid hsl(var(--accent-cyan) / 0.38);
+  outline-offset: 3px;
+}
+
+.interactive-stat-card:hover {
+  transform: translateY(-4px) !important;
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.15) !important;
+}
+
+.interactive-stat-card .filter-tip {
+  font-size: 8px;
+  font-weight: 600;
+  text-transform: uppercase;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+  padding: 2px 5px;
+  border-radius: 4px;
+  background: var(--glass-border);
+  color: hsl(var(--text-muted));
+}
+
+.interactive-stat-card:hover .filter-tip {
+  opacity: 1;
+}
+
+.interactive-stat-card.filter-accepted.active {
+  border-color: hsl(var(--accent-emerald)) !important;
+  background: hsl(var(--accent-emerald) / 0.06) !important;
+  box-shadow: 0 0 20px hsl(var(--accent-emerald) / 0.12), var(--glass-shadow) !important;
+}
+
+.interactive-stat-card.filter-active.active {
+  border-color: hsl(var(--accent-purple)) !important;
+  background: hsl(var(--accent-purple) / 0.06) !important;
+  box-shadow: 0 0 20px hsl(var(--accent-purple) / 0.12), var(--glass-shadow) !important;
+}
+
+.interactive-stat-card.filter-all.active {
+  border-color: hsl(var(--accent-purple)) !important;
+  background: hsl(var(--accent-purple) / 0.06) !important;
+  box-shadow: 0 0 20px hsl(var(--accent-purple) / 0.12), var(--glass-shadow) !important;
+}

@@ -1,0 +1,316 @@
+/* ==========================================================================
+   Zotero PaperFlow - 4-Column Key Event Rail & Interactive Timeline Nodes
+   ========================================================================== */
+
+/* ================================================ */
+/* Manuscript Key Event Rail Styles                  */
+/* ================================================ */
+
+/* Overwrite pipeline-card with the new grid layout */
+.pipeline-cards-container {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.pipeline-cards-container:not(.expanded) {
+  gap: 10px;
+}
+
+.pipeline-card {
+  display: grid;
+  grid-template-columns: minmax(250px, 0.95fr) minmax(440px, 1.6fr) minmax(230px, 0.78fr) 112px;
+  gap: 16px;
+  align-items: stretch;
+  background: hsl(var(--card-bg));
+  border: 1px solid hsl(var(--card-border));
+  border-radius: 16px;
+  padding: 18px;
+  box-shadow: var(--glass-shadow);
+  transition: all var(--transition-normal);
+  position: relative;
+}
+
+.pipeline-cards-container:not(.expanded) .pipeline-card {
+  grid-template-columns: minmax(240px, 1.1fr) minmax(320px, 1.45fr) 104px;
+  gap: 12px;
+  padding: 12px 14px;
+  align-items: center;
+}
+
+.pipeline-cards-container:not(.expanded) .latest-window,
+.pipeline-cards-container:not(.expanded) .inline-stage-editor,
+.pipeline-cards-container:not(.expanded) .project-meta > span:nth-child(n/**/+3):not(.pipeline-first-author),
+.pipeline-cards-container:not(.expanded) .core-sub,
+.pipeline-cards-container:not(.expanded) .rail-caption,
+.pipeline-cards-container:not(.expanded) .milestone-date {
+  display: none !important;
+}
+
+.pipeline-cards-container:not(.expanded) .project-info {
+  justify-content: center;
+}
+
+.pipeline-cards-container:not(.expanded) .project-info .journal {
+  margin-bottom: 6px;
+  padding: 4px 9px;
+}
+
+.pipeline-cards-container:not(.expanded) .project-title {
+  font-size: 14px;
+  margin-bottom: 6px;
+}
+
+.pipeline-cards-container:not(.expanded) .project-info .pipeline-actions {
+  margin-top: 8px !important;
+}
+
+.pipeline-cards-container:not(.expanded) .core-panel {
+  min-height: 96px;
+  padding: 10px 12px;
+}
+
+.pipeline-cards-container:not(.expanded) .core-head {
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.pipeline-cards-container:not(.expanded) .core-label {
+  margin-bottom: 0;
+  font-size: 11px;
+}
+
+.pipeline-cards-container:not(.expanded) .core-value strong {
+  font-size: 24px;
+  letter-spacing: 0;
+}
+
+.pipeline-cards-container:not(.expanded) .event-rail {
+  padding-top: 8px;
+}
+
+.pipeline-cards-container:not(.expanded) .rail-track {
+  top: 17px;
+  height: 4px;
+}
+
+.pipeline-cards-container:not(.expanded) .dot-wrap {
+  height: 18px;
+  margin-bottom: 3px;
+}
+
+.pipeline-cards-container:not(.expanded) .dot {
+  width: 10px;
+  height: 10px;
+  border-width: 2px;
+}
+
+.pipeline-cards-container:not(.expanded) .dot.emphasis,
+.pipeline-cards-container:not(.expanded) .dot.today {
+  width: 13px;
+  height: 13px;
+}
+
+.pipeline-cards-container:not(.expanded) .milestone-name {
+  font-size: 9px;
+}
+
+.pipeline-cards-container:not(.expanded) .state-box {
+  padding: 10px 8px;
+  min-width: 0;
+}
+
+.pipeline-cards-container:not(.expanded) .state-note {
+  font-size: 10px;
+}
+
+#btn-pipeline-view-toggle.active {
+  border-color: hsl(var(--accent-cyan) / 0.45);
+  color: hsl(var(--accent-cyan));
+  background: hsl(var(--accent-cyan) / 0.1);
+}
+
+.pipeline-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.12);
+  border-color: hsl(var(--accent-purple) / 0.3);
+}
+
+.project-info {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-width: 0;
+}
+
+.project-info .pipeline-actions {
+  margin-top: 12px !important;
+  flex-wrap: wrap;
+}
+
+.project-info .btn-pipeline-add {
+  min-width: 92px;
+}
+
+.btn-pipeline-share {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border-color: hsl(var(--accent-cyan) / 0.28);
+  color: hsl(var(--accent-cyan));
+  background: hsl(var(--accent-cyan) / 0.06);
+}
+
+.btn-pipeline-share:hover {
+  border-color: hsl(var(--accent-cyan) / 0.58);
+  background: hsl(var(--accent-cyan) / 0.12);
+}
+
+.btn-pipeline-share svg {
+  width: 14px;
+  height: 14px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.btn-pipeline-share[aria-busy="true"] {
+  opacity: 0.62;
+  cursor: wait;
+}
+
+.pipeline-cards-container:not(.expanded) .btn-pipeline-share {
+  width: 34px;
+  min-width: 34px;
+  padding-inline: 8px;
+}
+
+.pipeline-cards-container:not(.expanded) .btn-pipeline-share span {
+  display: none;
+}
+
+.modal-card.share-preview-card {
+  width: min(1040px, calc(100vw - 48px));
+  max-width: calc(100vw - 48px);
+  max-height: calc(100vh - 48px);
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid hsl(var(--card-border));
+  background: hsl(var(--card-bg));
+}
+
+.share-preview-shell {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  max-height: calc(100vh - 48px);
+}
+
+.share-preview-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 28px;
+  padding: 24px 28px 18px;
+  border-bottom: 1px solid hsl(var(--card-border));
+}
+
+.share-preview-kicker {
+  display: block;
+  margin-bottom: 6px;
+  color: hsl(var(--accent-cyan));
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.share-preview-header h2 {
+  margin: 0;
+  font-family: Bahnschrift, "Aptos Display", "Microsoft YaHei UI", sans-serif;
+  font-size: 24px;
+  letter-spacing: -0.02em;
+}
+
+.share-preview-header p {
+  margin: 7px 0 0;
+  color: hsl(var(--text-secondary));
+  font-size: 12px;
+}
+
+.share-preview-close {
+  width: 34px;
+  height: 34px;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  font-size: 22px;
+}
+
+.share-preview-frame {
+  min-height: 0;
+  padding: 22px;
+  overflow: auto;
+  background:
+    linear-gradient(45deg, hsl(var(--text-primary) / 0.035) 25%, transparent 25%) 0 0 / 18px 18px,
+    linear-gradient(-45deg, hsl(var(--text-primary) / 0.035) 25%, transparent 25%) 0 9px / 18px 18px,
+    hsl(var(--body-bg));
+}
+
+.share-preview-frame img {
+  display: block;
+  width: min(100%, 620px);
+  height: auto;
+  margin: 0 auto;
+  border-radius: 4px;
+  box-shadow: 0 18px 52px rgba(15, 39, 61, 0.2);
+}
+
+.share-preview-actions {
+  display: flex;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding: 16px 28px 20px;
+  border-top: 1px solid hsl(var(--card-border));
+}
+
+@media (max-width: 720px) {
+  .modal-card.share-preview-card {
+    width: calc(100vw - 20px);
+    max-height: calc(100vh - 20px);
+  }
+
+  .share-preview-shell {
+    max-height: calc(100vh - 20px);
+  }
+
+  .share-preview-header,
+.share-preview-actions {
+    padding-left: 18px;
+    padding-right: 18px;
+  }
+
+  .share-preview-actions > button {
+    flex: 1 1 140px;
+  }
+}
+
+
+/* 3. Event Rail, Core Panel, Latest Window & Duration Metrics */
+.project-info .journal {
+  width: fit-content;
+  max-width: 100%;
+  padding: 5px 12px;
+  border-radius: 999px;
+  background: hsl(var(--accent-purple) / 0.08);
+  color: hsl(var(--accent-purple));
+  font-size: 11px;
+  font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-bottom: 10px;
+  border: 1px solid hsl(var(--accent-purple) / 0.15);
+}

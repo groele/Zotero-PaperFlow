@@ -124,7 +124,7 @@ export function renderSubmissionDetails(sub: any): void {
     </div>
   `);
 
-  detailPanel.dataset.rfRenderVersion = (typeof RF_OPTIONS_RENDER_VERSION !== 'undefined') ? RF_OPTIONS_RENDER_VERSION : '16.3.1';
+  detailPanel.dataset.rfRenderVersion = (typeof RF_OPTIONS_RENDER_VERSION !== 'undefined') ? RF_OPTIONS_RENDER_VERSION : '16.3.2';
   detailPanel.dataset.rfEditorMounted = 'true';
   detailPanel.dataset.currentSubmissionId = sub.id;
   detailPanel.scrollTop = 0;

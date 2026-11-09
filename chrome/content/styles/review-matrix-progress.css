@@ -1,0 +1,332 @@
+/* Zotero PaperFlow - Peer Review Matrix & Rebuttal Progress Styles */
+
+/* ==========================================================================
+   Peer Review Response Matrix & Rebuttal Progress Mathematical Alignment
+   ========================================================================== */
+
+/* 0. Section Header Alignment */
+.submission-edit-review-section {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.submission-edit-section-head-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  padding-bottom: 2px;
+}
+
+.submission-section-title-group {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.submission-edit-section-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 15px;
+  font-weight: 650;
+  color: hsl(var(--text-primary));
+  line-height: 1.2;
+}
+
+.submission-edit-section-title .svg-icon {
+  width: 17px;
+  height: 17px;
+  color: #e11d48;
+}
+
+.submission-edit-review-help {
+  font-size: 12px;
+  color: hsl(var(--text-secondary));
+  line-height: 1.4;
+}
+
+.submission-section-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* 1. Rebuttal Progress Card */
+.rebuttal-progress-card {
+  margin-bottom: 14px;
+  padding: 13px 16px;
+  background: var(--card-bg, rgba(255, 255, 255, 0.9));
+  border: 1px solid var(--card-border, rgba(0, 0, 0, 0.1));
+  border-radius: 9px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+  box-sizing: border-box;
+}
+
+.rebuttal-progress-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+  flex-wrap: wrap;
+  gap: 8px;
+  min-height: 26px;
+}
+
+.rebuttal-progress-title-wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.rebuttal-progress-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 5px;
+  background: rgba(99, 102, 241, 0.12);
+  color: #6366f1;
+}
+
+.rebuttal-progress-icon .svg-icon {
+  width: 14px;
+  height: 14px;
+}
+
+.rebuttal-progress-title {
+  font-weight: 600;
+  font-size: 13.5px;
+  color: hsl(var(--text-primary));
+  line-height: 1;
+}
+
+.rebuttal-progress-badge {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 3px 8px;
+  border-radius: 12px;
+  line-height: 1;
+}
+
+.rebuttal-progress-reviewers {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.reviewer-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  padding: 2.5px 8px;
+  border-radius: 12px;
+  font-weight: 600;
+  line-height: 1;
+}
+
+.reviewer-chip-done {
+  background: rgba(34, 197, 94, 0.12);
+  color: #16a34a;
+  border: 1px solid rgba(34, 197, 94, 0.25);
+}
+
+.reviewer-chip-pending {
+  background: rgba(234, 179, 8, 0.12);
+  color: #ca8a04;
+  border: 1px solid rgba(234, 179, 8, 0.25);
+}
+
+.rebuttal-progress-bar-track {
+  width: 100%;
+  height: 6px;
+  background: var(--fill-secondary, rgba(0, 0, 0, 0.06));
+  border-radius: 3px;
+  overflow: hidden;
+  margin-bottom: 11px;
+}
+
+.rebuttal-progress-bar-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #3b82f6, #10b981);
+  border-radius: 3px;
+  transition: width 0.35s ease;
+}
+
+.rebuttal-progress-kpis {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  flex-wrap: wrap;
+}
+
+.rebuttal-kpi-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 9px;
+  border-radius: 6px;
+  background: var(--fill-secondary, rgba(127, 127, 127, 0.08));
+  border: 1px solid var(--border-color, rgba(127, 127, 127, 0.15));
+  font-size: 11.5px;
+  color: hsl(var(--text-secondary));
+  line-height: 1;
+}
+
+.rebuttal-kpi-chip .kpi-icon {
+  font-size: 11px;
+}
+
+.rebuttal-kpi-chip .kpi-value {
+  color: hsl(var(--text-primary));
+  font-weight: 700;
+}
+
+.rebuttal-kpi-chip.kpi-addressed {
+  background: rgba(34, 197, 94, 0.08);
+  border-color: rgba(34, 197, 94, 0.2);
+  color: #16a34a;
+}
+.rebuttal-kpi-chip.kpi-addressed .kpi-value { color: #16a34a; }
+
+.rebuttal-kpi-chip.kpi-clarified {
+  background: rgba(20, 184, 166, 0.08);
+  border-color: rgba(20, 184, 166, 0.2);
+  color: #0d9488;
+}
+.rebuttal-kpi-chip.kpi-clarified .kpi-value { color: #0d9488; }
+
+.rebuttal-kpi-chip.kpi-in-progress {
+  background: rgba(245, 158, 11, 0.08);
+  border-color: rgba(245, 158, 11, 0.2);
+  color: #d97706;
+}
+.rebuttal-kpi-chip.kpi-in-progress .kpi-value { color: #d97706; }
+
+.rebuttal-kpi-chip.kpi-pending {
+  background: rgba(239, 68, 68, 0.08);
+  border-color: rgba(239, 68, 68, 0.2);
+  color: #dc2626;
+}
+.rebuttal-kpi-chip.kpi-pending .kpi-value { color: #dc2626; }
+
+.rebuttal-kpi-chip.kpi-all-clear {
+  background: rgba(34, 197, 94, 0.08);
+  border-color: rgba(34, 197, 94, 0.2);
+  color: #16a34a;
+}
+.rebuttal-kpi-chip.kpi-all-clear .kpi-value { color: #16a34a; }
+
+.rebuttal-kpi-chip.kpi-changes {
+  background: rgba(2, 132, 199, 0.08);
+  border-color: rgba(2, 132, 199, 0.2);
+  color: #0284c7;
+}
+.rebuttal-kpi-chip.kpi-changes .kpi-value { color: #0284c7; }
+
+/* 2. Three-Tier Mathematical Alignment Review Card */
+.submission-edit-review-container {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.submission-edit-review-row {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 14px 16px;
+  border: 1px solid var(--card-border, rgba(0, 0, 0, 0.12));
+  border-radius: 10px;
+  background: var(--card-bg, rgba(255, 255, 255, 0.95));
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+  box-sizing: border-box;
+  width: 100%;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.submission-edit-review-row:hover {
+  border-color: var(--card-border-hover, rgba(99, 102, 241, 0.35));
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.06);
+}
+
+/* Tier 1: Full-Width Header Bar */
+.submission-edit-review-row-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--border-color, rgba(127, 127, 127, 0.15));
+  flex-wrap: wrap;
+  min-height: 32px;
+}
+
+.review-row-meta-group {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.review-row-index-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 6px;
+  background: rgba(99, 102, 241, 0.1);
+  color: #4f46e5;
+  font-weight: 700;
+  font-size: 12px;
+  line-height: 1;
+}
+
+.review-row-index-badge .svg-icon {
+  width: 13px;
+  height: 13px;
+}
+
+.review-meta-item,
+.review-row-reviewer-box,
+.review-row-status-box {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+  white-space: nowrap !important;
+  flex-shrink: 0 !important;
+}
+
+.review-field-prefix-label {
+  font-size: 11.5px !important;
+  font-weight: 600 !important;
+  color: hsl(var(--text-secondary)) !important;
+  white-space: nowrap !important;
+  flex-shrink: 0 !important;
+  display: inline-block !important;
+  line-height: 1 !important;
+}
+
+.sub-edit-review-reviewer {
+  padding: 4px 9px;
+  font-size: 12px;
+  border-radius: 5px;
+  border: 1px solid var(--input-border, rgba(127, 127, 127, 0.25));
+  background: var(--input-bg, transparent);
+  color: hsl(var(--text-primary));
+  width: 130px;
+  height: 28px;
+  box-sizing: border-box;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.sub-edit-review-reviewer:focus {
+  border-color: #6366f1;
+}

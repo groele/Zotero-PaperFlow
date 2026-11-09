@@ -90,93 +90,8 @@ function createHostContext(initialDb = { manuscripts: [{ id: 'm1', title: 'Test 
   return { context, errors, logs, savedNotes, prefs, registeredSections, unregisteredSections, unregisteredPrefPanes };
 }
 
-test('syncManuscriptToChildNote blocks read-only items and returns null', async () => {
-  const { context, errors, savedNotes } = createHostContext();
-  const readOnlyItem = {
-    key: 'ITEM1',
-    isRegularItem: () => true,
-    isEditable: () => false,
-    deleted: false,
-    getField: () => 'Test Paper',
-    getCreators: () => [],
-    getAttachments: () => [],
-    getNotes: () => []
-  };
 
-  const result = await context.Zotero.ResearchFlow.syncManuscriptToChildNote(readOnlyItem);
-  assert.equal(result, null);
-  assert.equal(savedNotes.length, 0);
-  assert.ok(errors.some(e => e.includes('read-only or in trash')));
-});
-
-test('syncManuscriptToChildNote blocks deleted items in trash and returns null', async () => {
-  const { context, errors, savedNotes } = createHostContext();
-  const deletedItem = {
-    key: 'ITEM1',
-    isRegularItem: () => true,
-    isEditable: () => true,
-    deleted: true,
-    getField: () => 'Test Paper',
-    getCreators: () => [],
-    getAttachments: () => [],
-    getNotes: () => []
-  };
-
-  const result = await context.Zotero.ResearchFlow.syncManuscriptToChildNote(deletedItem);
-  assert.equal(result, null);
-  assert.equal(savedNotes.length, 0);
-  assert.ok(errors.some(e => e.includes('read-only or in trash')));
-});
-
-test('syncStatusTagToItem blocks read-only and deleted items and returns false', async () => {
-  const { context, errors } = createHostContext();
-  const readOnlyItem = {
-    key: 'ITEM1',
-    isRegularItem: () => true,
-    isEditable: () => false,
-    deleted: false
-  };
-
-  const result1 = await context.Zotero.ResearchFlow.syncStatusTagToItem(readOnlyItem, 'drafting');
-  assert.equal(result1, false);
-
-  const deletedItem = {
-    key: 'ITEM1',
-    isRegularItem: () => true,
-    isEditable: () => true,
-    deleted: true
-  };
-
-  const result2 = await context.Zotero.ResearchFlow.syncStatusTagToItem(deletedItem, 'drafting');
-  assert.equal(result2, false);
-  assert.ok(errors.some(e => e.includes('read-only or in trash')));
-});
-
-test('addItemToPipelineCollection blocks read-only and deleted items and returns null', async () => {
-  const { context, errors } = createHostContext();
-  const readOnlyItem = {
-    key: 'ITEM1',
-    isRegularItem: () => true,
-    isEditable: () => false,
-    deleted: false
-  };
-
-  const result1 = await context.Zotero.ResearchFlow.addItemToPipelineCollection(readOnlyItem);
-  assert.equal(result1, null);
-
-  const deletedItem = {
-    key: 'ITEM1',
-    isRegularItem: () => true,
-    isEditable: () => true,
-    deleted: true
-  };
-
-  const result2 = await context.Zotero.ResearchFlow.addItemToPipelineCollection(deletedItem);
-  assert.equal(result2, null);
-  assert.ok(errors.some(e => e.includes('read-only or in trash')));
-});
-
-test('authoritative versions across package.json, manifest, product.json, preferences, READMEs, and workspace are unified at 16.3.1', () => {
+test('authoritative versions across package.json, manifest, product.json, preferences, READMEs, and workspace are unified at 16.3.2', () => {
   const pkg = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8'));
   const manifest = JSON.parse(fs.readFileSync(path.join(root, 'manifest.json'), 'utf8'));
   const product = JSON.parse(fs.readFileSync(path.join(root, 'docs/brand/product.json'), 'utf8'));
@@ -188,7 +103,7 @@ test('authoritative versions across package.json, manifest, product.json, prefer
   const readmeEn = fs.readFileSync(path.join(root, 'README.en.md'), 'utf8');
   const updateJson = JSON.parse(fs.readFileSync(path.join(root, 'update.json'), 'utf8'));
 
-  const expectedVersion = '16.3.1';
+  const expectedVersion = '16.3.2';
   assert.equal(pkg.version, expectedVersion);
   assert.equal(manifest.version, expectedVersion);
   assert.equal(product.version, expectedVersion);

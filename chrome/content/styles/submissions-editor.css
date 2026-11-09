@@ -1,0 +1,118 @@
+.submission-cycle-label {
+  color: hsl(var(--accent-cyan));
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.submission-cycle-card-complete .submission-cycle-label {
+  color: hsl(var(--accent-emerald));
+}
+
+.submission-work-card {
+  padding: 16px;
+}
+
+.submission-work-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+
+.submission-work-title {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.submission-work-title h3 {
+  margin: 0;
+  font-size: 15px;
+  line-height: 1.25;
+}
+
+.submission-work-icon {
+  width: 32px;
+  height: 32px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  border-radius: 9px;
+  border: 1px solid hsl(var(--accent-purple) / 0.2);
+  background: hsl(var(--accent-purple) / 0.1);
+  color: hsl(var(--accent-purple));
+}
+
+.submission-work-icon .svg-icon {
+  width: 16px;
+  height: 16px;
+}
+
+.submission-work-actions {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.submission-work-button {
+  min-height: 32px;
+  padding: 5px 10px;
+  border-radius: 8px;
+  font-size: 11px;
+}
+
+.submission-work-button .svg-icon {
+  width: 14px;
+  height: 14px;
+}
+
+.submission-checklist-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.submission-edit-checklist-grid {
+  align-items: stretch;
+}
+
+.submission-edit-check-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 34px;
+  padding: 8px 10px;
+  border: 1px solid hsl(var(--card-border) / 0.55);
+  border-radius: 8px;
+  background: hsl(var(--card-bg) / 0.42);
+  color: hsl(var(--text-primary));
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.3;
+  text-transform: none;
+  cursor: pointer;
+}
+
+.submission-edit-check-item input {
+  width: 14px;
+  height: 14px;
+  min-height: 14px;
+  accent-color: hsl(var(--accent-purple));
+}
+
+.submission-edit-review-help {
+  margin: -2px 0 10px;
+  color: hsl(var(--text-muted));
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.submission-edit-review-container {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}

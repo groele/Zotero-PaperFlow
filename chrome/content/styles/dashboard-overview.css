@@ -1,0 +1,214 @@
+/* ==========================================================================
+   Zotero PaperFlow - Dashboard Overview, KPI Stats & Duration Summaries
+   ========================================================================== */
+
+/* ==========================================================================
+   Zotero PaperFlow - Dashboard Overview, KPI Stats & 4-Column Event Rail
+   ========================================================================== */
+
+/* 1. Dashboard View Base & Timeline Alerts */
+/* Dashboard view elements */
+.stat-box {
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.stat-box h4 {
+  font-size: 12px;
+  font-weight: 600;
+  color: hsl(var(--text-muted));
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.stat-number {
+  font-size: 36px;
+  font-weight: 800;
+  font-family: var(--font-display);
+  line-height: 1;
+}
+
+/* Gantt Chart */
+.gantt-container {
+  padding: 24px;
+}
+
+.gantt-container h3 {
+  font-size: 16px;
+  margin-bottom: 16px;
+}
+
+.gantt-chart {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.gantt-row {
+  display: grid;
+  grid-template-columns: 180px 1fr;
+  align-items: center;
+  background: var(--card-fill);
+  border: 1px solid hsl(var(--card-border));
+  border-radius: 8px;
+  padding: 8px 12px;
+  gap: 16px;
+}
+
+.gantt-row-title {
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.gantt-timeline-track {
+  background: var(--input-bg);
+  height: 8px;
+  border-radius: 99px;
+  position: relative;
+  overflow: hidden;
+}
+
+.gantt-timeline-bar {
+  height: 100%;
+  border-radius: 99px;
+  background: linear-gradient(90deg, hsl(var(--accent-purple)) 0%, hsl(var(--accent-cyan)) 100%);
+  transition: width var(--transition-slow);
+}
+
+.recent-box {
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-height: 240px;
+}
+
+.recent-box h3 {
+  font-size: 15px;
+}
+
+.recent-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.recent-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 14px;
+  background: var(--card-fill);
+  border: 1px solid hsl(var(--card-border));
+  border-radius: 10px;
+  font-size: 13px;
+  transition: var(--transition-fast);
+}
+
+.recent-item:hover {
+  background: var(--card-fill-hover);
+  border-color: hsl(var(--accent-purple) / 0.2);
+}
+
+.recent-item-title {
+  font-weight: 550;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 220px;
+}
+
+.recent-item-date {
+  font-size: 11px;
+  color: hsl(var(--text-muted));
+}
+
+/* ==========================================================================
+   ENHANCED POLISHED KPI & DURATION SUMMARY AESTHETICS
+   ========================================================================== */
+
+/* ==========================================================================
+   ENHANCED POLISHED DASHBOARD AESTHETICS
+   ========================================================================== */
+
+/* 1. KPI Interactive Stat Filter Cards */
+.stat-box,
+.interactive-stat-card {
+  position: relative !important;
+  overflow: hidden !important;
+  border-radius: 16px !important;
+  padding: 18px 22px !important;
+  background: hsl(var(--card-bg)) !important;
+  border: 1px solid hsl(var(--card-border)) !important;
+  box-shadow: 0 4px 16px -2px rgba(15, 23, 42, 0.05), 0 2px 4px -2px rgba(15, 23, 42, 0.03) !important;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1) !important;
+  cursor: pointer !important;
+  text-align: left !important;
+}
+
+.stat-box::before,
+.interactive-stat-card::before {
+  content: "" !important;
+  position: absolute !important;
+  top: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  height: 3px !important;
+  opacity: 0.85 !important;
+  transition: opacity 0.25s ease, height 0.25s ease !important;
+}
+
+.stat-box.filter-accepted::before,
+.interactive-stat-card.filter-accepted::before {
+  background: linear-gradient(90deg, #10b981 0%, #059669 100%) !important;
+}
+
+.stat-box.filter-active::before,
+.interactive-stat-card.filter-active::before {
+  background: linear-gradient(90deg, #6366f1 0%, #8b5cf6 100%) !important;
+}
+
+.stat-box.filter-all::before,
+.interactive-stat-card.filter-all::before {
+  background: linear-gradient(90deg, #f43f5e 0%, #e11d48 100%) !important;
+}
+
+.stat-box:hover,
+.interactive-stat-card:hover {
+  transform: translateY(-3px) !important;
+  box-shadow: 0 12px 28px -4px rgba(15, 23, 42, 0.12), 0 4px 8px -2px rgba(15, 23, 42, 0.05) !important;
+  border-color: hsl(var(--card-border) / 0.85) !important;
+}
+
+.stat-box:hover::before,
+.interactive-stat-card:hover::before {
+  height: 4px !important;
+  opacity: 1 !important;
+}
+
+.stat-box h4,
+.interactive-stat-card h4 {
+  font-size: 11.5px !important;
+  font-weight: 700 !important;
+  color: hsl(var(--text-muted)) !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.04em !important;
+  margin-bottom: 8px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+}
+
+.stat-number {
+  font-size: 34px !important;
+  font-weight: 850 !important;
+  line-height: 1 !important;
+  font-variant-numeric: tabular-nums !important;
+  font-family: Bahnschrift, "Segoe UI", -apple-system, sans-serif !important;
+  letter-spacing: -0.035em !important;
+}

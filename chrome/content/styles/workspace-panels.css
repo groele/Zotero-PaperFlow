@@ -1,0 +1,221 @@
+/* ==========================================================================
+   Batch A: Scientific UX & UI Micro-interaction Animations
+   ========================================================================== */
+
+/* 1. Kanban Drag-and-Drop & Cross-Column Card FLIP Animation */
+.kanban-drop-placeholder {
+  min-height: 72px;
+  border: 2px dashed rgba(225, 29, 72, 0.45);
+  border-radius: 8px;
+  background: rgba(225, 29, 72, 0.04);
+  margin-bottom: 10px;
+  pointer-events: none;
+  transition: all 180ms ease;
+  animation: kanbanPlaceholderPulse 1.4s ease-in-out infinite alternate;
+}
+@keyframes kanbanPlaceholderPulse {
+  from { border-color: rgba(225, 29, 72, 0.3); background: rgba(225, 29, 72, 0.02); }
+  to { border-color: rgba(225, 29, 72, 0.6); background: rgba(225, 29, 72, 0.08); }
+}
+.kanban-card.dragging {
+  opacity: 0.45;
+  transform: scale(0.98);
+  cursor: grabbing !important;
+}
+.kanban-card-landed {
+  animation: kanbanCardLandedGlow 680ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+@keyframes kanbanCardLandedGlow {
+  0% { transform: scale(0.97); box-shadow: 0 0 0 3px rgba(225, 29, 72, 0.4); }
+  50% { transform: scale(1.01); box-shadow: 0 0 16px rgba(225, 29, 72, 0.25); }
+  100% { transform: scale(1); box-shadow: var(--workspace-shadow); }
+}
+
+/* 2. Review Matrix Filter Toolbar & Row Transitions */
+.review-matrix-filter-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 8px 12px;
+  margin-bottom: 12px;
+  border-radius: 6px;
+  background: hsl(var(--card-bg));
+  border: 1px solid hsl(var(--card-border));
+}
+.review-matrix-filter-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.review-matrix-filter-select {
+  font-size: 12px;
+  padding: 3px 8px;
+  border-radius: 5px;
+  border: 1px solid hsl(var(--card-border));
+  background: hsl(var(--card-bg));
+  color: hsl(var(--text-primary));
+  cursor: pointer;
+}
+.btn-collapse-addressed-reviews.active {
+  background: rgba(16, 185, 129, 0.12);
+  border-color: rgba(16, 185, 129, 0.35);
+  color: #059669;
+  font-weight: 600;
+}
+.submission-edit-review-row {
+  transition: max-height 260ms cubic-bezier(0.22, 1, 0.36, 1), opacity 200ms ease, margin 200ms ease;
+  overflow: hidden;
+}
+.submission-edit-review-row.is-collapsed .submission-edit-review-fields {
+  display: none !important;
+}
+.submission-edit-review-row.is-collapsed .review-row-collapsed-snippet {
+  display: inline-block;
+  max-width: 260px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 11px;
+  color: hsl(var(--text-muted));
+  margin-left: 6px;
+}
+.review-row-collapsed-snippet {
+  display: none;
+}
+.review-row-reordered-flash {
+  animation: reviewRowPulse 600ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+@keyframes reviewRowPulse {
+  0% { background: rgba(225, 29, 72, 0.15); border-color: rgba(225, 29, 72, 0.5); }
+  100% { background: hsl(var(--card-bg)); border-color: hsl(var(--card-border)); }
+}
+
+/* 3. Incremental Rebuttal Progress Bar & Shimmer */
+.rebuttal-progress-bar-fill {
+  transition: width 340ms cubic-bezier(0.34, 1.56, 0.64, 1);
+  position: relative;
+  overflow: hidden;
+}
+.rebuttal-progress-bar-fill.is-complete {
+  background: linear-gradient(90deg, #10b981 0%, #059669 100%) !important;
+}
+.rebuttal-progress-bar-fill.is-complete::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.4), transparent);
+  animation: emeraldShimmer 2.2s infinite;
+}
+@keyframes emeraldShimmer {
+  0% { left: -100%; }
+  100% { left: 100%; }
+}
+
+/* 4. Dashboard KPI Metric Number Pop & Staggered Pipeline Entrance */
+.pipeline-card {
+  animation: pipelineCardEnter 320ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation-delay: calc(var(--card-index, 0) * 35ms);
+}
+@keyframes pipelineCardEnter {
+  from {
+    opacity: 0;
+    transform: translateY(12px) scale(0.99);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+.stat-value-updated {
+  animation: statNumberPop 280ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+@keyframes statNumberPop {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.14); color: #e11d48; }
+  100% { transform: scale(1); }
+}
+
+/* 5. Inline Stage Editor Smooth Reveal & Active Highlights */
+.inline-stage-editor {
+  transition: all 260ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+.inline-stage-editor.is-open {
+  animation: stageEditorReveal 280ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+@keyframes stageEditorReveal {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.timeline-event-chip.is-editing {
+  box-shadow: 0 0 0 2px #e11d48, 0 2px 8px rgba(225, 29, 72, 0.25) !important;
+  transform: translateY(-1px);
+}
+.btn-inline-add-event.is-active {
+  background: rgba(225, 29, 72, 0.12) !important;
+  border-color: #e11d48 !important;
+  color: #e11d48 !important;
+}
+
+/* 6. Sidebar Active Slide Indicator & Autosave Pulse */
+.nav-item {
+  position: relative;
+  transition: background 180ms ease, color 180ms ease;
+}
+.nav-item.active::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 6px;
+  bottom: 6px;
+  width: 3px;
+  border-radius: 0 3px 3px 0;
+  background: #e11d48;
+  animation: navIndicatorSlide 220ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+@keyframes navIndicatorSlide {
+  from { transform: scaleY(0.3); opacity: 0; }
+  to { transform: scaleY(1); opacity: 1; }
+}
+[data-submission-autosave-status][data-state="saving"] .submission-autosave-dot {
+  animation: autosavePulse 1.2s infinite ease-in-out;
+  background-color: #f59e0b;
+}
+[data-submission-autosave-status][data-state="saved"] .submission-autosave-dot {
+  background-color: #10b981;
+}
+[data-submission-autosave-status][data-state="invalid"] .submission-autosave-dot,
+[data-submission-autosave-status][data-state="error"] .submission-autosave-dot {
+  background-color: #ef4444;
+}
+@keyframes autosavePulse {
+  0% { transform: scale(0.9); opacity: 0.6; }
+  50% { transform: scale(1.3); opacity: 1; }
+  100% { transform: scale(0.9); opacity: 0.6; }
+}
+
+/* Reduced motion accessibility override */
+@media (prefers-reduced-motion: reduce) {
+  .pipeline-card,
+  .stat-value-updated,
+  .inline-stage-editor.is-open,
+  .nav-item.active::before,
+  .rebuttal-progress-bar-fill,
+  .rebuttal-progress-bar-fill.is-complete::after,
+  .kanban-drop-placeholder,
+  .kanban-card-landed,
+  .review-row-reordered-flash {
+    animation: none !important;
+    transition: none !important;
+  }
+}

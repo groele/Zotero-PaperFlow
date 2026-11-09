@@ -1,10 +1,18 @@
+/**
+ * ----------------------------------------------------------------------------------
+ * ⚡ AUTO-GENERATED BUNDLE BY ESBUILD - DO NOT EDIT DIRECTLY
+ * ----------------------------------------------------------------------------------
+ * Source authority: `src/` TypeScript modules (100% strictly <= 360 lines).
+ * Target runtime: Gecko 153+ / Firefox 140+ (minify: false for Error Console audit)
+ * ----------------------------------------------------------------------------------
+ */
 "use strict";
 (() => {
   // src/config.ts
   var ADDON_ID = "zotero-paperflow@groele.org";
   var CHROME_ROOT = "chrome://researchflow/content/";
   var PREF_PREFIX = "extensions.researchflow.";
-  var DEFAULT_VERSION = "16.3.1";
+  var DEFAULT_VERSION = "16.3.2";
 
   // src/modules/academic-citation/formatters.ts
   var extractCiteKey = (target) => {

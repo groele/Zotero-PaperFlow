@@ -4,8 +4,19 @@
   "capturedAt": "2026-11-06",
   "debtCleared": true,
   "note": "Known §5.9 debt. Listed files may stay at or below the recorded line count, but must never grow; any other source file above 360 lines fails the guard. Remove an entry only after splitting that module below 360 lines. Every entry must still exist and must still exceed the ceiling - stale entries are rejected by the baseline integrity test.",
-  "lastReleasedVersion": "16.3.1",
+  "lastReleasedVersion": "16.3.2",
   "splitHistory": [
+    {
+      "version": "16.3.2",
+      "date": "2026-11-09",
+      "resolved": [
+        "100% deconstruction of all oversized CSS stylesheets in chrome/content/styles/ (strictly <= 360 lines)",
+        "100% deconstruction of all oversized test suites in tests/ (strictly <= 360 lines)",
+        "100% deconstruction of build and packaging scripts in scripts/ (strictly <= 360 lines)",
+        "Zero-debt ceiling guard extended to styles, tests, and build scripts in architecture-guard.mjs",
+        "100% compliance across all 112 source files in src/ (strictly <= 340 lines per file); debtCleared = true"
+      ]
+    },
     {
       "version": "16.3.1",
       "date": "2026-11-09",

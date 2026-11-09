@@ -1,3 +1,11 @@
+/**
+ * ----------------------------------------------------------------------------------
+ * ⚡ AUTO-GENERATED BUNDLE BY ESBUILD - DO NOT EDIT DIRECTLY
+ * ----------------------------------------------------------------------------------
+ * Source authority: `src/` TypeScript modules (100% strictly <= 360 lines).
+ * Target runtime: Gecko 153+ / Firefox 140+ (minify: false for Error Console audit)
+ * ----------------------------------------------------------------------------------
+ */
 "use strict";
 (() => {
   // src/modules/share-card/constants-and-data.ts

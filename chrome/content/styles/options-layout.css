@@ -1,0 +1,256 @@
+/* ==========================================================================
+   Zotero PaperFlow - Core Workspace Layout, Sidebar & Domain Module Imports
+   ========================================================================== */
+
+/* Domain CSS Module Imports */
+@import url("dashboard.css");
+@import url("pipeline-capsule.css");
+@import url("event-rail.css");
+@import url("kanban.css");
+@import url("submissions.css");
+@import url("journal-portals.css");
+@import url("review-matrix.css");
+@import url("modals.css");
+@import url("zotero-drawer.css");
+
+/* 1. Workspace Shell & Navigation */
+/* Dashboard Layout Wrapper */
+.dashboard-wrapper {
+  display: flex;
+  min-height: 100vh;
+  background-color: hsl(var(--bg-color));
+  overflow: hidden;
+}
+
+/* Sidebar Navigation */
+.sidebar {
+  width: 250px;
+  height: 100vh;
+  padding: 20px 14px;
+  display: flex;
+  flex-direction: column;
+  border-radius: 0;
+  border-right: 1px solid hsl(var(--card-border));
+  border-top: none;
+  border-bottom: none;
+  border-left: none;
+  background: var(--sidebar-bg);
+  flex-shrink: 0;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: auto;
+  margin-bottom: 0;
+  padding: 12px 10px;
+  border-radius: 10px;
+  background: rgba(248, 250, 252, 0.95);
+  border: 1px solid rgba(226, 232, 240, 0.9);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+
+.brand .logo-orb {
+  width: 32px;
+  height: 32px;
+  border-radius: 6px;
+  flex: 0 0 32px;
+  background: url('../assets/icons/icon.svg') center / contain no-repeat;
+  box-shadow: none;
+}
+
+.brand h2 {
+  font-size: 13.5px;
+  font-weight: 600;
+  line-height: 1.25;
+  font-family: var(--font-display);
+  color: hsl(var(--text-primary));
+  margin: 0;
+}
+
+.brand .version {
+  font-size: 10px;
+  font-weight: 500;
+  color: #e11d48;
+  background: rgba(225, 29, 72, 0.08);
+  border: 1px solid rgba(225, 29, 72, 0.16);
+  padding: 1px 6px;
+  border-radius: 4px;
+  display: inline-block;
+  margin-top: 3px;
+}
+
+.sidebar-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1;
+}
+
+.nav-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: transparent;
+  border: 1px solid transparent;
+  color: hsl(var(--text-muted));
+  padding: 8px 12px;
+  width: 100%;
+  justify-content: flex-start;
+  font-size: 13px;
+  font-weight: 500;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: var(--transition-fast);
+  text-align: left;
+  min-height: 36px;
+}
+
+.nav-item:hover {
+  background: hsl(var(--card-fill-hover));
+  color: hsl(var(--text-primary));
+}
+
+.nav-item.active {
+  background: rgba(225, 29, 72, 0.08);
+  border: 1px solid rgba(225, 29, 72, 0.18);
+  border-left: 3px solid #e11d48;
+  color: #e11d48;
+  box-shadow: none;
+  font-weight: 600;
+}
+
+.nav-item .svg-icon {
+  width: 18px;
+  height: 18px;
+}
+
+/* Main Workspace */
+.main-content {
+  flex: 1;
+  height: 100vh;
+  overflow-y: auto;
+  padding: 28px 36px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.content-view {
+  display: none;
+  flex-direction: column;
+  gap: 20px;
+  min-height: 100%;
+}
+
+.content-view.active {
+  display: flex;
+  animation: slideIn 0.2s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+.view-header {
+  border-bottom: 1px solid hsl(var(--card-border));
+  padding-bottom: 12px;
+}
+
+.view-header h1 {
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: -0.015em;
+  color: hsl(var(--text-primary));
+  font-family: var(--font-display);
+}
+
+.flex-space {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+
+/* 2. Projects Tree Split View & Spreadsheet Table */
+/* Projects Tree Split View */
+.projects-tree-layout {
+  display: grid;
+  grid-template-columns: 320px 1fr;
+  gap: 24px;
+  height: calc(100vh - 200px);
+}
+
+.tree-sidebar {
+  padding: 16px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.tree-header h3 {
+  font-size: 14px;
+}
+
+.tree-nodes {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.tree-node-area {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.area-title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 13px;
+  font-weight: 700;
+  padding: 6px 8px;
+  background: var(--card-fill);
+  border: 1px solid hsl(var(--card-border));
+  border-radius: 8px;
+  color: hsl(var(--text-primary));
+}
+
+.tree-project-nodes {
+  padding-left: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 4px;
+}
+
+.project-node-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 12px;
+  padding: 6px 10px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  cursor: pointer;
+  color: hsl(var(--text-muted));
+  transition: var(--transition-fast);
+}
+
+.project-node-item:hover {
+  background: rgba(255, 255, 255, 0.04);
+  color: hsl(var(--text-primary));
+}
+
+.project-node-item.selected {
+  background: hsl(var(--accent-purple) / 0.1);
+  border: 1px solid hsl(var(--accent-purple) / 0.2);
+  color: hsl(var(--text-primary));
+}
+
+.project-detail-card {
+  padding: 24px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}

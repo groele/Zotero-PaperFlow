@@ -1,0 +1,303 @@
+@media (max-width: 1220px) {
+  .pipeline-card {
+    grid-template-columns: 1fr 1.35fr;
+  }
+  .inline-stage-fields {
+    grid-template-columns: minmax(220px, 1fr) 150px 140px;
+  }
+  .state-box {
+    align-items: flex-start;
+    text-align: left;
+  }
+  .state-pill {
+    width: fit-content;
+    min-width: 110px;
+  }
+}
+
+@media (max-width: 820px) {
+  #view-submissions .view-header.flex-space,
+.submission-header-actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .journal-portals-dock {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    max-width: none;
+  }
+  .journal-portals-dock .portal-item-card {
+    width: 88px;
+  }
+  .submission-primary-action {
+    width: 100%;
+  }
+  .submission-tools-row {
+    align-items: stretch;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .submission-tools-copy {
+    flex-basis: auto;
+  }
+  .submission-split-layout {
+    grid-template-columns: 1fr;
+    height: auto;
+  }
+  .submission-list-card,
+.submission-detail-card {
+    overflow-y: visible;
+  }
+  .submission-detail-hero,
+.submission-action-card,
+.workflow-edit-summary,
+.workflow-context-head,
+.submission-work-head {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .submission-action-buttons,
+.workflow-edit-summary-actions,
+.submission-work-actions {
+    justify-content: flex-start;
+  }
+  .workflow-edit-summary-copy strong {
+    white-space: normal;
+  }
+  .submission-edit-center-head {
+    flex-direction: column;
+  }
+  .submission-edit-badges {
+    justify-content: flex-start;
+  }
+  .submission-edit-grid,
+.submission-edit-grid-identity,
+.submission-edit-grid-dates,
+.submission-edit-grid-publication,
+.submission-first-author-module,
+.submission-edit-savebar,
+.submission-review-preview-grid {
+    grid-template-columns: 1fr;
+  }
+  .submission-edit-savebar {
+    align-items: stretch;
+  }
+  .submission-autosave-status {
+    justify-content: flex-start;
+  }
+  .submission-checklist-grid {
+    grid-template-columns: 1fr;
+  }
+  .workflow-context-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+  .pipeline-card {
+    grid-template-columns: 1fr;
+  }
+  .inline-stage-fields {
+    grid-template-columns: 1fr;
+  }
+  .stage-editor-grid {
+    grid-template-columns: 1fr;
+  }
+  .core-head {
+    flex-direction: column;
+  }
+  .core-value {
+    text-align: left;
+  }
+}
+
+@media (max-width: 540px) {
+  .timeline-summary-header {
+    grid-template-columns: 1fr 1fr;
+  }
+  .workflow-context-grid {
+    grid-template-columns: 1fr;
+  }
+  .event-rail {
+    overflow-x: auto;
+    min-width: 400px;
+  }
+  .core-panel {
+    overflow-x: auto;
+  }
+}
+
+/* Acceptance milestone: celebratory, non-blocking, and respectful of motion preferences. */
+.acceptance-celebration {
+  position: fixed;
+  inset: 0;
+  z-index: 999998;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.acceptance-confetti-field {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+}
+
+.acceptance-confetti-piece {
+  position: absolute;
+  top: -7vh;
+  left: var(--confetti-x);
+  width: 8px;
+  height: 18px;
+  border-radius: 2px;
+  background: var(--confetti-color);
+  box-shadow: 0 2px 6px rgba(15, 23, 42, 0.12);
+  opacity: 0;
+  animation: acceptance-confetti-fall var(--confetti-duration) var(--confetti-delay) cubic-bezier(0.18, 0.72, 0.36, 1) forwards;
+}
+
+.acceptance-confetti-piece[data-shape="round"] {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+}
+
+.acceptance-celebration-banner {
+  position: absolute;
+  top: 28px;
+  left: 50%;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  width: min(520px, calc(100vw - 40px));
+  padding: 15px 18px;
+  border: 1px solid rgba(5, 150, 105, 0.28);
+  border-radius: 16px;
+  color: #17352d;
+  background:
+    linear-gradient(115deg, rgba(236, 253, 245, 0.98), rgba(255, 251, 235, 0.97)),
+    #ffffff;
+  box-shadow:
+    0 22px 54px rgba(15, 118, 110, 0.18),
+    0 3px 12px rgba(15, 23, 42, 0.08);
+  transform: translateX(-50%);
+  animation: acceptance-banner-enter 0.62s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.acceptance-celebration-seal {
+  display: grid;
+  flex: 0 0 46px;
+  width: 46px;
+  height: 46px;
+  place-items: center;
+  border-radius: 50%;
+  color: #047857;
+  background: rgba(16, 185, 129, 0.12);
+  border: 1px solid rgba(5, 150, 105, 0.2);
+  box-shadow: inset 0 0 0 5px rgba(255, 255, 255, 0.52);
+}
+
+.acceptance-celebration-seal svg {
+  width: 29px;
+  height: 29px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.acceptance-celebration-copy {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.acceptance-celebration-copy small {
+  color: #b45309;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.acceptance-celebration-copy strong {
+  color: #0f3d31;
+  font-family: var(--font-display);
+  font-size: 18px;
+  line-height: 1.25;
+}
+
+.acceptance-celebration-copy > span {
+  overflow: hidden;
+  color: #52645f;
+  font-size: 11.5px;
+  line-height: 1.45;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.acceptance-celebration.is-leaving {
+  opacity: 0;
+  transition: opacity 0.48s ease;
+}
+
+@keyframes acceptance-confetti-fall {
+  0% {
+    opacity: 0;
+    transform: translate3d(0, -4vh, 0) rotate(0deg);
+  }
+  10% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0.92;
+    transform: translate3d(var(--confetti-drift), 112vh, 0) rotate(var(--confetti-rotate));
+  }
+}
+
+@keyframes acceptance-banner-enter {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -22px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, 0) scale(1);
+  }
+}
+
+@media (max-width: 540px) {
+  .acceptance-celebration-banner {
+    top: 14px;
+    align-items: flex-start;
+    padding: 13px 14px;
+  }
+  .acceptance-celebration-seal {
+    flex-basis: 40px;
+    width: 40px;
+    height: 40px;
+  }
+  .acceptance-celebration-copy > span {
+    white-space: normal;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .acceptance-confetti-field {
+    display: none;
+  }
+  .acceptance-celebration-banner {
+    animation: none;
+  }
+  .acceptance-celebration.is-leaving {
+    transition-duration: 0.12s;
+  }
+}
+
+@keyframes settings-console-enter {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}

@@ -1,3 +1,11 @@
+/**
+ * ----------------------------------------------------------------------------------
+ * ⚡ AUTO-GENERATED BUNDLE BY ESBUILD - DO NOT EDIT DIRECTLY
+ * ----------------------------------------------------------------------------------
+ * Source authority: `src/` TypeScript modules (100% strictly <= 360 lines).
+ * Target runtime: Gecko 153+ / Firefox 140+ (minify: false for Error Console audit)
+ * ----------------------------------------------------------------------------------
+ */
 "use strict";
 (() => {
   var __getOwnPropNames = Object.getOwnPropertyNames;
@@ -852,8 +860,8 @@
             <svg width="11" height="11" viewBox="0 0 16 16" fill="currentColor"><path d="M2 3h12v2H6.4l5.6 6v2H2v-2h7.6L4 5V3z"/></svg>
             Zotero
           </span>
-          ${man.citekey ? `<span class="zotero-citekey-badge" data-citekey="${escapeHTML(man.citekey)}" title="${escapeHTML(currentLanguage === "zh" ? "点击复制 Citation Key" : "Click to copy Citation Key")}">[@${escapeHTML(man.citekey)}]</span>` : ""}
-          ${man.pdfUri ? `<span class="zotero-pdf-badge" data-item-key="${escapeHTML(man.zoteroItemKey)}" data-library-id="${escapeHTML(man.zoteroLibraryID || "")}" title="${escapeHTML(currentLanguage === "zh" ? "在 Zotero 阅读器中打开 PDF" : "Open PDF in Zotero reader")}">📖 PDF</span>` : ""}
+          ${man.citekey ? `<span class="zotero-citekey-badge" data-citekey="${escapeHTML(man.citekey)}" title="${escapeHTML((w.currentLanguage || "zh") === "zh" ? "点击复制 Citation Key" : "Click to copy Citation Key")}">[@${escapeHTML(man.citekey)}]</span>` : ""}
+          ${man.pdfUri ? `<span class="zotero-pdf-badge" data-item-key="${escapeHTML(man.zoteroItemKey)}" data-library-id="${escapeHTML(man.zoteroLibraryID || "")}" title="${escapeHTML((w.currentLanguage || "zh") === "zh" ? "在 Zotero 阅读器中打开 PDF" : "Open PDF in Zotero reader")}">📖 PDF</span>` : ""}
         ` : ""}
       </div>
       <div class="pipeline-actions" style="margin-top: 10px; display: flex !important; gap: 8px !important; flex-wrap: wrap !important; visibility: visible !important;">

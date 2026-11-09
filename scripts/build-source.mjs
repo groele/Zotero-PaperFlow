@@ -8,6 +8,15 @@ const pkg = JSON.parse(await fs.readFile(path.join(root, 'package.json'), 'utf8'
 const version = pkg.version || '16.3.0';
 const buildTime = new Date().toISOString();
 
+const BUNDLE_BANNER = `/**
+ * ----------------------------------------------------------------------------------
+ * ⚡ AUTO-GENERATED BUNDLE BY ESBUILD - DO NOT EDIT DIRECTLY
+ * ----------------------------------------------------------------------------------
+ * Source authority: \`src/\` TypeScript modules (100% strictly <= 360 lines).
+ * Target runtime: Gecko 153+ / Firefox 140+ (minify: false for Error Console audit)
+ * ----------------------------------------------------------------------------------
+ */\n`;
+
 console.log(`[build-source] Bundling PaperFlow v${version} for Gecko 153+ / Firefox 140+...`);
 
 // 1. Build main host runtime bundle: src/index.ts -> chrome/content/scripts/index.js
@@ -45,7 +54,7 @@ bundledText = bundledText.replace(
   "\n    showToast(title, message, type = 'info', duration = 3500) {"
 );
 
-await fs.writeFile(path.join(root, 'chrome/content/scripts/index.js'), bundledText, 'utf8');
+await fs.writeFile(path.join(root, 'chrome/content/scripts/index.js'), BUNDLE_BANNER + bundledText, 'utf8');
 console.log(`[build-source] Main bundle compiled: ${Object.keys(mainResult.metafile.inputs).length} modules processed.`);
 
 // 2. Standalone module scripts generated from TypeScript sources
@@ -120,7 +129,7 @@ for (const mod of modules) {
     }
   }
 
-  await fs.writeFile(path.join(root, mod.out), text, 'utf8');
+  await fs.writeFile(path.join(root, mod.out), BUNDLE_BANNER + text, 'utf8');
 }
 
 console.log(`[build-source] All ${modules.length} Standalone TypeScript modules compiled successfully.`);

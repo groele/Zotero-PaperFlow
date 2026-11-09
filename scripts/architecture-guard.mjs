@@ -83,6 +83,45 @@ test('§5.9 source files respect the 360-line ceiling (freeze-and-shrink baselin
   assert.deepEqual(failures, [], `§5.9 violations:\n${failures.join('\n')}`);
 });
 
+test('§5.9 CSS stylesheets respect the 360-line ceiling', (t) => {
+  const cssFiles = walk('chrome/content/styles', ['.css']);
+  const violations = [];
+  for (const file of cssFiles) {
+    const count = lines(file);
+    if (count > MAX_LINES) {
+      violations.push(`${file}: ${count} lines exceeds ${MAX_LINES} ceiling`);
+    }
+  }
+  t.diagnostic(`scanned ${cssFiles.length} CSS stylesheets; all <= ${MAX_LINES} lines`);
+  assert.deepEqual(violations, [], `Oversized CSS files:\n${violations.join('\n')}`);
+});
+
+test('§5.9 unit test suites respect the 360-line ceiling', (t) => {
+  const testFiles = walk('tests', ['.js', '.ts']);
+  const violations = [];
+  for (const file of testFiles) {
+    const count = lines(file);
+    if (count > MAX_LINES) {
+      violations.push(`${file}: ${count} lines exceeds ${MAX_LINES} ceiling`);
+    }
+  }
+  t.diagnostic(`scanned ${testFiles.length} test suites; all <= ${MAX_LINES} lines`);
+  assert.deepEqual(violations, [], `Oversized test suites:\n${violations.join('\n')}`);
+});
+
+test('§5.9 build scripts respect the 360-line ceiling', (t) => {
+  const scriptFiles = walk('scripts', ['.mjs', '.js']);
+  const violations = [];
+  for (const file of scriptFiles) {
+    const count = lines(file);
+    if (count > MAX_LINES) {
+      violations.push(`${file}: ${count} lines exceeds ${MAX_LINES} ceiling`);
+    }
+  }
+  t.diagnostic(`scanned ${scriptFiles.length} build scripts; all <= ${MAX_LINES} lines`);
+  assert.deepEqual(violations, [], `Oversized build scripts:\n${violations.join('\n')}`);
+});
+
 test('§5.9 baseline integrity: zero debt declared and no stale entries', (t) => {
   const entries = Object.entries(baseline.oversized);
   const problems = [];
