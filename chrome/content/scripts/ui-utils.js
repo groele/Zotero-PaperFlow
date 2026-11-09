@@ -1,449 +1,396 @@
-(function initResearchFlowUiUtils(root) {
-  const DOI_PATTERN = /(10\.\d{4,9}\/[-._;()/:A-Z0-9]+)/i;
-
-  function cleanDoiFromText(value) {
-    if (!value) return '';
-    const match = String(value).match(DOI_PATTERN);
-    if (!match) return '';
-    return match[1]
-      .replace(/^doi:\s*/i, '')
-      .replace(/^https?:\/\/doi\.org\//i, '')
-      .replace(/[.,;)\s]+$/, '')
-      .trim();
+"use strict";
+(() => {
+  // src/modules/ui-utils/data-helpers.ts
+  var DOI_TEXT_PATTERN = /10\.\d{4,9}\/[-._;()/:A-Z0-9]+/i;
+  var URL_TEXT_PATTERN = /^https?:\/\/\S+$/i;
+  function escapeHTML(value) {
+    return String(value ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
   }
-
-  function cleanResearchTitle(value) {
-    if (!value) return '';
-    return String(value)
-      .replace(/^(arXiv|PubMed|bioRxiv|Nature|Science|IEEE|Springer|Wiley|ACS)\s*(:|：|-)\s*/i, '')
-      .replace(/\s*\|\s*.*$/g, '')
-      .replace(/\s*-\s*PubMed$/i, '')
-      .trim();
+  function cleanText(value, maxLength = 500) {
+    return String(value ?? "").trim().slice(0, maxLength);
   }
-
-  function normalizeFeedbackType(type) {
-    if (type === 'success') return 'success';
-    if (type === 'danger' || type === 'error') return 'danger';
-    if (type === 'info') return 'info';
-    return 'warning';
+  function normalizeIdentifier(value) {
+    return cleanText(value, 300).replace(/^https?:\/\/(dx\.)?doi\.org\//i, "");
   }
-
-  function getToastBadgeClass(type) {
-    return `badge badge-${normalizeFeedbackType(type)}`;
+  function isValidDoiOrBlank(value) {
+    const normalized = normalizeIdentifier(value);
+    return !normalized || DOI_TEXT_PATTERN.test(normalized);
   }
-
-  function getSubmissionStatusBadgeClass(status) {
-    const normalized = String(status || '').trim().toLowerCase();
-    if (normalized === 'published' || normalized === 'accepted' || normalized === 'accept') {
-      return 'badge badge-success';
-    }
-    if (normalized === 'rejected') return 'badge badge-danger';
-    if (normalized === 'revision' || normalized === 'revise' || normalized === 'major_revision' || normalized === 'minor_revision') {
-      return 'badge badge-warning';
-    }
-    if (normalized === 'submitted') return 'badge badge-purple';
-    return 'badge badge-info';
-  }
-
-  function getWorkflowStatusBadgeClass(entityType, status) {
-    const entity = String(entityType || '').trim().toLowerCase();
-    const normalized = String(status || '').trim().toLowerCase();
-    if (entity === 'submission') return getSubmissionStatusBadgeClass(normalized);
-    if (entity === 'timeline') {
-      if (normalized === 'completed' || normalized === 'done') return 'badge badge-success';
-      if (normalized === 'blocked' || normalized === 'overdue') return 'badge badge-danger';
-      if (normalized === 'active' || normalized === 'in_progress') return 'badge badge-info';
-      return 'badge badge-warning';
-    }
-    if (entity === 'manuscript') {
-      if (normalized === 'published' || normalized === 'accepted') return 'badge badge-success';
-      if (normalized === 'submitted' || normalized === 'under_review') return 'badge badge-info';
-      if (normalized === 'revision' || normalized === 'drafting' || normalized === 'figure_preparation' || normalized === 'internal_review') return 'badge badge-warning';
-      return 'badge badge-purple';
-    }
-    if (entity === 'record') {
-      if (normalized === 'literature_review') return 'badge badge-info';
-      if (normalized === 'experiment' || normalized === 'analysis') return 'badge badge-success';
-      if (normalized === 'simulation') return 'badge badge-purple';
-      return 'badge badge-warning';
-    }
-    if (entity === 'project') {
-      if (normalized === 'archived' || normalized === 'blocked') return 'badge badge-danger';
-      if (normalized === 'completed') return 'badge badge-success';
-      return 'badge badge-purple';
-    }
-    return 'badge badge-info';
-  }
-
-  function pluralize(count, singular, plural = `${singular}s`) {
-    return `${count} ${count === 1 ? singular : plural}`;
-  }
-
-  function buildSubmissionRelationshipSummary(values = {}) {
-    const submission = values.submission || {};
-    const manuscript = values.manuscript || null;
-    const project = values.project || null;
-    const records = Array.isArray(values.records) ? values.records : [];
-    const timelineNodes = Array.isArray(submission.timelineNodes) ? submission.timelineNodes : [];
-    const reviewMatrix = Array.isArray(submission.reviewMatrix)
-      ? submission.reviewMatrix
-      : (Array.isArray(submission.rebuttalMatrix) ? submission.rebuttalMatrix : []);
-    const projectId = project?.id || manuscript?.projectId || submission.projectId || '';
-    const recordCount = records.filter(record => record && record.projectId === projectId).length;
-    const completedTimelineNodeCount = timelineNodes.filter(node => {
-      const status = String(node?.status || '').toLowerCase();
-      return status === 'completed' || status === 'done';
-    }).length;
-    const manuscriptTitle = manuscript?.title || submission.title || 'Detached submission';
-    const projectTitle = project?.title || 'No project assigned';
-    const countSummary = `${pluralize(recordCount, 'record')}, ${pluralize(timelineNodes.length, 'timeline event')}, ${pluralize(reviewMatrix.length, 'reviewer comment')}.`;
-
-    return {
-      projectTitle,
-      manuscriptTitle,
-      recordCount,
-      timelineNodeCount: timelineNodes.length,
-      completedTimelineNodeCount,
-      reviewerCommentCount: reviewMatrix.length,
-      isOrphanSubmission: !manuscript,
-      hasLinkedProject: Boolean(project),
-      summaryLine: project ? `${manuscriptTitle} in ${projectTitle}: ${countSummary}` : `${manuscriptTitle}: ${countSummary}`
-    };
-  }
-
-  function buildProjectDeleteImpactSummary(values = {}) {
-    const project = values.project || {};
-    const db = values.db || {};
-    const projectId = project.id || '';
-    const tasks = Array.isArray(db.tasks) ? db.tasks : [];
-    const records = Array.isArray(db.researchRecords) ? db.researchRecords : [];
-    const manuscripts = Array.isArray(db.manuscripts) ? db.manuscripts : [];
-    const submissions = Array.isArray(db.submissions) ? db.submissions : [];
-    const linkedManuscripts = manuscripts.filter(man => man && man.projectId === projectId);
-    const linkedManuscriptIds = new Set(linkedManuscripts.map(man => man.id));
-    const linkedSubmissions = submissions.filter(sub => {
-      if (!sub) return false;
-      return sub.projectId === projectId || linkedManuscriptIds.has(sub.manuscriptId);
-    });
-    const taskCount = tasks.filter(task => task && task.projectId === projectId).length;
-    const recordCount = records.filter(record => record && record.projectId === projectId).length;
-    const manuscriptCount = linkedManuscripts.length;
-    const submissionCount = linkedSubmissions.length;
-    const totalLinkedItems = taskCount + recordCount + manuscriptCount + submissionCount;
-    const projectTitle = project.title || 'Untitled Project';
-
-    return {
-      projectTitle,
-      taskCount,
-      recordCount,
-      manuscriptCount,
-      submissionCount,
-      totalLinkedItems,
-      confirmationMessage: `Delete "${projectTitle}"? This affects ${pluralize(taskCount, 'task')}, ${pluralize(recordCount, 'research record')}, ${pluralize(manuscriptCount, 'manuscript')}, and ${pluralize(submissionCount, 'submission')}.`
-    };
-  }
-
-  function getTabKey(tab) {
-    if (!tab) return '';
-    return `${tab.id || 'active'}:${tab.url || ''}`;
-  }
-
-  function toDateInputValue(value, fallbackValue = '') {
-    if (!value) return fallbackValue;
-    const parsed = new Date(value);
-    if (Number.isNaN(parsed.getTime())) return fallbackValue;
-    return parsed.toISOString().slice(0, 10);
-  }
-
-  function toNoonIsoDate(value) {
-    const inputValue = toDateInputValue(value);
-    return inputValue ? `${inputValue}T12:00:00.000Z` : null;
-  }
-
-  function getRecordFormMode(record = null, options = {}) {
-    const isDuplicate = Boolean(record && options.duplicate);
-    const isEdit = Boolean(record && !isDuplicate);
-    if (isDuplicate) {
-      return {
-        isEdit: false,
-        isDuplicate: true,
-        title: 'Duplicate Research Record',
-        submitLabel: 'Create Copy'
-      };
-    }
-    if (isEdit) {
-      return {
-        isEdit: true,
-        isDuplicate: false,
-        title: 'Modify Research Record',
-        submitLabel: 'Save Changes'
-      };
-    }
-    return {
-      isEdit: false,
-      isDuplicate: false,
-      title: 'Log New Research Record',
-      submitLabel: 'Log Record'
-    };
-  }
-
-  function shouldAutoCapture(state) {
-    return Boolean(
-      state &&
-      state.capturePaneActive &&
-      !state.scrapeButtonDisabled &&
-      !state.formDirty &&
-      state.activeTabKey &&
-      state.activeTabKey !== state.lastCapturedTabKey
-    );
-  }
-
-  function shouldNotifyMetadataCaptureFailure(state) {
-    return Boolean(state && !state.isAutomaticCapture);
-  }
-
-  function isSafeWebUrl(value) {
+  function isValidHttpUrlOrBlank(value) {
+    const text = cleanText(value, 1e3);
+    if (!text) return true;
+    if (!URL_TEXT_PATTERN.test(text)) return false;
     try {
-      const url = new URL(String(value || '').trim());
-      return ['https:', 'http:'].includes(url.protocol) && !url.username && !url.password;
-    } catch { return false; }
+      const parsed = new URL(text);
+      return parsed.protocol === "http:" || parsed.protocol === "https:";
+    } catch (_) {
+      return false;
+    }
   }
-
-  function buildSubmissionIdentityUpdate(values = {}) {
-    const title = String(values.title || '').trim();
-    const journal = String(values.journal || '').trim();
-    const journalUrl = String(values.journalUrl || '').trim();
-
-    if (!title) {
-      return { ok: false, error: 'Manuscript title is required.' };
-    }
-
-    if (journalUrl) {
-      try {
-        if (!isSafeWebUrl(journalUrl)) throw new Error('Invalid web URL');
-      } catch (_) {
-        return { ok: false, error: 'Journal URL must be a valid URL.' };
-      }
-    }
-
-    return { ok: true, title, journal, journalUrl };
+  function isSafeWebUrl(value) {
+    const text = cleanText(value, 1e3);
+    return Boolean(text) && isValidHttpUrlOrBlank(text);
   }
-
-  function buildSubmissionEditCenterUpdate(values = {}) {
-    const identity = buildSubmissionIdentityUpdate(values);
-    if (!identity.ok) return identity;
-
-    const articleUrl = String(values.articleUrl || '').trim();
-    if (articleUrl) {
-      try {
-        if (!isSafeWebUrl(articleUrl)) throw new Error('Invalid web URL');
-      } catch (_) {
-        return { ok: false, error: 'Article URL must be a valid URL.' };
-      }
+  function normalizeReviewMatrixRow(row = {}, index = 0) {
+    const statusRaw = cleanText(row.status, 30).toLowerCase();
+    const validStatuses = ["pending", "in_progress", "addressed", "clarified"];
+    const comment = cleanText(row.comment, 8e3);
+    const response = cleanText(row.response, 12e3);
+    const changes = cleanText(row.changes, 4e3);
+    let status = validStatuses.includes(statusRaw) ? statusRaw : "";
+    if (!status) {
+      status = response ? "addressed" : "pending";
     }
-
-    const allowedStatuses = new Set([
-      'submitted',
-      'under_review',
-      'revision',
-      'accepted',
-      'published',
-      'rejected'
-    ]);
-    const status = String(values.status || 'submitted').trim();
-
-    const externalManuscriptId = String(values.externalManuscriptId || '').trim();
-
+    return {
+      id: cleanText(row.id, 80) || `rev_${index + 1}`,
+      reviewer: cleanText(row.reviewer, 60) || "Reviewer #1",
+      status,
+      comment,
+      response,
+      changes
+    };
+  }
+  function normalizeReviewMatrix(rows = []) {
+    if (!Array.isArray(rows)) return [];
+    return rows.map((row, index) => normalizeReviewMatrixRow(row, index)).filter((row) => row.comment || row.response || row.changes);
+  }
+  function getTimelineEventDate(node = {}, key = "") {
+    if (!node || typeof node !== "object") return "";
+    if (key === "submit") return cleanText(node.completeDate || node.planDate || node.dueDate, 40);
+    if (key === "r1_comments" || key === "accept" || key === "online") {
+      return cleanText(node.completeDate, 40);
+    }
+    return cleanText(node.completeDate || node.planDate || node.dueDate, 40);
+  }
+  function getSubmissionStatusBadgeClass(status) {
+    const normalized = cleanText(status || "submitted", 40).toLowerCase().replace(/[\s-]+/g, "_");
+    const statusTone = {
+      submitted: "badge-info",
+      under_review: "badge-purple",
+      revision: "badge-warning",
+      accepted: "badge-success",
+      published: "badge-success",
+      rejected: "badge-danger"
+    };
+    return `badge ${statusTone[normalized] || "badge-info"}`;
+  }
+  function shouldCelebrateAcceptance(previousStatus, nextStatus) {
+    const prev = cleanText(previousStatus, 40).toLowerCase().replace(/[\s-]+/g, "_");
+    const next = cleanText(nextStatus, 40).toLowerCase().replace(/[\s-]+/g, "_");
+    const wasAccepted = prev === "accepted" || prev === "published";
+    const isAccepted = next === "accepted" || next === "published";
+    return !wasAccepted && isAccepted;
+  }
+  function buildSubmissionCreateMode(input = {}) {
+    const selectedId = cleanText(input.selectedManuscriptId, 120);
+    const newTitle = cleanText(input.newManuscriptTitle, 300);
+    const targetJournal = cleanText(input.targetJournal, 200);
+    if (!targetJournal) {
+      return { ok: false, error: "Manuscript and Journal are required" };
+    }
+    if (selectedId === "__new__" || !selectedId) {
+      if (!newTitle) {
+        return { ok: false, error: "Enter a manuscript title before continuing." };
+      }
+      return {
+        ok: true,
+        mode: "new",
+        manuscriptId: null,
+        title: newTitle,
+        targetJournal
+      };
+    }
     return {
       ok: true,
-      title: identity.title,
-      journal: identity.journal,
-      journalUrl: identity.journalUrl,
-      externalManuscriptId: externalManuscriptId || null,
-      status: allowedStatuses.has(status) ? status : 'submitted',
-      submissionDate: String(values.submissionDate || '').trim(),
-      firstDecisionDate: String(values.firstDecisionDate || '').trim(),
-      revisionDueDate: String(values.revisionDueDate || '').trim(),
-      decisionDate: String(values.decisionDate || '').trim(),
-      doi: cleanDoiFromText(values.doi) || String(values.doi || '').trim(),
-      articleUrl
+      mode: "existing",
+      manuscriptId: selectedId,
+      title: null,
+      targetJournal
     };
   }
-
-  function buildSubmissionEditSyncPlan(values = {}) {
-    const update = buildSubmissionEditCenterUpdate(values);
-    if (!update.ok) return update;
-
-    const isPublicationStatus = update.status === 'accepted' || update.status === 'published';
-    const doi = cleanDoiFromText(update.doi) || String(update.doi || '').trim();
-    const articleUrl = update.articleUrl || (doi ? `https://doi.org/${doi}` : '');
-    const decisionDate = toNoonIsoDate(update.decisionDate);
-    const firstDecisionDate = toNoonIsoDate(update.firstDecisionDate);
-
+  function buildSubmissionRelationshipSummary(input = {}) {
+    const submission = input.submission || {};
+    const manuscript = input.manuscript || null;
+    const project = input.project || null;
+    const records = Array.isArray(input.records) ? input.records : [];
+    const projectId = manuscript?.projectId || submission.projectId || project?.id || null;
+    const relatedRecordCount = projectId ? records.filter((record) => record?.projectId === projectId).length : 0;
+    const reviewRows = normalizeReviewMatrix(submission.reviewMatrix);
+    const timelineNodes = Array.isArray(submission.timelineNodes) ? submission.timelineNodes : [];
+    const completedNodes = timelineNodes.filter((node) => Boolean(node?.completeDate || node?.status === "completed")).length;
+    return {
+      hasManuscript: Boolean(manuscript),
+      hasProject: Boolean(project),
+      manuscriptId: manuscript?.id || submission.manuscriptId || null,
+      manuscriptTitle: cleanText(manuscript?.title || submission.title, 300) || "Untitled Manuscript",
+      manuscriptStatus: cleanText(manuscript?.status, 60) || null,
+      projectId,
+      projectTitle: cleanText(project?.title, 200) || null,
+      relatedRecordCount,
+      reviewerCommentCount: reviewRows.length,
+      timelineNodeCount: timelineNodes.length,
+      completedTimelineNodeCount: completedNodes,
+      isOrphanSubmission: !manuscript
+    };
+  }
+  function getPipelineTitleDisplay(input = {}) {
+    const title = cleanText(input.title, 300) || "Untitled Manuscript";
+    return {
+      fullTitle: title,
+      displayTitle: title,
+      showTooltip: true
+    };
+  }
+  function buildSubmissionEditSyncPlan(input = {}) {
+    const title = cleanText(input.title, 300);
+    const journal = cleanText(input.journal, 200);
+    const journalUrl = cleanText(input.journalUrl, 1e3);
+    const externalManuscriptId = cleanText(input.externalManuscriptId, 120);
+    const status = cleanText(input.status || "submitted", 40).toLowerCase().replace(/[\s-]+/g, "_");
+    const submissionDate = cleanText(input.submissionDate, 40);
+    const firstDecisionDate = cleanText(input.firstDecisionDate, 40);
+    const revisionDueDate = cleanText(input.revisionDueDate, 40);
+    const decisionDate = cleanText(input.decisionDate, 40);
+    const doi = normalizeIdentifier(input.doi);
+    const articleUrl = cleanText(input.articleUrl, 1e3);
+    const canKeepPublicationLinks = status === "accepted" || status === "published" || Boolean(decisionDate);
+    if (!title || !journal) {
+      return { ok: false, error: "Manuscript title and journal are required." };
+    }
+    if (!isValidHttpUrlOrBlank(journalUrl)) {
+      return { ok: false, error: "Please enter a valid portal URL, or leave it blank." };
+    }
+    if (canKeepPublicationLinks && !isValidDoiOrBlank(doi)) {
+      return { ok: false, error: "Please enter a valid DOI, such as 10.1002/adfm.202528029, or leave it blank." };
+    }
+    if (canKeepPublicationLinks && !isValidHttpUrlOrBlank(articleUrl)) {
+      return { ok: false, error: "Please enter a valid article URL starting with https:// or leave it blank." };
+    }
     return {
       ok: true,
       manuscriptPatch: {
-        title: update.title,
-        targetJournals: update.journal ? [update.journal] : []
+        title,
+        targetJournals: [journal]
       },
-      detachedSubmissionTitle: update.title,
+      detachedSubmissionTitle: title,
       submissionPatch: {
-        externalManuscriptId: update.externalManuscriptId,
-        targetJournal: update.journal || null,
-        journalUrl: update.journalUrl || null,
-        submissionDate: toNoonIsoDate(update.submissionDate),
-        firstDecisionDate,
-        revisionDueDate: toNoonIsoDate(update.revisionDueDate),
-        decisionDate,
-        status: update.status
+        targetJournal: journal,
+        journalUrl: journalUrl || null,
+        externalManuscriptId: externalManuscriptId || null,
+        status,
+        submissionDate: submissionDate ? new Date(submissionDate).toISOString() : null,
+        firstDecisionDate: firstDecisionDate ? new Date(firstDecisionDate).toISOString() : null,
+        revisionDueDate: revisionDueDate ? new Date(revisionDueDate).toISOString() : null,
+        decisionDate: decisionDate ? new Date(decisionDate).toISOString() : null
       },
-      publicationPatch: isPublicationStatus
-        ? {
-            doi: doi || null,
-            articleUrl: articleUrl || null
-          }
-        : null,
-      shouldClearPublication: !isPublicationStatus,
-      shouldMarkRejected: update.status === 'rejected',
-      rejectionDate: update.status === 'rejected'
-        ? (update.decisionDate || update.firstDecisionDate || '')
-        : ''
+      publicationPatch: canKeepPublicationLinks ? {
+        doi: doi || null,
+        articleUrl: articleUrl || (doi ? `https://doi.org/${doi}` : null)
+      } : null,
+      shouldMarkRejected: status === "rejected",
+      rejectionDate: decisionDate || null,
+      shouldClearPublication: !canKeepPublicationLinks
     };
   }
 
-  function shouldCelebrateAcceptance(previousStatus, nextStatus) {
-    const previous = String(previousStatus || '').trim().toLowerCase();
-    const next = String(nextStatus || '').trim().toLowerCase();
-    return next === 'accepted' && previous !== 'accepted' && previous !== 'published';
-  }
-
-  function buildSubmissionCreateMode(values = {}) {
-    const selectedManuscriptId = String(values.selectedManuscriptId || '').trim();
-    const targetJournal = String(values.targetJournal || '').trim();
-    const title = String(values.newManuscriptTitle || '').trim();
-    const isNew = selectedManuscriptId === '__new__';
-
-    if (!targetJournal) {
-      return { ok: false, error: 'Target journal is required.' };
-    }
-    if (isNew && !title) {
-      return { ok: false, error: 'Manuscript title is required.' };
-    }
-    if (!isNew && !selectedManuscriptId) {
-      return { ok: false, error: 'Select or create a manuscript first.' };
-    }
-
-    return {
-      ok: true,
-      mode: isNew ? 'new' : 'existing',
-      manuscriptId: isNew ? '' : selectedManuscriptId,
-      targetJournal,
-      title
-    };
-  }
-
-  function getTimelineEventDate(node, key) {
-    if (!node || typeof node !== 'object') return '';
-    const completedOnly = key === 'r1_comments' || key === 'accept' || key === 'online';
-    return completedOnly
-      ? String(node.completeDate || '')
-      : String(node.completeDate || node.planDate || node.dueDate || '');
-  }
-
-  function findCapturedSubmissionMatch({ submissions = [], manuscripts = [], capture = {} } = {}) {
-    const normalize = value => String(value || '').trim().toLowerCase().replace(/\s+/g, ' ');
-    const externalId = normalize(capture.externalManuscriptId);
-    const title = normalize(capture.manuscriptTitle);
-    const journal = normalize(capture.targetJournal);
-    const origin = String(capture.sourceOrigin || '').trim().toLowerCase();
-    const manuscriptsById = new Map(manuscripts.map(item => [item.id, item]));
-
-    return submissions.find((submission) => {
-      const sameJournal = journal && normalize(submission.targetJournal || submission.journal) === journal;
-      const sameOrigin = origin && String(submission.captureProvenance?.sourceOrigin || '').trim().toLowerCase() === origin;
-      const existingExternalId = normalize(submission.externalManuscriptId);
-      if (externalId && existingExternalId) return externalId === existingExternalId && Boolean(sameJournal && sameOrigin);
-      if (!origin || !title || !journal) return false;
-      const manuscript = manuscriptsById.get(submission.manuscriptId);
-      const submissionJournal = submission.targetJournal || submission.journal || '';
-      return String(submission.captureProvenance?.sourceOrigin || '').trim().toLowerCase() === origin
-        && normalize(manuscript?.title || submission.title) === title
-        && normalize(submissionJournal) === journal;
-    }) || null;
-  }
-
+  // src/modules/ui-utils/dom-helpers.ts
   function normalizeSearchText(value) {
-    return String(value ?? '').normalize('NFKC').normalize('NFD').replace(/[\u0300-\u036f]/g, '')
-      .toLocaleLowerCase().replace(/[\u2010-\u2015\u2212]/g, '-').replace(/\s+/g, ' ').trim();
+    return String(value ?? "").normalize("NFKC").toLowerCase().replace(/\s+/g, " ").trim();
   }
-
-  function matchesSubmissionSearch(searchText, status, query, filter = 'all') {
-    const terms = Array.isArray(query) ? query : normalizeSearchText(query).split(/\s+/).filter(Boolean);
-    const groups = { active: ['submitted', 'under_review', 'revision'], revision: ['revision'], accepted: ['accepted', 'published'], rejected: ['rejected'] };
-    return (!groups[filter] || groups[filter].includes(status)) && terms.every(term => searchText.includes(term));
+  function matchesSubmissionSearch(text, status, terms = [], statusFilter = "all") {
+    const normalizedStatus = cleanText(status || "submitted", 40).toLowerCase().replace(/[\s-]+/g, "_");
+    const filter = cleanText(statusFilter || "all", 40).toLowerCase();
+    const statusMatches = filter === "all" || filter === "active" && ["submitted", "under_review", "revision"].includes(normalizedStatus) || filter === "accepted" && ["accepted", "published"].includes(normalizedStatus) || normalizedStatus === filter;
+    if (!statusMatches) return false;
+    const activeTerms = Array.isArray(terms) ? terms.filter(Boolean) : [];
+    if (!activeTerms.length) return true;
+    const haystack = normalizeSearchText(text);
+    return activeTerms.every((term) => haystack.includes(term));
   }
-
-  function escapeHTML(value) {
-    return String(value ?? '')
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
-      .replace(/"/g, '&quot;')
-      .replace(/'/g, '&#39;');
+  function getSafeDomDocument(target) {
+    if (target?.ownerDocument) return target.ownerDocument;
+    if (typeof document !== "undefined") return document;
+    return null;
   }
-
-  function setHTML(target, markup) {
-    if (!target) return;
-    if (!markup) { target.replaceChildren(); return; }
-    const doc = target.ownerDocument;
-    const parsed = new doc.defaultView.DOMParser().parseFromString(String(markup), 'text/html');
-    // Render application templates as DOM nodes. Gecko's privileged fragment
-    // parser removes form controls from innerHTML, so all templates use this
-    // path. Keep executable content out even if a caller forgets to escape data.
-    parsed.querySelectorAll('script,iframe,object,embed,link,meta,base,style').forEach(node => node.remove());
-    parsed.querySelectorAll('*').forEach(node => {
-      for (const attribute of [...node.attributes]) {
-        const name = attribute.name.toLowerCase();
-        if (name.startsWith('on') || name === 'srcdoc') node.removeAttribute(attribute.name);
-        else if (['href', 'src', 'action', 'formaction', 'xlink:href'].includes(name)) {
-          const value = attribute.value.replace(/[\u0000-\u0020]/g, '');
-          if (/^(?:javascript|vbscript):/i.test(value) || /^data:/i.test(value) && !/^data:image\/(?:png|jpeg|gif|webp);base64,/i.test(value)) node.removeAttribute(attribute.name);
+  function sanitizeDomTree(root) {
+    const blockedTags = /* @__PURE__ */ new Set(["script", "iframe", "object", "embed", "meta", "base"]);
+    const urlAttrs = /* @__PURE__ */ new Set(["href", "src", "xlink:href", "formaction"]);
+    const walk = (node) => {
+      for (const child of Array.from(node.childNodes || [])) {
+        if (child.nodeType !== 1) continue;
+        const tag = String(child.tagName || "").toLowerCase();
+        if (blockedTags.has(tag)) {
+          child.remove();
+          continue;
         }
+        for (const attr of Array.from(child.attributes || [])) {
+          const name = String(attr.name || "").toLowerCase();
+          const value = String(attr.value || "").trim();
+          if (name.startsWith("on") || name === "srcdoc") {
+            child.removeAttribute(attr.name);
+          } else if (urlAttrs.has(name) && /^(javascript|vbscript|data:text\/html):/i.test(value)) {
+            child.removeAttribute(attr.name);
+          }
+        }
+        walk(child);
       }
-    });
-    target.replaceChildren(...[...parsed.body.childNodes].map(node => doc.importNode(node, true)));
+    };
+    walk(root);
+  }
+  function createFragment(doc, html) {
+    const ownerDocument = doc?.createRange ? doc : getSafeDomDocument(doc);
+    if (!ownerDocument?.createRange) {
+      throw new Error("Document range parser unavailable");
+    }
+    const range = ownerDocument.createRange();
+    range.selectNode(ownerDocument.body || ownerDocument.documentElement);
+    const fragment = range.createContextualFragment(String(html ?? ""));
+    sanitizeDomTree(fragment);
+    return fragment;
+  }
+  function setHTML(element, html) {
+    if (!element) return;
+    const text = String(html ?? "");
+    const ownerDocument = getSafeDomDocument(element);
+    if (typeof element.replaceChildren === "function" && ownerDocument?.createRange) {
+      if (!text) {
+        element.replaceChildren();
+        return;
+      }
+      element.replaceChildren(createFragment(ownerDocument, text));
+      return;
+    }
+    if ("innerHTML" in element) {
+      element.innerHTML = text;
+    }
+  }
+  function getDirtyViewsSet() {
+    const g = typeof window !== "undefined" ? window : globalThis;
+    if (!(g._dirtyViews instanceof Set)) {
+      g._dirtyViews = /* @__PURE__ */ new Set();
+    }
+    return g._dirtyViews;
+  }
+  function isViewDeferred(viewId) {
+    if (typeof document === "undefined" || typeof document.getElementById !== "function") return false;
+    const viewEl = document.getElementById(viewId);
+    if (!viewEl || !viewEl.classList || typeof viewEl.classList.contains !== "function") return false;
+    if (!viewEl.classList.contains("content-view")) return false;
+    if (viewEl.classList.contains("active")) {
+      getDirtyViewsSet().delete(viewId);
+      return false;
+    }
+    getDirtyViewsSet().add(viewId);
+    return true;
+  }
+  function prefersReducedMotion() {
+    try {
+      return Boolean(typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches);
+    } catch (_) {
+      return false;
+    }
+  }
+  function animateMetricValue(el, nextValue) {
+    if (!el) return;
+    const nextText = String(nextValue ?? "");
+    const prevText = String(el.textContent ?? "");
+    el.textContent = nextText;
+    if (prevText && prevText !== nextText && !prefersReducedMotion() && el.classList?.add) {
+      el.classList.remove("stat-value-updated");
+      void el.offsetWidth;
+      el.classList.add("stat-value-updated");
+    }
+  }
+  function captureElementRects(container, selector, keyAttr) {
+    const rects = /* @__PURE__ */ new Map();
+    if (!container || prefersReducedMotion() || typeof container.querySelectorAll !== "function") return rects;
+    try {
+      container.querySelectorAll(selector).forEach((el) => {
+        const key = el.getAttribute?.(keyAttr) || el.dataset?.[keyAttr] || el.id;
+        if (key && typeof el.getBoundingClientRect === "function") {
+          const r = el.getBoundingClientRect();
+          if (r && (r.width > 0 || r.height > 0)) {
+            rects.set(String(key), r);
+          }
+        }
+      });
+    } catch (_) {
+    }
+    return rects;
+  }
+  function playFlipAnimation(container, selector, keyAttr, prevRects, highlightClass = "") {
+    if (!container || !prevRects || prevRects.size === 0 || prefersReducedMotion()) return;
+    if (typeof container.querySelectorAll !== "function") return;
+    try {
+      container.querySelectorAll(selector).forEach((el) => {
+        const key = el.getAttribute?.(keyAttr) || el.dataset?.[keyAttr] || el.id;
+        if (!key || !prevRects.has(String(key)) || typeof el.getBoundingClientRect !== "function") return;
+        const first = prevRects.get(String(key));
+        const last = el.getBoundingClientRect();
+        const dx = (first.left || 0) - (last.left || 0);
+        const dy = (first.top || 0) - (last.top || 0);
+        if (Math.abs(dx) < 1 && Math.abs(dy) < 1) return;
+        if (el.style) {
+          el.style.transition = "none";
+          el.style.transform = `translate(${dx}px, ${dy}px)`;
+          void el.offsetWidth;
+          el.style.transition = "transform 240ms cubic-bezier(0.22, 1, 0.36, 1)";
+          el.style.transform = "translate(0, 0)";
+          setTimeout(() => {
+            if (el.style) {
+              el.style.transition = "";
+              el.style.transform = "";
+            }
+          }, 260);
+        }
+        if (highlightClass && el.classList?.add) {
+          el.classList.remove(highlightClass);
+          void el.offsetWidth;
+          el.classList.add(highlightClass);
+          setTimeout(() => el.classList?.remove?.(highlightClass), 700);
+        }
+      });
+    } catch (_) {
+    }
   }
 
-  const api = {
-    setHTML,
-    cleanDoiFromText,
-    cleanResearchTitle,
-    normalizeFeedbackType,
-    getToastBadgeClass,
-    getSubmissionStatusBadgeClass,
-    getWorkflowStatusBadgeClass,
-    buildSubmissionRelationshipSummary,
-    buildProjectDeleteImpactSummary,
-    getTabKey,
-    toDateInputValue,
-    getRecordFormMode,
-    shouldAutoCapture,
-    shouldNotifyMetadataCaptureFailure,
+  // src/modules/ui-utils.ts
+  var RFUI = {
+    escapeHTML,
+    cleanText,
+    normalizeIdentifier,
+    isValidDoiOrBlank,
+    isValidHttpUrlOrBlank,
     isSafeWebUrl,
-    buildSubmissionIdentityUpdate,
-    buildSubmissionEditCenterUpdate,
-    buildSubmissionEditSyncPlan,
+    normalizeReviewMatrixRow,
+    normalizeReviewMatrix,
+    getTimelineEventDate,
+    getSubmissionStatusBadgeClass,
     shouldCelebrateAcceptance,
     buildSubmissionCreateMode,
-    getTimelineEventDate,
-    findCapturedSubmissionMatch,
+    buildSubmissionRelationshipSummary,
+    getPipelineTitleDisplay,
+    buildSubmissionEditSyncPlan,
     normalizeSearchText,
     matchesSubmissionSearch,
-    escapeHTML
+    createFragment,
+    setHTML,
+    getDirtyViewsSet,
+    isViewDeferred,
+    prefersReducedMotion,
+    animateMetricValue,
+    captureElementRects,
+    playFlipAnimation
   };
-
-  root.RFUI = api;
-  if (typeof module !== 'undefined' && module.exports) {
-    module.exports = api;
+  if (typeof globalThis !== "undefined") {
+    globalThis.RFUI = RFUI;
+    globalThis.escapeHTML = escapeHTML;
   }
-})(typeof globalThis !== 'undefined' ? globalThis : window);
+  if (typeof window !== "undefined") {
+    window.RFUI = RFUI;
+    window.escapeHTML = escapeHTML;
+  }
+  if (typeof module !== "undefined" && module.exports) {
+    module.exports = { ...RFUI, escapeHTML };
+  }
+})();

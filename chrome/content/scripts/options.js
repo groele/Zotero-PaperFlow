@@ -1,503 +1,491 @@
-/**
- * ResearchFlow OS - Options Dashboard Controller
- * Manages full routing, CRUD forms, kanbans, timeline charts, and sync settings.
- */
-
-let db = null;
-
-function applyDatabaseUpdate(newData) {
-  if (!newData) return;
-  if (window.storage?.hasPendingEdits?.(db) || window.storage?.isSaving?.(db)) return;
-  // Zotero echoes a successful save to the originating page. A delayed echo
-  // must not replace newer edits or rebuild the editor between keystrokes.
-  if (db && Number(newData.revision || 0) <= Number(db.revision || 0)
-    && Number(newData.lastUpdated || 0) <= Number(db.lastUpdated || 0)) return;
-  db = newData;
-  if (typeof window !== 'undefined') {
-    window.db = newData;
-  }
-  syncManuscriptStatusesFromSubmissions(db);
-  if (typeof window.storage !== 'undefined') {
-    window.storage.cache = newData;
-  }
-  const activeView = document.querySelector('.content-view.active')?.id;
-  if (activeView === 'view-dashboard') renderDashboard();
-  else if (activeView === 'view-manuscripts') renderKanban();
-  else if (activeView === 'view-submissions') {
-    const editorState = document.querySelector('[data-submission-autosave-status]')?.dataset.state;
-    renderSubmissions({ refreshDetails: pendingSubmissionSaves === 0 && !['pending', 'saving', 'invalid', 'error'].includes(editorState) });
-  }
-}
-let selectedProjectId = null;
-let selectedSubmissionId = null;
-let currentDashboardFilter = 'all'; // 'all', 'accepted', 'active'
-let currentLanguage = 'en';
-let isPipelineExpanded = false;
-let showEmptyKanbanColumns = true;
-let submissionAutoSaveCleanup = null;
-let pendingSubmissionSaves = 0;
-let acceptanceCelebrationCleanup = null;
-let previousModalFocus = null;
-let activeSharePreviewUrl = null;
-let activeSharePreviewCleanup = null;
-let sharePreferenceWrites = Promise.resolve();
-let currentModalCleanup = null;
-
-function registerModalCleanup(fn) {
-  if (typeof fn !== 'function') return;
-  const previous = currentModalCleanup;
-  currentModalCleanup = () => {
-    try { previous?.(); } catch (_) {}
-    try { fn(); } catch (_) {}
-  };
-}
-if (typeof window !== 'undefined') {
-  window.registerModalCleanup = registerModalCleanup;
-}
-
-const RF_OPTIONS_RENDER_VERSION = '16.0.0';
-const PRE_IMPORT_BACKUP_KEY = 'researchflow_pre_import_backup';
-const SHARE_PREFS_STORAGE_KEY = 'researchflow_share_visibility';
-const MAX_IMPORT_BYTES = 25 * 1024 * 1024;
-const UI_THEME_OPTIONS = new Set(['system', 'light', 'dark']);
-
-// --- DYNAMIC DIALOG MODAL CONTROLLER ---
-const modal = document.getElementById('modal-container');
-const modalContent = document.getElementById('modal-card-content');
-
-function openModal(htmlContent) {
-  if (typeof currentModalCleanup === 'function') {
-    try { currentModalCleanup(); } catch (_) {}
-    currentModalCleanup = null;
-  }
-  activeSharePreviewCleanup?.();
-  if (!modal.classList.contains('active')) {
-    const activeElement = document.activeElement;
-    previousModalFocus = activeElement instanceof HTMLElement && !modal.contains(activeElement)
-      ? activeElement
-      : null;
-  }
-  window.RFUI.setHTML(modalContent, htmlContent);
-  modalContent.classList.toggle('stage-modal-wide', htmlContent.includes('stage-editor'));
-  modalContent.classList.toggle('share-preview-card', htmlContent.includes('share-preview-shell'));
-  const isCaptureReview = htmlContent.includes('submission-capture-review')
-    || htmlContent.includes('academic-capture-review')
-    || htmlContent.includes('academic-capture-chooser');
-  modalContent.setAttribute('aria-modal', String(!isCaptureReview));
-  const heading = modalContent.querySelector('h2');
-  if (heading) {
-    if (!heading.id) heading.id = `modal-title-${Date.now()}`;
-    modalContent.setAttribute('aria-labelledby', heading.id);
-  } else {
-    modalContent.removeAttribute('aria-labelledby');
-  }
-  modal.inert = false;
-  modal.removeAttribute('inert');
-  modal.setAttribute('aria-hidden', 'false');
-  modal.classList.add('active');
-
-  // Auto-bind close trigger inside modal
-  const closeBtn = document.getElementById('btn-close-modal');
-  if (closeBtn) closeBtn.addEventListener('click', closeModal);
-  window.requestAnimationFrame(() => {
-    const initialFocus = modalContent.querySelector('input:not([disabled]), select:not([disabled]), textarea:not([disabled]), button:not([disabled])');
-    (initialFocus || modalContent).focus();
-  });
-}
-
-function closeModal() {
-  if (typeof currentModalCleanup === 'function') {
-    try { currentModalCleanup(); } catch (_) {}
-    currentModalCleanup = null;
-  }
-  activeSharePreviewCleanup?.();
-  const restoreTarget = previousModalFocus?.isConnected && !modal.contains(previousModalFocus)
-    ? previousModalFocus
-    : null;
-  if (restoreTarget) {
-    restoreTarget.focus({ preventScroll: true });
-  }
-  const focusedElement = document.activeElement;
-  if (focusedElement instanceof HTMLElement && modal.contains(focusedElement)) {
-    focusedElement.blur();
-  }
-
-  modal.inert = true;
-  modal.setAttribute('inert', '');
-  modal.classList.remove('active');
-  modal.setAttribute('aria-hidden', 'true');
-  modalContent.classList.remove('submission-capture-card');
-  modalContent.classList.remove('academic-capture-card');
-  modalContent.classList.remove('share-preview-card');
-  if (activeSharePreviewUrl) {
-    URL.revokeObjectURL(activeSharePreviewUrl);
-    activeSharePreviewUrl = null;
-  }
-  document.body.classList.remove('submission-capture-mode');
-  document.body.classList.remove('academic-capture-mode');
-  const url = new URL(window.location.href);
-  if (url.searchParams.has('mode')) {
-    url.searchParams.delete('mode');
-    window.history.replaceState({}, '', url);
-  }
-  previousModalFocus = null;
-}
-
-function setupGlobalModalListeners() {
-  modal.addEventListener('click', (e) => {
-    if (e.target === modal) closeModal();
-  });
-  document.addEventListener('keydown', (event) => {
-    if (event.key === 'Escape' && modal.classList.contains('active')) closeModal();
-  });
-}
-
-function showAcceptanceCelebration(submission) {
-  acceptanceCelebrationCleanup?.();
-  if (typeof ZoteroBridge !== 'undefined') {
-    const enabled = ZoteroBridge.getPref('enableAcceptanceCelebration', true);
-    if (!enabled) return;
-  }
-
-  const manuscript = db.manuscripts.find(item => item.id === submission.manuscriptId);
-  const title = String(manuscript?.title || submission.title || t('untitledManuscript')).trim();
-  const layer = document.createElement('div');
-  layer.className = 'acceptance-celebration';
-  layer.dataset.acceptanceCelebration = 'active';
-  layer.setAttribute('role', 'status');
-  layer.setAttribute('aria-live', 'assertive');
-  layer.setAttribute('aria-atomic', 'true');
-
-  const particles = document.createElement('div');
-  particles.className = 'acceptance-confetti-field';
-  particles.setAttribute('aria-hidden', 'true');
-
-  const reducedMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches === true;
-  if (!reducedMotion) {
-    const colors = ['#059669', '#10b981', '#06b6d4', '#f59e0b', '#fbbf24', '#f97316'];
-    const fragment = document.createDocumentFragment();
-    for (let index = 0; index < 54; index += 1) {
-      const particle = document.createElement('i');
-      particle.className = 'acceptance-confetti-piece';
-      particle.dataset.shape = index % 4 === 0 ? 'round' : 'strip';
-      particle.style.setProperty('--confetti-x', `${Math.random() * 100}vw`);
-      particle.style.setProperty('--confetti-drift', `${(Math.random() - 0.5) * 34}vw`);
-      particle.style.setProperty('--confetti-rotate', `${540 + Math.random() * 900}deg`);
-      particle.style.setProperty('--confetti-delay', `${Math.random() * 0.55}s`);
-      particle.style.setProperty('--confetti-duration', `${2.25 + Math.random() * 1.15}s`);
-      particle.style.setProperty('--confetti-color', colors[index % colors.length]);
-      fragment.appendChild(particle);
+const RF_OPTIONS_RENDER_VERSION = '16.1.0';
+"use strict";
+(() => {
+  var __getOwnPropNames = Object.getOwnPropertyNames;
+  var __esm = (fn, res, err) => function __init() {
+    if (err) throw err[0];
+    try {
+      return fn && (res = (0, fn[__getOwnPropNames(fn)[0]])(fn = 0)), res;
+    } catch (e) {
+      throw err = [e], e;
     }
-    particles.appendChild(fragment);
-  }
-
-  const banner = document.createElement('div');
-  banner.className = 'acceptance-celebration-banner';
-
-  const seal = document.createElement('span');
-  seal.className = 'acceptance-celebration-seal';
-  seal.setAttribute('aria-hidden', 'true');
-  window.RFUI.setHTML(seal, `
-    <svg viewBox="0 0 24 24">
-      <path d="M7 12.4 10.2 16 17.4 8.2"></path>
-      <circle cx="12" cy="12" r="9"></circle>
-    </svg>
-  `);
-
-  const copy = document.createElement('span');
-  copy.className = 'acceptance-celebration-copy';
-  const eyebrow = document.createElement('small');
-  eyebrow.textContent = t('acceptanceCelebrationEyebrow');
-  const heading = document.createElement('strong');
-  heading.textContent = t('acceptanceCelebrationTitle');
-  const body = document.createElement('span');
-  body.textContent = tf('acceptanceCelebrationBody', { title });
-  copy.append(eyebrow, heading, body);
-  banner.append(seal, copy);
-  layer.append(particles, banner);
-  document.body.appendChild(layer);
-
-  let removeTimer = null;
-  const leaveTimer = window.setTimeout(() => {
-    layer.classList.add('is-leaving');
-    removeTimer = window.setTimeout(() => cleanup(), 520);
-  }, reducedMotion ? 2400 : 3300);
-
-  const cleanup = () => {
-    clearTimeout(leaveTimer);
-    if (removeTimer) clearTimeout(removeTimer);
-    layer.remove();
-    if (acceptanceCelebrationCleanup === cleanup) acceptanceCelebrationCleanup = null;
   };
-  acceptanceCelebrationCleanup = cleanup;
-}
+  var __commonJS = (cb, mod) => function __require() {
+    try {
+      return mod || (0, cb[__getOwnPropNames(cb)[0]])((mod = { exports: {} }).exports, mod), mod.exports;
+    } catch (e) {
+      throw mod = 0, e;
+    }
+  };
 
-// --- GLOBALLY ACCESSIBLE TOAST BANNER ---
-function showGlobalToast(message, type = 'success') {
-  let toast = document.querySelector('[data-global-toast]');
-  if (!toast) {
-    toast = document.createElement('div');
-    toast.dataset.globalToast = 'true';
-    toast.setAttribute('role', 'status');
-    toast.setAttribute('aria-live', 'polite');
-    toast.style.position = 'fixed';
-    toast.style.bottom = '24px';
-    toast.style.right = '24px';
-    toast.style.zIndex = '999999';
-    toast.style.padding = '10px 20px';
-    toast.style.boxShadow = '0 8px 32px 0 rgba(0, 0, 0, 0.4)';
-    toast.style.fontSize = '13px';
-    document.body.appendChild(toast);
-  }
-
-  clearTimeout(toast._hideTimer);
-  clearTimeout(toast._removeTimer);
-  toast.className = `badge badge-${type === 'success' ? 'success' : 'danger'}`;
-  toast.style.opacity = '1';
-  toast.style.transition = 'none';
-  toast.style.animation = 'slideIn 0.2s cubic-bezier(0.4, 0, 0.2, 1) forwards';
-  toast.textContent = message;
-
-  toast._hideTimer = setTimeout(() => {
-    toast.style.opacity = '0';
-    toast.style.transition = 'opacity 0.25s ease';
-    toast._removeTimer = setTimeout(() => toast.remove(), 250);
-  }, 3000);
-}
-
-// Warn only while an edit is dirty or a commit is outstanding.
-window.addEventListener('beforeunload', event => {
-  const state = document.querySelector('[data-submission-autosave-status]')?.dataset.state;
-  if (pendingSubmissionSaves || ['pending', 'saving', 'error', 'invalid'].includes(state)) {
-    event.preventDefault();
-    event.returnValue = '';
-  }
-});
-
-
-window.showLinkManuscriptModal = function(item) {
-  if (!item) return;
-  const manuscripts = db.manuscripts || [];
-  if (manuscripts.length === 0) {
-    showGlobalToast(currentLanguage === 'zh' ? '当前管线中暂无稿件，正在为您直接新建稿件...' : 'No manuscripts found in pipeline. Creating new manuscript...', 'info');
-    openManuscriptModal(null, {
-      title: item.title || '',
-      publication: item.publication || '',
-      abstract: item.abstract || '',
-      authors: item.authors || '',
-      doi: item.doi || '',
-      articleUrl: item.url || '',
-      zoteroItemKey: item.key || '',
-      zoteroUri: item.zoteroUri || '',
-      pdfUri: item.pdfUri || '',
-      citekey: item.citekey || '',
-      bibtex: item.bibtex || '',
-      citationApa: item.citationApa || '',
-      relatedItems: item.relatedItems || [],
-      collections: item.collections || [],
-      tags: item.tags || []
+  // src/modules/options/navigation-and-modal.ts
+  function activateWorkspaceView(viewId) {
+    const navItems = document.querySelectorAll(".nav-item");
+    const views = document.querySelectorAll(".content-view");
+    if (viewId !== "view-submissions") {
+      submissionAutoSaveCleanup?.();
+    }
+    navItems.forEach((nav) => {
+      nav.classList.toggle("active", nav.getAttribute("data-view") === viewId);
     });
-    return;
+    views.forEach((view) => {
+      view.classList.toggle("active", view.id === viewId);
+    });
+    const dirtyViews = window.RFUI?.getDirtyViewsSet?.();
+    if (dirtyViews?.has(viewId)) {
+      dirtyViews.delete(viewId);
+      if (viewId === "view-dashboard" && typeof renderDashboard === "function") renderDashboard();
+      else if (viewId === "view-manuscripts" && typeof renderKanban === "function") renderKanban();
+      else if (viewId === "view-submissions" && typeof renderSubmissions === "function") renderSubmissions();
+      else if (viewId === "view-settings" && typeof renderSettings === "function") renderSettings();
+    }
   }
+  function focusSubmissionEditCenter() {
+    const editCenter = document.getElementById("submission-entry-editor-panel");
+    if (!editCenter) return;
+    editCenter.classList.remove("submission-edit-center-focus");
+    void editCenter.offsetWidth;
+    editCenter.classList.add("submission-edit-center-focus");
+    editCenter.scrollIntoView({ behavior: "smooth", block: "start" });
+    const titleInput = document.getElementById("sub-edit-title");
+    if (titleInput) {
+      window.setTimeout(() => {
+        titleInput.focus({ preventScroll: true });
+        titleInput.select?.();
+      }, 120);
+    }
+  }
+  function openSubmissionForEditing(subOrId, options = {}) {
+    const sub = typeof subOrId === "string" ? (db.submissions || []).find((item) => item.id === subOrId) : subOrId;
+    if (!sub) {
+      showGlobalToast(t("submissionNotFound"), "error");
+      return;
+    }
+    submissionAutoSaveCleanup?.();
+    selectedSubmissionId = sub.id;
+    if (options.switchView) {
+      activateWorkspaceView("view-submissions");
+    }
+    renderSubmissions({ refreshDetails: false });
+    renderSubmissionDetails(sub);
+    if (options.focusEditCenter) {
+      focusSubmissionEditCenter();
+    }
+  }
+  function getModalFocusableElements() {
+    const modal = document.getElementById("modal-overlay");
+    const modalContent = document.getElementById("modal-body");
+    if (!modal || !modal.classList.contains("active") || !modalContent) return [];
+    const selector = [
+      "a[href]",
+      "button:not([disabled])",
+      'input:not([disabled]):not([type="hidden"])',
+      "select:not([disabled])",
+      "textarea:not([disabled])",
+      '[tabindex]:not([tabindex="-1"])'
+    ].join(", ");
+    return Array.from(modalContent.querySelectorAll(selector)).filter((el) => el instanceof HTMLElement && !el.hidden && el.offsetParent !== null);
+  }
+  function openModal(htmlContent) {
+    const modal = document.getElementById("modal-overlay");
+    const modalContent = document.getElementById("modal-body");
+    if (!modal || !modalContent) return;
+    if (typeof currentModalCleanup === "function") {
+      const cleanup = currentModalCleanup;
+      currentModalCleanup = null;
+      cleanup();
+    }
+    previousModalFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    window.RFUI.setHTML(modalContent, htmlContent);
+    modal.classList.add("active");
+    modal.setAttribute("aria-hidden", "false");
+    document.getElementById("btn-close-modal")?.addEventListener("click", closeModal);
+    setTimeout(() => {
+      const firstFocusable = getModalFocusableElements()[0] || modalContent;
+      firstFocusable?.focus?.({ preventScroll: true });
+    }, 0);
+  }
+  function registerModalCleanup(fn) {
+    const prev = currentModalCleanup;
+    currentModalCleanup = () => {
+      try {
+        if (typeof prev === "function") prev();
+      } catch (_) {
+      }
+      try {
+        if (typeof fn === "function") fn();
+      } catch (_) {
+      }
+    };
+  }
+  function closeModal() {
+    const modal = document.getElementById("modal-overlay");
+    const modalContent = document.getElementById("modal-body");
+    if (!modal || !modalContent) return;
+    if (typeof currentModalCleanup === "function") {
+      const cleanup = currentModalCleanup;
+      currentModalCleanup = null;
+      cleanup();
+    }
+    modal.classList.remove("active");
+    modal.setAttribute("aria-hidden", "true");
+    window.RFUI.setHTML(modalContent, "");
+    if (previousModalFocus && typeof previousModalFocus.focus === "function" && previousModalFocus.isConnected) {
+      previousModalFocus.focus({ preventScroll: true });
+    }
+    previousModalFocus = null;
+  }
+  function bindModalAndNavListeners() {
+    const navItems = document.querySelectorAll?.(".nav-item") || [];
+    navItems.forEach((item) => {
+      if (typeof item?.addEventListener === "function") {
+        item.addEventListener("click", () => {
+          const targetId = item.getAttribute("data-view");
+          if (targetId) activateWorkspaceView(targetId);
+        });
+      }
+    });
+    const modal = document.getElementById("modal-overlay");
+    if (typeof modal?.addEventListener === "function") {
+      modal.addEventListener("click", (e) => {
+        if (e.target === modal) closeModal();
+      });
+    }
+    if (typeof document?.addEventListener === "function") {
+      document.addEventListener("keydown", (event) => {
+        const modalEl = document.getElementById("modal-overlay");
+        if (!modalEl || !modalEl.classList.contains("active")) return;
+        if (event.key === "Escape") {
+          event.preventDefault();
+          closeModal();
+          return;
+        }
+        if (event.key !== "Tab") return;
+        const focusables = getModalFocusableElements();
+        if (focusables.length === 0) {
+          event.preventDefault();
+          document.getElementById("modal-body")?.focus?.({ preventScroll: true });
+          return;
+        }
+        const first = focusables[0];
+        const last = focusables[focusables.length - 1];
+        if (event.shiftKey && (document.activeElement === first || !modalEl.contains(document.activeElement))) {
+          event.preventDefault();
+          last.focus();
+        } else if (!event.shiftKey && document.activeElement === last) {
+          event.preventDefault();
+          first.focus();
+        }
+      });
+    }
+  }
+  function showGlobalToast(message, type = "info") {
+    const container = document.getElementById("toast-container");
+    if (!container) return;
+    const toast = document.createElement("div");
+    toast.className = `toast toast-${type}`;
+    toast.setAttribute("role", type === "error" ? "alert" : "status");
+    let icon = "ℹ️";
+    if (type === "success") icon = "✅";
+    if (type === "error") icon = "❌";
+    if (type === "warning") icon = "⚠️";
+    const iconEl = document.createElement("span");
+    iconEl.textContent = icon;
+    const textEl = document.createElement("span");
+    textEl.textContent = String(message ?? "");
+    toast.append(iconEl, textEl);
+    container.appendChild(toast);
+    setTimeout(() => {
+      toast.classList.add("fade-out");
+      setTimeout(() => toast.remove(), 300);
+    }, 4e3);
+  }
+  function showAcceptanceCelebration(submission = {}) {
+    acceptanceCelebrationCleanup?.();
+    if (typeof ZoteroBridge !== "undefined" && typeof ZoteroBridge.getPref === "function") {
+      const enabled = ZoteroBridge.getPref("enableAcceptanceCelebration", true);
+      if (!enabled) return;
+    }
+    const manuscript = (db?.manuscripts || []).find((item) => item.id === submission.manuscriptId);
+    const title = String(manuscript?.title || submission.title || t("untitledManuscript")).trim();
+    const layer = document.createElement("div");
+    layer.className = "acceptance-celebration";
+    layer.dataset.acceptanceCelebration = "active";
+    layer.setAttribute("role", "status");
+    layer.setAttribute("aria-live", "assertive");
+    layer.setAttribute("aria-atomic", "true");
+    const particles = document.createElement("div");
+    particles.className = "acceptance-confetti-field";
+    particles.setAttribute("aria-hidden", "true");
+    const reducedMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches === true;
+    if (!reducedMotion) {
+      const colors = ["#059669", "#10b981", "#06b6d4", "#f59e0b", "#fbbf24", "#f97316"];
+      const fragment = document.createDocumentFragment();
+      for (let index = 0; index < 54; index += 1) {
+        const particle = document.createElement("i");
+        particle.className = "acceptance-confetti-piece";
+        particle.dataset.shape = index % 4 === 0 ? "round" : "strip";
+        particle.style.setProperty("--confetti-x", `${Math.random() * 100}vw`);
+        particle.style.setProperty("--confetti-drift", `${(Math.random() - 0.5) * 34}vw`);
+        particle.style.setProperty("--confetti-rotate", `${540 + Math.random() * 900}deg`);
+        particle.style.setProperty("--confetti-delay", `${Math.random() * 0.55}s`);
+        particle.style.setProperty("--confetti-duration", `${2.25 + Math.random() * 1.15}s`);
+        particle.style.setProperty("--confetti-color", colors[index % colors.length]);
+        fragment.appendChild(particle);
+      }
+      particles.appendChild(fragment);
+    }
+    const banner = document.createElement("div");
+    banner.className = "acceptance-celebration-banner";
+    const seal = document.createElement("span");
+    seal.className = "acceptance-celebration-seal";
+    seal.setAttribute("aria-hidden", "true");
+    const w = window;
+    if (w.RFUI?.setHTML) w.RFUI.setHTML(seal, '<svg class="svg-icon" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></svg>');
+    const copy = document.createElement("div");
+    copy.className = "acceptance-celebration-copy";
+    const eyebrow = document.createElement("span");
+    eyebrow.className = "acceptance-celebration-eyebrow";
+    eyebrow.textContent = t("celebrationEyebrow") || "Paper Accepted!";
+    const heading = document.createElement("strong");
+    heading.textContent = t("celebrationTitle") || "Congratulations on Acceptance";
+    const desc = document.createElement("p");
+    desc.textContent = title;
+    copy.appendChild(eyebrow);
+    copy.appendChild(heading);
+    copy.appendChild(desc);
+    banner.appendChild(seal);
+    banner.appendChild(copy);
+    layer.appendChild(particles);
+    layer.appendChild(banner);
+    document.body?.appendChild(layer);
+    const cleanup = () => {
+      if (layer.parentNode) layer.parentNode.removeChild(layer);
+      acceptanceCelebrationCleanup = null;
+    };
+    acceptanceCelebrationCleanup = cleanup;
+    window.setTimeout(cleanup, 4500);
+  }
+  var RF_OPTIONS_RENDER_VERSION, UI_THEME_OPTIONS, g;
+  var init_navigation_and_modal = __esm({
+    "src/modules/options/navigation-and-modal.ts"() {
+      "use strict";
+      RF_OPTIONS_RENDER_VERSION = "16.1.0";
+      UI_THEME_OPTIONS = /* @__PURE__ */ new Set(["system", "light", "dark"]);
+      g = typeof globalThis !== "undefined" ? globalThis : window;
+      if (!("db" in g)) g.db = null;
+      if (!("currentLanguage" in g)) g.currentLanguage = "zh";
+      if (!("selectedProjectId" in g)) g.selectedProjectId = null;
+      if (!("selectedSubmissionId" in g)) g.selectedSubmissionId = null;
+      if (!("currentDashboardFilter" in g)) g.currentDashboardFilter = "all";
+      if (!("isPipelineExpanded" in g)) g.isPipelineExpanded = false;
+      if (!("showEmptyKanbanColumns" in g)) g.showEmptyKanbanColumns = true;
+      if (!("submissionAutoSaveCleanup" in g)) g.submissionAutoSaveCleanup = null;
+      if (!("pendingSubmissionSaves" in g)) g.pendingSubmissionSaves = 0;
+      if (!("acceptanceCelebrationCleanup" in g)) g.acceptanceCelebrationCleanup = null;
+      if (!("previousModalFocus" in g)) g.previousModalFocus = null;
+      if (!("currentModalCleanup" in g)) g.currentModalCleanup = null;
+      g.RF_OPTIONS_RENDER_VERSION = RF_OPTIONS_RENDER_VERSION;
+      g.UI_THEME_OPTIONS = UI_THEME_OPTIONS;
+    }
+  });
 
-  const listHtml = manuscripts.map(m => `
-    <div class="zotero-link-manuscript-item" data-id="${m.id}" style="display:flex; justify-content:space-between; align-items:center; padding:10px 12px; border:1px solid var(--border-color); border-radius:6px; margin-bottom:8px; background:hsl(var(--card-bg));">
-      <div style="flex:1; margin-right:12px; min-width:0;">
-        <div style="font-weight:600; font-size:13px; color:hsl(var(--text-primary)); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${escapeHTML(m.title)}</div>
-        <div style="font-size:11px; color:hsl(var(--text-secondary)); margin-top:2px; display:flex; gap:8px;">
-          <span>${currentLanguage === 'zh' ? '状态' : 'Status'}: <strong>${escapeHTML(getManuscriptStatusLabel(m.status))}</strong></span>
-          ${m.targetJournals?.[0] ? `<span>${currentLanguage === 'zh' ? '期刊' : 'Journal'}: ${escapeHTML(m.targetJournals[0])}</span>` : ''}
-          ${m.zoteroItemKey ? `<span style="color:#059669;">(${currentLanguage === 'zh' ? '已关联文献' : 'Linked'})</span>` : `<span style="color:#64748b;">(${currentLanguage === 'zh' ? '未关联文献' : 'Unlinked'})</span>`}
-        </div>
-      </div>
-      <button type="button" class="btn-primary btn-bind-manuscript" data-id="${m.id}" style="padding:4px 10px; font-size:11px; white-space:nowrap; cursor:pointer;">
-        🔗 ${currentLanguage === 'zh' ? '绑定此稿件' : 'Bind Manuscript'}
-      </button>
-    </div>
-  `).join('');
-
-  openModal(`
-    <div class="modal-header">
-      <h2>🔗 ${currentLanguage === 'zh' ? '关联 Zotero 文献至稿件管线' : 'Link Zotero Item to Pipeline'}</h2>
-      <button class="btn-secondary btn-icon" id="btn-close-modal">✕</button>
-    </div>
-    <div style="background:var(--material-background, rgba(0,0,0,0.02)); border:1px solid var(--border-color); border-radius:6px; padding:10px; margin-bottom:14px; font-size:12px;">
-      <div style="font-weight:600; color:var(--text-accent, #e11d48);">${currentLanguage === 'zh' ? '选中 Zotero 文献：' : 'Selected Zotero Item:'}</div>
-      <div style="margin-top:2px; color:hsl(var(--text-primary)); font-size:13px; font-weight:500;">${escapeHTML(item.title || (currentLanguage === 'zh' ? '未命名文献' : 'Untitled Literature'))}</div>
-      <div style="font-size:11px; color:hsl(var(--text-secondary)); margin-top:2px;">
-        ${escapeHTML(item.authors || '')} (${escapeHTML(item.year || '')}) ${item.citekey ? `<code>[@${escapeHTML(item.citekey)}]</code>` : ''}
-      </div>
-    </div>
-    <div style="font-size:12px; font-weight:600; margin-bottom:8px; color:hsl(var(--text-primary));">${currentLanguage === 'zh' ? '请选择要绑定的 Zotero PaperFlow 稿件：' : 'Select a Zotero PaperFlow manuscript to link:'}</div>
-    <div style="max-height:300px; overflow-y:auto; padding-right:4px;">
-      ${listHtml}
-    </div>
-  `);
-
-  document.querySelectorAll('.btn-bind-manuscript').forEach(btn => {
-    btn.addEventListener('click', async (e) => {
-      const manId = e.target.dataset.id;
-      const targetMan = manuscripts.find(m => m.id === manId);
-      if (!targetMan) return;
-      targetMan.zoteroItemKey = item.key;
-      targetMan.zoteroUri = item.zoteroUri;
-      targetMan.pdfUri = item.pdfUri;
-      targetMan.citekey = item.citekey || targetMan.citekey || null;
-      targetMan.bibtex = item.bibtex || targetMan.bibtex || null;
-      targetMan.citationApa = item.citationApa || targetMan.citationApa || null;
-      targetMan.updatedAt = new Date().toISOString();
-
+  // src/modules/options/bootstrap-and-actions.ts
+  function bindZoteroActionListeners() {
+    window.addEventListener("researchflow:action", (e) => {
+      const detail = e.detail;
+      if (!detail) return;
+      if (detail.view) {
+        const navBtn = document.querySelector(`.nav-item[data-view="${detail.view}"]`);
+        if (navBtn) navBtn.click();
+      }
+      if (detail.action === "create_manuscript_from_item" && detail.item) {
+        const navBtn = document.querySelector('.nav-item[data-view="view-manuscripts"]');
+        if (navBtn) navBtn.click();
+        setTimeout(() => {
+          if (typeof openManuscriptModal === "function") {
+            openManuscriptModal(null, {
+              title: detail.item.title,
+              publication: detail.item.publication,
+              authors: detail.item.authors,
+              doi: detail.item.doi,
+              articleUrl: detail.item.url,
+              abstract: detail.item.abstract,
+              zoteroItemKey: detail.item.key,
+              zoteroLibraryID: detail.item.libraryID ?? null,
+              zoteroUri: detail.item.zoteroUri,
+              pdfUri: detail.item.pdfUri,
+              citekey: detail.item.citekey,
+              bibtex: detail.item.bibtex,
+              citationApa: detail.item.citationApa,
+              relatedItems: detail.item.relatedItems,
+              status: "planning"
+            });
+          }
+        }, 150);
+      } else if (detail.action === "create_submission_from_item" && detail.item) {
+        const navBtn = document.querySelector('.nav-item[data-view="view-submissions"]');
+        if (navBtn) navBtn.click();
+        setTimeout(() => {
+          const existingMan = (db?.manuscripts || []).find(
+            (m) => m.zoteroItemKey && m.zoteroItemKey === detail.item.key || detail.item.doi && m.doi && m.doi.toLowerCase() === detail.item.doi.toLowerCase()
+          );
+          const existingSub = existingMan ? (db?.submissions || []).find((s) => s.manuscriptId === existingMan.id) : null;
+          if (existingSub && typeof openSubmissionForEditing === "function") {
+            openSubmissionForEditing(existingSub.id, { switchView: true, focusEditCenter: true });
+            showGlobalToast(currentLanguage === "zh" ? `已打开《${(detail.item.title || "").slice(0, 18)}…》的投稿与修回记录` : `Opened submission record for "${(detail.item.title || "").slice(0, 22)}..."`, "info");
+          } else {
+            document.getElementById("btn-add-submission")?.click();
+          }
+        }, 160);
+      } else if (detail.action === "link_item_to_manuscript" && detail.item) {
+        const navBtn = document.querySelector('.nav-item[data-view="view-manuscripts"]');
+        if (navBtn) navBtn.click();
+        showGlobalToast(`请点击要与《${(detail.item.title || "").slice(0, 20)}…》关联的稿件卡片，或在编辑窗口中保存绑定`, "info");
+        window._pendingZoteroLinkItem = detail.item;
+        if (typeof renderKanban === "function") renderKanban();
+      }
+    });
+    window.addEventListener("researchflow:data-updated", (e) => {
+      if (e.detail) {
+        db = e.detail;
+        const activeView = document.querySelector(".content-view.active")?.id || "view-dashboard";
+        const dirtyViews = window.RFUI?.getDirtyViewsSet?.();
+        ["view-dashboard", "view-manuscripts", "view-submissions"].forEach((vid) => {
+          if (vid !== activeView) dirtyViews?.add(vid);
+        });
+        if (activeView === "view-dashboard" && typeof renderDashboard === "function") renderDashboard();
+        else if (activeView === "view-manuscripts" && typeof renderKanban === "function") renderKanban();
+        else if (activeView === "view-submissions" && typeof renderSubmissions === "function") renderSubmissions();
+      }
+    });
+    window.addEventListener("researchflow:prefs-updated", (e) => {
+      if (!e.detail) return;
+      if (e.detail.language && (e.detail.language === "zh" || e.detail.language === "en")) {
+        currentLanguage = e.detail.language;
+        if (db?.settings?.profile) db.settings.profile.language = currentLanguage;
+        if (typeof applyLanguage === "function") applyLanguage();
+      }
+      if (e.detail.theme) {
+        if (db?.settings?.profile) db.settings.profile.theme = e.detail.theme;
+        if (typeof applyThemePreference === "function") applyThemePreference(e.detail.theme);
+      }
+      if (typeof renderDashboard === "function") renderDashboard();
+      if (typeof renderKanban === "function") renderKanban();
+      if (typeof renderSubmissions === "function") renderSubmissions();
+    });
+  }
+  async function initializeWorkspace() {
+    if (!window.storage) {
+      console.error("Storage engine not loaded!");
+      return;
+    }
+    db = await window.storage.loadAll();
+    const normalizedStatuses = normalizeSubmissionStatuses(db);
+    const cleanedPublicationLinks = clearUnacceptedPublicationLinks(db);
+    const syncedManuscripts = syncManuscriptStatusesFromSubmissions(db);
+    if (normalizedStatuses || cleanedPublicationLinks || syncedManuscripts) {
       await window.storage.saveAll(db);
-      if (typeof ZoteroBridge !== 'undefined' && ZoteroBridge.isZotero) {
-        ZoteroBridge.syncStatusTag(item.key, targetMan.status);
-        ZoteroBridge.addToPipelineCollection(item.key);
-        ZoteroBridge.syncNote(item.key);
-      }
-      closeModal();
-      renderKanban();
-      renderDashboard();
-      renderSubmissions();
-      showGlobalToast(currentLanguage === 'zh'
-        ? `成功将《${(item.title || '').slice(0, 16)}…》关联至稿件《${(targetMan.title || '').slice(0, 16)}…》！`
-        : `Successfully linked "${(item.title || '').slice(0, 16)}..." to manuscript "${(targetMan.title || '').slice(0, 16)}..."!`, 'success');
-    });
-  });
-};
-
-function setupZoteroIntegrations() {
-  const isZotero = Boolean(
-    (typeof ZoteroBridge !== 'undefined' && ZoteroBridge.isZotero) ||
-    (typeof window !== 'undefined' && (window.Zotero || window.parent?.Zotero || window.arguments?.[0]?.Zotero))
-  );
-
-  if (!isZotero) return;
-
-  document.documentElement.classList.add('zotero-env');
-  document.body?.classList?.add('zotero-env');
-
-  // 1. Kanban Quick Import Button
-  const quickImportBtn = document.getElementById('btn-zotero-quick-import');
-  if (quickImportBtn) {
-    quickImportBtn.style.display = 'inline-flex';
-    window.RFUI.setHTML(quickImportBtn, `<span>📥 ${currentLanguage === 'zh' ? '从 Zotero 选中导入' : 'Import from Zotero Selection'}</span>`);
-    if (!quickImportBtn.dataset.bound) {
-      quickImportBtn.dataset.bound = 'true';
-      quickImportBtn.addEventListener('click', async () => {
-        if (typeof ZoteroBridge === 'undefined') return;
-        const activeItem = await ZoteroBridge.getActiveItem();
-        if (activeItem) {
-          openManuscriptModal(null, {
-            title: activeItem.title || '',
-            publication: activeItem.publication || '',
-            abstract: activeItem.abstract || '',
-            authors: activeItem.authors || '',
-            doi: activeItem.doi || '',
-            articleUrl: activeItem.url || '',
-            zoteroItemKey: activeItem.key || '',
-            zoteroUri: activeItem.zoteroUri || '',
-            pdfUri: activeItem.pdfUri || '',
-            citekey: activeItem.citekey || '',
-            bibtex: activeItem.bibtex || '',
-            citationApa: activeItem.citationApa || '',
-            relatedItems: activeItem.relatedItems || [],
-            collections: activeItem.collections || [],
-            tags: activeItem.tags || []
-          });
-          showGlobalToast(`已从 Zotero 文献《${(activeItem.title || '').slice(0, 18)}…》导入元数据`, 'success');
-        } else {
-          showGlobalToast('未在 Zotero 中检测到选中条目，请在文献库中单击选中目标论文。', 'warning');
+    }
+    currentLanguage = resolvePreferredLanguage();
+    applyThemePreference(db?.settings?.profile?.theme);
+    if (window.matchMedia) {
+      const darkScheme = window.matchMedia("(prefers-color-scheme: dark)");
+      const handleSystemThemeChange = () => {
+        if ((db?.settings?.profile?.theme || "system") === "system") {
+          applyThemePreference("system");
+          renderDashboard();
         }
-      });
-    }
-  }
-
-  // Zotero-specific settings controls are shown in the preference pane.
-  const zSettingsCard = document.getElementById('zotero-native-settings-card');
-  if (zSettingsCard) {
-    zSettingsCard.style.display = 'block';
-    if (currentLanguage === 'en') {
-      const h3 = zSettingsCard.querySelector('h3');
-      if (h3) h3.textContent = 'Zotero 10 Native Integration';
-      const p = zSettingsCard.querySelector('.text-muted');
-      if (p) p.textContent = 'Manage Zotero database storage and bi-directional child note synchronization';
-      const desc = zSettingsCard.querySelector('div[style*="font-size:12px"]');
-      if (desc) window.RFUI.setHTML(desc, 'Zotero PaperFlow is running directly inside Zotero 10. Data is persisted to <code>researchflow-data.json</code> in your Zotero data directory.');
-      const syncBtnText = zSettingsCard.querySelector('#btn-zotero-sync-all-notes span');
-      if (syncBtnText) syncBtnText.textContent = '📝 Batch sync all manuscript pipelines to Zotero child notes';
-      const prefsBtnText = zSettingsCard.querySelector('#btn-zotero-open-prefs span');
-      if (prefsBtnText) prefsBtnText.textContent = '⚙️ Open Zotero Preferences Pane';
-    }
-  }
-  const syncAllNotesBtn = document.getElementById('btn-zotero-sync-all-notes');
-  if (syncAllNotesBtn && !syncAllNotesBtn.dataset.bound) {
-    syncAllNotesBtn.dataset.bound = 'true';
-    syncAllNotesBtn.addEventListener('click', async () => {
-      showGlobalToast(currentLanguage === 'zh' ? '正在同步所有关联文献的云端子笔记...' : 'Syncing child notes to Zotero...', 'info');
-      let count = 0;
-      for (const m of db.manuscripts || []) {
-        if (m.zoteroItemKey && typeof ZoteroBridge !== 'undefined') {
-          const ok = await ZoteroBridge.syncNote(m.zoteroItemKey);
-          if (ok) count++;
-        }
+      };
+      if (typeof darkScheme.addEventListener === "function") {
+        darkScheme.addEventListener("change", handleSystemThemeChange);
       }
-      showGlobalToast(currentLanguage === 'zh'
-        ? `同步成功！已将 ${count} 篇文献的管线与审稿矩阵同步至 Zotero 云端子笔记。`
-        : `Synced ${count} manuscript pipelines to Zotero child notes!`, 'success');
-    });
-  }
-  const openPrefsBtn = document.getElementById('btn-zotero-open-prefs');
-  if (openPrefsBtn && !openPrefsBtn.dataset.bound) {
-    openPrefsBtn.dataset.bound = 'true';
-    openPrefsBtn.addEventListener('click', () => {
-      if (typeof ZoteroBridge !== 'undefined') {
-        ZoteroBridge.sendToHost({ type: 'RESEARCHFLOW_OPEN_PREFS' });
-      }
-    });
-  }
-
-  // 4. Kanban Collection Filter Dropdown
-  const collectionSelect = document.getElementById('sel-zotero-collection-filter');
-  const collectionFilterContainer = document.getElementById('zotero-collection-filter-container');
-  window.refreshZoteroCollectionFilter = async () => {
-    if (!collectionSelect || typeof ZoteroBridge === 'undefined') return;
-    const collections = await ZoteroBridge.getCollections();
-    if (collections && collections.length > 0) {
-      if (collectionFilterContainer) collectionFilterContainer.style.display = 'inline-flex';
-      const prevVal = collectionSelect.value;
-      window.RFUI.setHTML(collectionSelect, `<option value="">📁 ${escapeHTML(currentLanguage === 'zh' ? '全部文献分类' : 'All Collections')}</option>`);
-      collections.forEach(col => {
-        const opt = document.createElement('option');
-        opt.value = col.key;
-        const count = col.itemKeys?.length || 0;
-        opt.textContent = `${col.name} (${count})`;
-        collectionSelect.appendChild(opt);
-      });
-      collectionSelect.value = prevVal;
     }
-  };
-  if (collectionSelect && !collectionSelect.dataset.bound) {
-    collectionSelect.dataset.bound = 'true';
-    collectionSelect.addEventListener('change', async (e) => {
-      const key = e.target.value;
-      window._activeZoteroCollectionFilter = key;
-      if (!key) {
-        window._activeZoteroCollectionItemKeys = null;
+    const defaultTab = typeof ZoteroBridge !== "undefined" ? ZoteroBridge.getPref("defaultWorkspaceTab", "view-dashboard") : "view-dashboard";
+    if (defaultTab && defaultTab !== "view-dashboard") {
+      activateWorkspaceView(defaultTab);
+    }
+    applyLanguage();
+    renderDashboard();
+    renderKanban();
+    renderSubmissions();
+    await renderSettings();
+    setupSubmissionSearch();
+    setupJournalPortalListeners();
+    document.getElementById("btn-force-sync")?.addEventListener("click", async () => {
+      const provider = document.getElementById("route-db")?.value || db?.settings?.syncProviders?.metadata?.provider || "local";
+      if (provider === "local") {
+        showGlobalToast(t("localSyncSummary"), "info");
+        return;
+      }
+      const btn = document.getElementById("btn-force-sync");
+      if (!btn) return;
+      const origNodes = Array.from(btn.childNodes).map((node) => node.cloneNode(true));
+      btn.textContent = "⏳ Syncing...";
+      btn.disabled = true;
+      const result = await window.storage.syncNow();
+      if (result?.success) {
+        db = await window.storage.loadAll();
+        renderDashboard();
+        renderKanban();
+        renderSubmissions();
+        await renderSettings();
+        btn.textContent = "✅ Synced!";
+        showGlobalToast("Cloud database synchronized successfully.", "success");
       } else {
-        const cols = await ZoteroBridge.getCollections();
-        const targetCol = (cols || []).find(c => c.key === key);
-        window._activeZoteroCollectionItemKeys = targetCol ? new Set(targetCol.itemKeys || []) : null;
+        btn.textContent = "❌ Sync Failed";
+        showGlobalToast(result?.message || "Cloud sync failed. Check your provider settings.", "error");
       }
-      renderKanban();
+      setTimeout(() => {
+        btn.replaceChildren(...origNodes);
+        btn.disabled = false;
+      }, 2e3);
     });
   }
-  window.refreshZoteroCollectionFilter().catch(console.error);
-}
+  var init_bootstrap_and_actions = __esm({
+    "src/modules/options/bootstrap-and-actions.ts"() {
+      "use strict";
+      init_navigation_and_modal();
+    }
+  });
 
-if (typeof window !== 'undefined') {
-  if (typeof openManuscriptModal !== 'undefined') window.openManuscriptModal = openManuscriptModal;
-  if (typeof deleteManuscript !== 'undefined') window.deleteManuscript = deleteManuscript;
-  if (typeof renderKanban !== 'undefined') window.renderKanban = renderKanban;
-  if (typeof renderDashboard !== 'undefined') window.renderDashboard = renderDashboard;
-  if (typeof renderSubmissions !== 'undefined') window.renderSubmissions = renderSubmissions;
-  window.applyDatabaseUpdate = applyDatabaseUpdate;
-}
+  // src/modules/options.ts
+  var require_options = __commonJS({
+    "src/modules/options.ts"(exports, module) {
+      init_navigation_and_modal();
+      init_bootstrap_and_actions();
+      bindZoteroActionListeners();
+      document.addEventListener("DOMContentLoaded", () => {
+        initializeWorkspace();
+      });
+      bindModalAndNavListeners();
+      var optionsExports = {
+        RF_OPTIONS_RENDER_VERSION,
+        UI_THEME_OPTIONS,
+        activateWorkspaceView,
+        focusSubmissionEditCenter,
+        openSubmissionForEditing,
+        getModalFocusableElements,
+        openModal,
+        registerModalCleanup,
+        closeModal,
+        showGlobalToast,
+        showAcceptanceCelebration
+      };
+      if (typeof globalThis !== "undefined") {
+        Object.assign(globalThis, optionsExports);
+        globalThis.modal = document.getElementById("modal-overlay");
+        globalThis.modalContent = document.getElementById("modal-body");
+      }
+      if (typeof window !== "undefined") {
+        Object.assign(window, optionsExports);
+        window.modal = document.getElementById("modal-overlay");
+        window.modalContent = document.getElementById("modal-body");
+      }
+      if (typeof module !== "undefined" && module.exports) {
+        module.exports = { ...module.exports || {}, ...optionsExports };
+      }
+    }
+  });
+  require_options();
+})();

@@ -1,139 +1,146 @@
-/*
- * ResearchFlow core domain
- *
- * The extension deliberately models only the research loop that it owns:
- * project -> captured record -> note/task. Retired Evidence Locker data is
- * removed when an older database enters the active application.
- */
-(function attachResearchCore(global) {
-  'use strict';
-
-  const CORE_COLLECTIONS = ['researchAreas', 'projects', 'researchRecords', 'tasks'];
-
-  function asArray(value) {
-    return Array.isArray(value) ? value : [];
-  }
-
-  function getCurrentSubmission(database, manuscriptId) {
-    const linked = asArray(database?.submissions).filter(item => item.manuscriptId === manuscriptId);
-    const predecessors = new Set(linked.map(item => item.previousSubmissionId).filter(Boolean));
-    const current = linked.filter(item => !predecessors.has(item.id));
-    const time = value => Date.parse(value || '') || 0;
-    return [...(current.length ? current : linked)].sort((a, b) =>
-      (Number(b.roundIndex) || 1) - (Number(a.roundIndex) || 1)
-      || time(b.submissionDate || b.submittedAt || b.createdAt) - time(a.submissionDate || a.submittedAt || a.createdAt)
-      || time(b.createdAt) - time(a.createdAt)
-      || String(a.id).localeCompare(String(b.id))
-    )[0] || null;
-  }
-
-  function createId(prefix) {
-    return `${prefix}_${crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}_${Math.random().toString(36).slice(2)}`}`;
-  }
-
-  function normalizeDatabase(database) {
-    const db = database && typeof database === 'object' ? database : {};
-    delete db.evidence;
-    delete db.projectEvidenceLinks;
-    delete db.recordEvidenceLinks;
-    CORE_COLLECTIONS.forEach((key) => { db[key] = asArray(db[key]); });
-    db.settings = db.settings && typeof db.settings === 'object' ? db.settings : {};
-    db.settings.profile = db.settings.profile && typeof db.settings.profile === 'object'
-      ? db.settings.profile
-      : { language: 'en' };
-    return db;
-  }
-
-  function now() {
-    return new Date().toISOString();
-  }
-
-  function getProject(db, projectId) {
-    return asArray(db.projects).find((project) => project.id === projectId) || null;
-  }
-
-  function projectName(db, projectId) {
-    return getProject(db, projectId)?.title || 'Unassigned';
-  }
-
-  function getDashboardStats(db) {
-    const normalized = normalizeDatabase(db);
-    const records = normalized.researchRecords;
-    const activeProjects = normalized.projects.filter((project) => project.status !== 'completed');
-    return {
-      projectCount: activeProjects.length,
-      recordCount: records.length,
-      taskCount: normalized.tasks.filter((task) => !task.completed).length,
-      recentRecords: [...records].sort((a, b) => String(b.updatedAt || b.createdAt || '').localeCompare(String(a.updatedAt || a.createdAt || ''))).slice(0, 6)
-    };
-  }
-
-  function upsertProject(db, values) {
-    const stamp = now();
-    const title = String(values.title || '').trim();
-    if (!title) throw new Error('Project title is required.');
-    const project = values.id ? getProject(db, values.id) : null;
-    const patch = {
-      title,
-      discipline: String(values.discipline || '').trim(),
-      hypothesis: String(values.hypothesis || '').trim(),
-      abstract: String(values.abstract || '').trim(),
-      status: values.status === 'completed' ? 'completed' : 'active',
-      updatedAt: stamp
-    };
-    if (project) {
-      Object.assign(project, patch);
-      return project;
-    }
-    const created = { id: createId('project'), createdAt: stamp, ...patch, tags: [] };
-    db.projects.push(created);
-    return created;
-  }
-
-  function upsertRecord(db, values) {
-    const stamp = now();
-    const title = String(values.title || '').trim();
-    if (!title) throw new Error('Record title is required.');
-    const record = values.id ? asArray(db.researchRecords).find((item) => item.id === values.id) : null;
-    const patch = {
-      projectId: values.projectId || null,
-      title,
-      recordType: values.recordType || 'literature',
-      doi: String(values.doi || '').trim(),
-      summary: String(values.summary || '').trim(),
-      content: String(values.content || '').trim(),
-      sourceUrl: String(values.sourceUrl || '').trim(),
-      tags: String(values.tags || '').split(',').map((tag) => tag.trim()).filter(Boolean),
-      updatedAt: stamp
-    };
-    if (record) Object.assign(record, patch);
-    else db.researchRecords.push({ id: createId('record'), createdAt: stamp, ...patch });
-  }
-
-  function deleteProject(db, projectId) {
-    db.projects = asArray(db.projects).filter((project) => project.id !== projectId);
-    db.researchRecords.forEach((record) => {
-      if (record.projectId === projectId) record.projectId = null;
-    });
-    db.tasks.forEach((task) => {
-      if (task.projectId === projectId) task.projectId = null;
-    });
-  }
-
-  function deleteRecord(db, recordId) {
-    db.researchRecords = asArray(db.researchRecords).filter((record) => record.id !== recordId);
-  }
-
-  global.RFCore = {
-    CORE_COLLECTIONS,
-    getCurrentSubmission,
-    normalizeDatabase,
-    getProject,
-    projectName,
-    getDashboardStats,
-    upsertProject,
-    upsertRecord,
-    deleteProject,
-    deleteRecord
+"use strict";
+(() => {
+  // src/core/research-core.ts
+  var MANUSCRIPT_STATUS_ORDER = [
+    "planning",
+    "idea",
+    "outline",
+    "data_collection",
+    "in_progress",
+    "figure_preparation",
+    "drafting",
+    "internal_review",
+    "submitted",
+    "under_review",
+    "revision",
+    "accepted",
+    "published",
+    "rejected"
+  ];
+  var KANBAN_STAGE_BY_STATUS = {
+    planning: "idea",
+    idea: "idea",
+    outline: "idea",
+    data_collection: "idea",
+    in_progress: "drafting",
+    figure_preparation: "drafting",
+    drafting: "drafting",
+    internal_review: "drafting",
+    submitted: "submitted",
+    under_review: "submitted",
+    revision: "submitted",
+    accepted: "accepted",
+    published: "accepted",
+    rejected: "drafting"
   };
-}(window));
+  var SUBMISSION_STATUS_TO_MANUSCRIPT_STATUS = {
+    submitted: "submitted",
+    under_review: "under_review",
+    revision: "revision",
+    accepted: "accepted",
+    published: "published",
+    rejected: "in_progress"
+  };
+  function normalizeStatus(status, fallback = "planning") {
+    const value = String(status || fallback).trim().toLowerCase().replace(/[\s-]+/g, "_");
+    const aliases = {
+      accept: "accepted",
+      online: "published",
+      publication: "published",
+      underreview: "under_review",
+      in_review: "under_review",
+      review: "under_review",
+      revise: "revision",
+      revision_required: "revision",
+      resubmit: "revision",
+      reject: "rejected",
+      submit: "submitted"
+    };
+    return aliases[value] || value || fallback;
+  }
+  function getKanbanStage(status) {
+    return KANBAN_STAGE_BY_STATUS[normalizeStatus(status)] || "idea";
+  }
+  function toTimestamp(value) {
+    if (!value) return 0;
+    const time = new Date(value).getTime();
+    return Number.isFinite(time) ? time : 0;
+  }
+  function submissionRecencyScore(sub) {
+    if (!sub) return 0;
+    const nodeTimes = (sub.timelineNodes || []).map((node) => Math.max(
+      toTimestamp(node.completeDate),
+      toTimestamp(node.dueDate),
+      toTimestamp(node.planDate),
+      toTimestamp(node.updatedAt),
+      toTimestamp(node.createdAt)
+    ));
+    return Math.max(
+      toTimestamp(sub.updatedAt),
+      toTimestamp(sub.publishedAt),
+      toTimestamp(sub.acceptedAt),
+      toTimestamp(sub.decisionDate),
+      toTimestamp(sub.revisionDueDate),
+      toTimestamp(sub.firstDecisionDate),
+      toTimestamp(sub.submissionDate),
+      toTimestamp(sub.rejectedAt),
+      toTimestamp(sub.createdAt),
+      ...nodeTimes
+    );
+  }
+  function isTerminalPublicationStatus(status) {
+    const normalized = normalizeStatus(status, "submitted");
+    return normalized === "accepted" || normalized === "published";
+  }
+  function getSubmissionsForManuscript(db, manuscriptId) {
+    if (!db || !Array.isArray(db.submissions) || !manuscriptId) return [];
+    return db.submissions.filter((sub) => sub && sub.manuscriptId === manuscriptId).slice().sort((a, b) => {
+      const aPublished = normalizeStatus(a.status) === "published" ? 2 : isTerminalPublicationStatus(a.status) ? 1 : 0;
+      const bPublished = normalizeStatus(b.status) === "published" ? 2 : isTerminalPublicationStatus(b.status) ? 1 : 0;
+      if (aPublished !== bPublished) return bPublished - aPublished;
+      const aActive = normalizeStatus(a.status) !== "rejected" ? 1 : 0;
+      const bActive = normalizeStatus(b.status) !== "rejected" ? 1 : 0;
+      if (aActive !== bActive) return bActive - aActive;
+      return submissionRecencyScore(b) - submissionRecencyScore(a);
+    });
+  }
+  function getCurrentSubmission(db, manuscriptId) {
+    return getSubmissionsForManuscript(db, manuscriptId)[0] || null;
+  }
+  function deriveManuscriptStatusFromSubmission(sub, fallbackStatus = "planning") {
+    if (!sub) return normalizeStatus(fallbackStatus);
+    const status = normalizeStatus(sub.status, "submitted");
+    return SUBMISSION_STATUS_TO_MANUSCRIPT_STATUS[status] || normalizeStatus(fallbackStatus);
+  }
+  function deriveSubmissionStatusFromManuscript(manuscriptStatus, currentSubmissionStatus = "submitted") {
+    const normalized = normalizeStatus(manuscriptStatus);
+    if (["submitted", "under_review", "revision", "accepted", "published", "rejected"].includes(normalized)) {
+      return normalized;
+    }
+    if (getKanbanStage(normalized) === "submitted") {
+      const current = normalizeStatus(currentSubmissionStatus, "submitted");
+      return ["submitted", "under_review", "revision"].includes(current) ? current : "submitted";
+    }
+    return null;
+  }
+  var RFCore = {
+    MANUSCRIPT_STATUS_ORDER,
+    KANBAN_STAGE_BY_STATUS,
+    SUBMISSION_STATUS_TO_MANUSCRIPT_STATUS,
+    normalizeStatus,
+    getKanbanStage,
+    getSubmissionsForManuscript,
+    getCurrentSubmission,
+    deriveManuscriptStatusFromSubmission,
+    deriveSubmissionStatusFromManuscript
+  };
+  if (typeof globalThis !== "undefined") {
+    globalThis.RFCore = RFCore;
+  }
+  if (typeof window !== "undefined") {
+    window.RFCore = RFCore;
+  }
+  if (typeof module !== "undefined" && module.exports) {
+    module.exports = RFCore;
+  }
+})();

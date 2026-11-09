@@ -71,7 +71,7 @@ export function registerItemPaneSection(host: any): string | null {
         if (!target) return;
         const isReadOnly = Boolean(target.deleted || (typeof target.isEditable === 'function' && !target.isEditable()));
 
-        const db = await host.loadDatabase();
+        const db = host._cachedData || await host.loadDatabase();
         const targetKey = target.key;
         const targetDoi = (typeof target.getField === 'function' ? target.getField('DOI') : '') || '';
 

@@ -103,6 +103,11 @@ export const hostDatabaseStorageMethods = {
   },
 
   cloneDatabase(this: any, data: any) {
+    if (typeof structuredClone === 'function') {
+      try {
+        return structuredClone(data);
+      } catch (_) {}
+    }
     return JSON.parse(JSON.stringify(data));
   },
 

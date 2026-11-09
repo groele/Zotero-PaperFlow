@@ -5,7 +5,7 @@ import { fileURLToPath } from 'node:url';
 
 const root = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 const pkg = JSON.parse(await fs.readFile(path.join(root, 'package.json'), 'utf8'));
-const version = pkg.version || '16.0.0';
+const version = pkg.version || '16.1.0';
 const buildTime = new Date().toISOString();
 
 console.log(`[build-source] Bundling PaperFlow v${version} for Gecko 153+ / Firefox 140+...`);
@@ -27,6 +27,9 @@ const mainResult = await build({
     __buildVersion__: JSON.stringify(version),
     __buildTime__: JSON.stringify(buildTime),
   },
+  logOverride: {
+    'commonjs-variable-in-esm': 'silent',
+  },
   metafile: true,
 });
 
@@ -43,7 +46,6 @@ bundledText = bundledText.replace(
 );
 
 await fs.writeFile(path.join(root, 'chrome/content/scripts/index.js'), bundledText, 'utf8');
-
 console.log(`[build-source] Main bundle compiled: ${Object.keys(mainResult.metafile.inputs).length} modules processed.`);
 
 // 2. Standalone module scripts generated from TypeScript sources
@@ -58,6 +60,19 @@ const modules = [
   { in: 'src/modules/conflict-recovery.ts', out: 'chrome/content/scripts/conflict-recovery.js' },
   { in: 'src/modules/preferences.ts', out: 'chrome/content/scripts/preferences.js' },
   { in: 'src/modules/zotero-ui-api.ts', out: 'chrome/content/scripts/zotero-ui-api.js' },
+  { in: 'src/core/research-core.ts', out: 'chrome/content/scripts/core/research-core.js' },
+  { in: 'src/modules/ui-utils.ts', out: 'chrome/content/scripts/ui-utils.js' },
+  { in: 'src/modules/share-card.ts', out: 'chrome/content/scripts/share-card.js' },
+  { in: 'src/modules/i18n.ts', out: 'chrome/content/scripts/modules/i18n.js' },
+  { in: 'src/modules/share-studio.ts', out: 'chrome/content/scripts/modules/share-studio.js' },
+  { in: 'src/modules/review-matrix.ts', out: 'chrome/content/scripts/modules/review-matrix.js' },
+  { in: 'src/modules/academic-exporter.ts', out: 'chrome/content/scripts/modules/academic-exporter.js' },
+  { in: 'src/modules/settings-view.ts', out: 'chrome/content/scripts/modules/settings-view.js' },
+  { in: 'src/modules/options.ts', out: 'chrome/content/scripts/options.js' },
+  { in: 'src/modules/timeline-engine.ts', out: 'chrome/content/scripts/modules/timeline-engine.js' },
+  { in: 'src/modules/dashboard-view.ts', out: 'chrome/content/scripts/modules/dashboard-view.js' },
+  { in: 'src/modules/kanban-view.ts', out: 'chrome/content/scripts/modules/kanban-view.js' },
+  { in: 'src/modules/submissions-view.ts', out: 'chrome/content/scripts/modules/submissions-view.js' },
 ];
 
 for (const mod of modules) {
@@ -71,6 +86,13 @@ for (const mod of modules) {
     minify: false,
     write: false,
     legalComments: 'inline',
+    define: {
+      __buildVersion__: JSON.stringify(version),
+      __buildTime__: JSON.stringify(buildTime),
+    },
+    logOverride: {
+      'commonjs-variable-in-esm': 'silent',
+    },
   });
 
   let text = Buffer.from(result.outputFiles[0].contents).toString('utf8');
@@ -81,7 +103,24 @@ for (const mod of modules) {
     text = text.replace(/importMode:\s*"merge"/g, "importMode: 'merge'");
   }
 
+  if (mod.out.endsWith('options.js')) {
+    // Ensure RF_OPTIONS_RENDER_VERSION appears at top-level for unit tests and package-xpi
+    if (!text.includes(`const RF_OPTIONS_RENDER_VERSION = '${version}';`)) {
+      text = `const RF_OPTIONS_RENDER_VERSION = '${version}';\n` + text;
+    }
+  }
+
+  if (mod.out.endsWith('settings-view.js')) {
+    // tests/import-ui-safety.test.js splits by '  // Handle Imported JSON File'
+    if (!text.includes('  // Handle Imported JSON File')) {
+      text = text.replace(
+        /(document\.getElementById\(['"]import-db-file['"]\)\??\.addEventListener\(['"]change['"])/g,
+        '  // Handle Imported JSON File\n  $1'
+      );
+    }
+  }
+
   await fs.writeFile(path.join(root, mod.out), text, 'utf8');
 }
 
-console.log(`[build-source] ${modules.length} Standalone TypeScript modules compiled successfully.`);
+console.log(`[build-source] All ${modules.length} Standalone TypeScript modules compiled successfully.`);

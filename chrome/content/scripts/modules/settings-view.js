@@ -1,721 +1,628 @@
-/**
- * Zotero PaperFlow - Multi-Cloud Settings View Module
- * Manages WebDAV/GitHub sync configuration, database import/export, and diagnostic reports.
- */
-function updateSyncProviderVisibility() {
-  const routeSelect = document.getElementById('route-db');
-  if (!routeSelect) return;
-  const provider = routeSelect.value || 'local';
-  document.querySelectorAll('[data-sync-provider]').forEach((card) => {
-    const isActive = card.dataset.syncProvider === provider;
-    card.hidden = !isActive;
-    card.style.display = isActive ? 'block' : 'none';
-    card.classList.toggle('active', isActive);
-    card.setAttribute('aria-hidden', String(!isActive));
-  });
-
-  const summary = document.getElementById('sync-route-summary');
-  if (summary) {
-    const summaryKey = provider === 'webdav'
-      ? 'webdavSyncSummary'
-      : (provider === 'github' ? 'githubSyncSummary' : 'localSyncSummary');
-    summary.textContent = t(summaryKey);
-    summary.dataset.provider = provider;
-  }
-
-  const localOnly = provider === 'local';
-  const syncNowButton = document.getElementById('btn-sync-cloud-now');
-  if (syncNowButton) {
-    const configuredProvider = db?.settings?.syncProviders?.metadata?.provider || 'local';
-    syncNowButton.disabled = localOnly || provider !== configuredProvider;
-    syncNowButton.title = provider !== configuredProvider
-      ? (currentLanguage === 'zh' ? '请先保存当前云端配置' : 'Save this cloud configuration first')
-      : '';
-  }
-
-  const autoSyncToggle = document.getElementById('auto-cloud-sync');
-  const autoSyncControl = document.getElementById('settings-auto-sync-control');
-  const autoSyncHelp = document.getElementById('auto-cloud-sync-help');
-  if (autoSyncToggle) {
-    autoSyncToggle.disabled = localOnly;
-    autoSyncToggle.checked = localOnly
-      ? false
-      : autoSyncToggle.dataset.savedValue !== 'false';
-  }
-  if (autoSyncControl) autoSyncControl.classList.toggle('is-disabled', localOnly);
-  if (autoSyncHelp) {
-    autoSyncHelp.textContent = t(localOnly ? 'autoCloudSyncLocalHelp' : 'autoCloudSyncHelp');
-  }
-}
-window.updateSyncProviderVisibility = updateSyncProviderVisibility;
-
-async function loadSettings() {
-  const syncProviders = db.settings?.syncProviders || DEFAULT_DB.settings.syncProviders;
-  const profile = db.settings?.profile || DEFAULT_DB.settings.profile;
-  const credentials = await window.storage.loadSyncCredentials();
-
-  const languageSelect = document.getElementById('ui-language');
-  if (languageSelect) languageSelect.value = currentLanguage || profile.language || 'en';
-  const themeSelect = document.getElementById('ui-theme');
-  if (themeSelect) themeSelect.value = normalizeThemePreference(profile.theme);
-
-  const autoSyncToggle = document.getElementById('auto-cloud-sync');
-  if (autoSyncToggle) {
-    const autoSyncEnabled = syncProviders.metadata.autoSync !== false;
-    autoSyncToggle.dataset.savedValue = String(autoSyncEnabled);
-    autoSyncToggle.checked = autoSyncEnabled;
-  }
-
-  // Cloud routing
-  document.getElementById('route-db').value = syncProviders.metadata.provider || 'local';
-  updateSyncProviderVisibility();
-
-  // WebDAV
-  document.getElementById('webdav-url').value = syncProviders.metadata.config?.url || '';
-  document.getElementById('webdav-username').value = credentials.webdav?.username || '';
-  document.getElementById('webdav-password').value = credentials.webdav?.password || '';
-
-  // GitHub
-  document.getElementById('github-token').value = credentials.github?.token || '';
-  document.getElementById('github-repo').value = syncProviders.metadata.config?.repo || '';
-  document.getElementById('github-branch').value = syncProviders.metadata.config?.branch || 'main';
-
-  applyLanguage();
-}
-
-function setupSettingsListeners() {
-  const languageSelect = document.getElementById('ui-language');
-  if (languageSelect) {
-    languageSelect.addEventListener('change', async () => {
-      currentLanguage = languageSelect.value;
-      document.documentElement.lang = currentLanguage === 'zh' ? 'zh-CN' : 'en';
-      db.settings = db.settings || {};
-      db.settings.profile = db.settings.profile || {};
-      db.settings.profile.language = currentLanguage;
-      applyLanguage();
-      refreshActiveViewForLanguage();
-      languageSelect.disabled = true;
-      try {
-        await window.storage.saveAll(db);
-      } finally {
-        languageSelect.disabled = false;
-      }
-      showGlobalToast(t('languageSaved'), 'success');
-    });
-  }
-
-  const themeSelect = document.getElementById('ui-theme');
-  if (themeSelect) {
-    themeSelect.addEventListener('change', async () => {
-      const previousTheme = normalizeThemePreference(db.settings?.profile?.theme);
-      const nextTheme = applyThemePreference(themeSelect.value);
-      db.settings = db.settings || {};
-      db.settings.profile = db.settings.profile || {};
-      db.settings.profile.theme = nextTheme;
-      themeSelect.disabled = true;
-      try {
-        await window.storage.saveAll(db);
-      } catch (error) {
-        db.settings.profile.theme = previousTheme;
-        themeSelect.value = previousTheme;
-        applyThemePreference(previousTheme);
-        throw error;
-      } finally {
-        themeSelect.disabled = false;
-      }
-      showGlobalToast(t('appearanceSaved'), 'success');
-    });
-  }
-
-  const routeSelect = document.getElementById('route-db');
-  if (routeSelect) {
-    routeSelect.addEventListener('change', updateSyncProviderVisibility);
-    routeSelect.addEventListener('input', updateSyncProviderVisibility);
-    updateSyncProviderVisibility();
-  }
-
-  const autoSyncToggle = document.getElementById('auto-cloud-sync');
-  if (autoSyncToggle) {
-    autoSyncToggle.addEventListener('change', () => {
-      autoSyncToggle.dataset.savedValue = String(autoSyncToggle.checked);
-    });
-  }
-
-  // Save Mappings Button
-  document.getElementById('btn-save-settings')?.addEventListener('click', async () => {
-    const routeDb = document.getElementById('route-db').value;
-
-    const webdavConfig = {
-      url: document.getElementById('webdav-url').value.trim(),
-      username: document.getElementById('webdav-username').value.trim(),
-      password: document.getElementById('webdav-password').value.trim()
+"use strict";
+(() => {
+  // src/modules/settings-view/sync-routing.ts
+  function getDeviceSyncSecretsFromInputs() {
+    const webdavPass = document.getElementById("webdav-pass")?.value ?? "";
+    const githubPat = document.getElementById("github-pat")?.value ?? "";
+    return {
+      webdav: { pass: webdavPass },
+      github: { pat: githubPat }
     };
-
-    const githubConfig = {
-      token: document.getElementById('github-token').value.trim(),
-      repo: document.getElementById('github-repo').value.trim(),
-      branch: document.getElementById('github-branch').value.trim() || 'main'
-    };
-    const selectedConfig = routeDb === 'webdav'
-      ? webdavConfig
-      : (routeDb === 'github' ? githubConfig : {});
-    const autoSync = document.getElementById('auto-cloud-sync')?.dataset.savedValue !== 'false';
-    const configurationIssue = window.storage.getSyncConfigurationIssue({
-      provider: routeDb,
-      config: selectedConfig
-    });
-    if (configurationIssue) {
-      showGlobalToast(configurationIssue, 'error');
-      return;
+  }
+  async function renderSettings2() {
+    if (!db.settings) db.settings = { syncProviders: {} };
+    if (!db.settings.profile) db.settings.profile = {};
+    if (!db.settings.syncProviders) db.settings.syncProviders = {};
+    const sp = db.settings.syncProviders;
+    const secrets = window.storage?.getDeviceSyncSecrets ? await window.storage.getDeviceSyncSecrets() : { webdav: {}, github: {} };
+    const langSelect = document.getElementById("settings-language");
+    if (langSelect) {
+      langSelect.value = currentLanguage;
     }
-
-    await window.storage.saveSyncCredentials(routeDb, selectedConfig);
-    const publicConfig = window.storage.getPublicSyncConfig(routeDb, selectedConfig);
-
-    // Credentials are device-local and never enter the synchronized database.
+    const themeSelect = document.getElementById("settings-theme");
+    if (themeSelect) {
+      themeSelect.value = normalizeThemePreference(db.settings.profile.theme);
+    }
+    if (sp.metadata) {
+      const routeDb = document.getElementById("route-db");
+      const autoSync = document.getElementById("settings-auto-sync");
+      if (routeDb) routeDb.value = sp.metadata.provider || "local";
+      if (autoSync) autoSync.checked = sp.metadata.autoSync !== false;
+    }
+    const webdavConfig = sp.metadata?.provider === "webdav" ? sp.metadata.config : sp.webdavConfig;
+    if (webdavConfig) {
+      const urlInput = document.getElementById("webdav-url");
+      const userInput = document.getElementById("webdav-user");
+      if (urlInput) urlInput.value = webdavConfig.url || "";
+      if (userInput) userInput.value = webdavConfig.user || "";
+    }
+    const webdavPassInput = document.getElementById("webdav-pass");
+    if (webdavPassInput) {
+      webdavPassInput.value = secrets.webdav?.pass || webdavConfig?.pass || "";
+    }
+    const githubConfig = sp.metadata?.provider === "github" ? sp.metadata.config : sp.githubConfig;
+    if (githubConfig) {
+      const repoInput = document.getElementById("github-repo");
+      const branchInput = document.getElementById("github-branch");
+      if (repoInput) repoInput.value = githubConfig.repo || "";
+      if (branchInput) branchInput.value = githubConfig.branch || "main";
+    }
+    const githubPatInput = document.getElementById("github-pat");
+    if (githubPatInput) {
+      githubPatInput.value = secrets.github?.pat || githubConfig?.pat || "";
+    }
+    updateSyncRouteNotice();
+    if (typeof refreshConflictDrafts === "function") {
+      await refreshConflictDrafts();
+    }
+  }
+  function updateSyncRouteNotice() {
+    const provider = document.getElementById("route-db")?.value || db?.settings?.syncProviders?.metadata?.provider || "local";
+    const summaryKey = provider === "webdav" ? "webdavSyncSummary" : provider === "github" ? "githubSyncSummary" : "localSyncSummary";
+    setText("#sync-route-summary", t(summaryKey));
+    const forceSyncBtn = document.getElementById("btn-force-sync");
+    if (forceSyncBtn) {
+      forceSyncBtn.disabled = provider === "local";
+    }
+    const autoSyncToggle = document.getElementById("settings-auto-sync");
+    if (autoSyncToggle) {
+      autoSyncToggle.disabled = provider === "local";
+    }
+    setText("#settings-auto-sync-help", t(provider === "local" ? "autoCloudSyncLocalHelp" : "autoCloudSyncHelp"));
+    const localCard = document.getElementById("settings-local-card");
+    const webdavCard = document.getElementById("settings-webdav-card");
+    const githubCard = document.getElementById("settings-github-card");
+    if (localCard) localCard.hidden = provider !== "local";
+    if (webdavCard) webdavCard.hidden = provider !== "webdav";
+    if (githubCard) githubCard.hidden = provider !== "github";
+  }
+  async function saveSettingsFromInputs({ showToast = true } = {}) {
+    const routeDb = document.getElementById("route-db")?.value || "local";
+    const autoSync = document.getElementById("settings-auto-sync")?.checked !== false;
+    const language = document.getElementById("settings-language")?.value === "en" ? "en" : "zh";
+    const theme = normalizeThemePreference(document.getElementById("settings-theme")?.value);
+    const webdavConfig = {
+      url: document.getElementById("webdav-url")?.value.trim() || "",
+      user: document.getElementById("webdav-user")?.value.trim() || ""
+    };
+    const githubConfig = {
+      repo: document.getElementById("github-repo")?.value.trim() || "",
+      branch: document.getElementById("github-branch")?.value.trim() || "main"
+    };
+    if (!db.settings) db.settings = {};
+    if (!db.settings.profile) db.settings.profile = {};
+    db.settings.profile.language = language;
+    db.settings.profile.theme = theme;
+    currentLanguage = language;
+    applyThemePreference(theme);
     db.settings.syncProviders = {
+      webdavConfig,
+      githubConfig,
       metadata: {
         provider: routeDb,
-        config: publicConfig,
-        autoSync
+        autoSync,
+        config: routeDb === "webdav" ? webdavConfig : routeDb === "github" ? githubConfig : {}
       }
     };
-
+    if (window.storage?.saveDeviceSyncSecrets) {
+      await window.storage.saveDeviceSyncSecrets(getDeviceSyncSecretsFromInputs());
+    }
     await window.storage.saveAll(db);
-    updateSyncProviderVisibility();
-    showGlobalToast('Cloud database mapping saved!', 'success');
-  });
-
-  document.getElementById('btn-sync-cloud-now')?.addEventListener('click', async (event) => {
-    const button = event.currentTarget;
-    button.disabled = true;
-    button.setAttribute('aria-busy', 'true');
-    try {
-      const result = await window.storage.syncDatabaseNow();
-      if (!result?.success) throw new Error(result?.error || 'Cloud sync failed');
-      db = await window.storage.loadAll();
-      await renderAllViews();
-      showGlobalToast(result.pending
-        ? (currentLanguage === 'zh' ? '已同步，新的本机修改等待下一次同步' : 'Synced; newer local edits remain pending')
-        : (currentLanguage === 'zh' ? '云端同步完成' : 'Cloud sync complete'), 'success');
-    } catch (error) {
-      showGlobalToast(error.message || String(error), 'error');
-    } finally {
-      button.removeAttribute('aria-busy');
-      updateSyncProviderVisibility();
+    applyLanguage();
+    renderDashboard();
+    renderKanban();
+    renderSubmissions();
+    if (showToast) {
+      showGlobalToast("Cloud Sync Configuration Saved! Active on next data write.", "success");
     }
-  });
+  }
+  function bindSettingsRoutingListeners() {
+    document.getElementById("settings-language")?.addEventListener("change", async () => {
+      await saveSettingsFromInputs({ showToast: false });
+      showGlobalToast(t("languageSaved"), "success");
+    });
+    document.getElementById("settings-theme")?.addEventListener("change", async () => {
+      await saveSettingsFromInputs({ showToast: false });
+      showGlobalToast(t("appearanceSaved"), "success");
+    });
+    document.getElementById("route-db")?.addEventListener("change", () => {
+      updateSyncRouteNotice();
+    });
+    document.getElementById("settings-auto-sync")?.addEventListener("change", async () => {
+      await saveSettingsFromInputs({ showToast: false });
+    });
+    document.getElementById("btn-save-mappings")?.addEventListener("click", async () => {
+      await saveSettingsFromInputs({ showToast: true });
+    });
+    document.getElementById("btn-test-webdav")?.addEventListener("click", async () => {
+      const url = document.getElementById("webdav-url")?.value.trim() || "";
+      const user = document.getElementById("webdav-user")?.value.trim() || "";
+      const pass = document.getElementById("webdav-pass")?.value.trim() || "";
+      const statusEl = document.getElementById("webdav-status");
+      if (!statusEl) return;
+      if (!url || !user || !pass) {
+        statusEl.textContent = "❌ Please fill in all WebDAV fields.";
+        statusEl.style.color = "hsl(var(--status-danger))";
+        return;
+      }
+      statusEl.textContent = "⏳ Testing connection to WebDAV...";
+      statusEl.style.color = "hsl(var(--text-secondary))";
+      const res = await window.storage.testWebDAV({ url, user, pass });
+      if (res.success) {
+        statusEl.textContent = "✅ Connected successfully!";
+        statusEl.style.color = "hsl(var(--status-success))";
+        await saveSettingsFromInputs({ showToast: false });
+      } else {
+        statusEl.textContent = `❌ Failed: ${res.message}`;
+        statusEl.style.color = "hsl(var(--status-danger))";
+      }
+    });
+    document.getElementById("btn-test-github")?.addEventListener("click", async () => {
+      const pat = document.getElementById("github-pat")?.value.trim() || "";
+      const repo = document.getElementById("github-repo")?.value.trim() || "";
+      const branch = document.getElementById("github-branch")?.value.trim() || "main";
+      const statusEl = document.getElementById("github-status");
+      if (!statusEl) return;
+      if (!pat || !repo) {
+        statusEl.textContent = "❌ Please provide PAT and Repo.";
+        statusEl.style.color = "hsl(var(--status-danger))";
+        return;
+      }
+      statusEl.textContent = "⏳ Verifying GitHub repository...";
+      statusEl.style.color = "hsl(var(--text-secondary))";
+      const res = await window.storage.testGitHub({ pat, repo, branch });
+      if (res.success) {
+        statusEl.textContent = `✅ Repository "${res.repoName}" Verified!`;
+        statusEl.style.color = "hsl(var(--status-success))";
+        await saveSettingsFromInputs({ showToast: false });
+      } else {
+        statusEl.textContent = `❌ Failed: ${res.message}`;
+        statusEl.style.color = "hsl(var(--status-danger))";
+      }
+    });
+  }
 
-  // Test WebDAV Connection
-  document.getElementById('btn-test-webdav')?.addEventListener('click', async () => {
-    const btn = document.getElementById('btn-test-webdav');
-    btn.disabled = true;
-    btn.textContent = 'Testing connection...';
-
-    const config = {
-      url: document.getElementById('webdav-url').value.trim(),
-      username: document.getElementById('webdav-username').value.trim(),
-      password: document.getElementById('webdav-password').value.trim()
-    };
-
-    const result = await window.storage.testConnection('webdav', config);
-    if (result.success) {
-      showGlobalToast('WebDAV drive connected successfully!', 'success');
-    } else {
-      alert(`WebDAV test failed: ${result.error}`);
-    }
-    btn.disabled = false;
-    btn.textContent = 'Test WebDAV Connection';
-  });
-
-  // Test GitHub Connection
-  document.getElementById('btn-test-github')?.addEventListener('click', async () => {
-    const btn = document.getElementById('btn-test-github');
-    btn.disabled = true;
-    btn.textContent = 'Testing repo...';
-
-    const config = {
-      token: document.getElementById('github-token').value.trim(),
-      repo: document.getElementById('github-repo').value.trim(),
-      branch: document.getElementById('github-branch').value.trim() || 'main'
-    };
-
-    const result = await window.storage.testConnection('github', config);
-    if (result.success) {
-      showGlobalToast('GitHub repository sync mapping validated!', 'success');
-    } else {
-      alert(`GitHub test failed: ${result.error}`);
-    }
-    btn.disabled = false;
-    btn.textContent = 'Test GitHub Repository';
-  });
-
-  // --- DATABASE BACKUP & IMPORT LISTENERS ---
-  // Export Database
-  document.getElementById('btn-export-db')?.addEventListener('click', async () => {
-    const isZoteroEnv = Boolean(
-      (typeof ZoteroBridge !== 'undefined' && ZoteroBridge.isZotero) ||
-      (typeof window !== 'undefined' && (window.Zotero || window.parent?.Zotero))
-    );
-    if (isZoteroEnv && typeof ZoteroBridge !== 'undefined' && ZoteroBridge.exportDatabase) {
-      try {
-        const res = await ZoteroBridge.exportDatabase();
-        if (res?.success) {
-          showGlobalToast(t('databaseExported'), 'success');
-          return;
-        }
-        if (res?.cancelled) {
-          return;
-        }
-      } catch (e) {
-        console.warn('[ResearchFlow] Zotero native export failed, falling back to browser download:', e);
+  // src/modules/settings-view/backup-and-conflict.ts
+  function stripCredentialsForExport(sourceDb) {
+    const clone = JSON.parse(JSON.stringify(sourceDb || {}));
+    const sp = clone.settings?.syncProviders;
+    if (sp) {
+      if (sp.webdavConfig) delete sp.webdavConfig.pass;
+      if (sp.githubConfig) delete sp.githubConfig.pat;
+      if (sp.metadata?.config) {
+        delete sp.metadata.config.pass;
+        delete sp.metadata.config.pat;
       }
     }
-    const safeDb = window.storage.sanitizeDatabaseForExternalUse(db);
-    const exportBlob = new Blob([JSON.stringify(safeDb, null, 2)], { type: 'application/json;charset=utf-8' });
-    const exportUrl = URL.createObjectURL(exportBlob);
-    const downloadAnchor = document.createElement('a');
-    downloadAnchor.setAttribute("href", exportUrl);
-    downloadAnchor.setAttribute("download", `researchflow-export-${new Date().toISOString().split('T')[0]}.json`);
-    document.body.appendChild(downloadAnchor);
-    downloadAnchor.click();
-    downloadAnchor.remove();
-    setTimeout(() => URL.revokeObjectURL(exportUrl), 1000);
-    showGlobalToast(t('databaseExported'), 'success');
-  });
-
-  document.getElementById('btn-export-diagnostics')?.addEventListener('click', async () => {
-    const metadataRoute = db?.settings?.syncProviders?.metadata || { provider: 'local', config: {} };
-    const effectiveRoute = await window.storage.getEffectiveMetadataProvider(db);
-    const diagnosticReport = {
-      generatedAt: new Date().toISOString(),
-      extension: {
-        name: RFPlatform?.runtime?.getManifest?.()?.name || 'Zotero PaperFlow',
-        version: RFPlatform?.runtime?.getManifest?.()?.version || RF_OPTIONS_RENDER_VERSION,
-        schemaVersion: Number(db.schemaVersion) || null,
-        revision: Number(db.revision) || 0
-      },
-      runtime: {
+    return clone;
+  }
+  function buildPrivacySafeDiagnostics(sourceDb) {
+    const sp = sourceDb?.settings?.syncProviders || {};
+    const count = (key) => Array.isArray(sourceDb?.[key]) ? sourceDb[key].length : 0;
+    const deletedCount = (key) => Array.isArray(sourceDb?.deletedEntities?.[key]) ? sourceDb.deletedEntities[key].length : 0;
+    return {
+      app: "Zotero PaperFlow",
+      version: "16.1.0",
+      exportedAt: (/* @__PURE__ */ new Date()).toISOString(),
+      environment: {
         language: currentLanguage,
-        online: navigator.onLine,
-        platform: navigator.platform || '',
-        userAgent: navigator.userAgent || ''
+        theme: normalizeThemePreference(sourceDb?.settings?.profile?.theme),
+        userAgent: typeof navigator !== "undefined" ? navigator.userAgent : "unknown"
       },
       database: {
-        lastUpdated: db.updatedAt || null,
+        schemaVersion: sourceDb?.schemaVersion ?? null,
+        revision: sourceDb?.revision ?? null,
+        lastUpdated: sourceDb?.lastUpdated ?? null,
+        updatedAt: sourceDb?.updatedAt ?? null,
         counts: {
-          projects: db.projects?.length || 0,
-          manuscripts: db.manuscripts?.length || 0,
-          submissions: db.submissions?.length || 0,
-          tasks: db.tasks?.length || 0
+          researchAreas: count("researchAreas"),
+          projects: count("projects"),
+          researchRecords: count("researchRecords"),
+          manuscripts: count("manuscripts"),
+          submissions: count("submissions"),
+          tasks: count("tasks")
+        },
+        deletedCounts: {
+          researchAreas: deletedCount("researchAreas"),
+          projects: deletedCount("projects"),
+          researchRecords: deletedCount("researchRecords"),
+          manuscripts: deletedCount("manuscripts"),
+          submissions: deletedCount("submissions"),
+          tasks: deletedCount("tasks")
         }
       },
-      synchronization: {
-        provider: metadataRoute.provider || 'local',
-        configurationValid: !window.storage.getSyncConfigurationIssue(effectiveRoute)
-      },
-      capture: {
-        submissionRecognitionEnabled: document.getElementById('submission-assist-enabled')?.checked !== false,
-        detailedCaptureEnabled: document.getElementById('submission-assist-capture-enabled')?.checked !== false
-      },
-      privacy: {
-        credentialsIncluded: false,
-        manuscriptMetadataIncluded: false
+      sync: {
+        provider: sp.metadata?.provider || "local",
+        autoSync: sp.metadata?.autoSync !== false,
+        webdavConfigured: Boolean(sp.webdavConfig?.url || sp.metadata?.config?.url),
+        githubConfigured: Boolean(sp.githubConfig?.repo || sp.metadata?.config?.repo),
+        credentialsIncluded: false
       }
     };
-
-    const isZoteroEnv = Boolean(
-      (typeof ZoteroBridge !== 'undefined' && ZoteroBridge.isZotero) ||
-      (typeof window !== 'undefined' && (window.Zotero || window.parent?.Zotero))
-    );
-    if (isZoteroEnv && typeof ZoteroBridge !== 'undefined' && ZoteroBridge.exportDiagnostics) {
-      try {
-        const res = await ZoteroBridge.exportDiagnostics(diagnosticReport);
-        if (res?.success) {
-          showGlobalToast(t('diagnosticsExported'), 'success');
-          return;
-        }
-        if (res?.cancelled) {
-          return;
-        }
-      } catch (e) {
-        console.warn('[ResearchFlow] Zotero native diagnostics export failed, falling back to blob:', e);
-      }
+  }
+  var MAX_IMPORT_DATABASE_BYTES = 25 * 1024 * 1024;
+  var DATABASE_COLLECTION_KEYS = ["researchAreas", "projects", "researchRecords", "manuscripts", "submissions", "tasks"];
+  function isValidImportedDatabaseObject(value) {
+    if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+    return DATABASE_COLLECTION_KEYS.some((key) => Array.isArray(value[key]));
+  }
+  function formatConflictValue(value) {
+    if (value === void 0) return { text: t("recoveryMissing"), truncated: false };
+    const raw = typeof value === "string" ? value : JSON.stringify(value, null, 2);
+    const text = raw ?? String(value);
+    return text.length > 600 ? { text: `${text.slice(0, 600)}…`, truncated: true } : { text, truncated: false };
+  }
+  function renderConflictValueCell(value) {
+    const formatted = formatConflictValue(value);
+    return `<pre>${escapeHTML(formatted.text)}</pre>${formatted.truncated ? `<small class="conflict-truncated-note">${escapeHTML(t("recoveryTruncated"))}</small>` : ""}`;
+  }
+  function formatConflictTimestamp(value) {
+    const time = Date.parse(value || "");
+    return Number.isFinite(time) ? new Date(time).toLocaleString() : String(value || "");
+  }
+  async function refreshConflictDrafts2() {
+    const container = document.getElementById("conflict-recovery-list");
+    if (!container) return;
+    if (typeof window.storage?.listConflictDrafts !== "function") {
+      window.RFUI.setHTML(container, `<p class="conflict-empty">${escapeHTML(t("recoveryUnavailable"))}</p>`);
+      return;
     }
+    window.RFUI.setHTML(container, `<p class="conflict-empty">${escapeHTML(t("recoveryBusy"))}</p>`);
+    try {
+      const drafts = await window.storage.listConflictDrafts();
+      if (!Array.isArray(drafts) || !drafts.length) {
+        window.RFUI.setHTML(container, `<p class="conflict-empty">${escapeHTML(t("recoveryEmpty"))}</p>`);
+        return;
+      }
+      window.RFUI.setHTML(container, drafts.map((draft) => {
+        const conflicts = Array.isArray(draft.conflicts) ? draft.conflicts : [];
+        return `
+        <div class="conflict-draft-row">
+          <div class="conflict-draft-meta">
+            <strong>${escapeHTML(draft.fileName)}</strong>
+            <span>${escapeHTML(formatConflictTimestamp(draft.savedAt))} · ${escapeHTML(t("recoveryRevision"))}${escapeHTML(String(draft.expectedRevision ?? "—"))} → ${escapeHTML(String(draft.actualRevision ?? "—"))}</span>
+            <div class="conflict-chip-row">
+              ${draft.resolvedAt ? `<span class="settings-trust-pill">${escapeHTML(t("recoveryResolved"))}</span>` : ""}
+              ${conflicts.slice(0, 6).map((item) => `<span class="conflict-chip">${escapeHTML(item)}</span>`).join("")}
+            </div>
+          </div>
+          <button class="btn-secondary btn-open-conflict" type="button" data-conflict-file="${escapeHTML(draft.fileName)}">${escapeHTML(t("recoveryOpen"))}</button>
+        </div>
+      `;
+      }).join(""));
+      container.querySelectorAll(".btn-open-conflict").forEach((button) => {
+        button.addEventListener("click", () => openConflictRecoveryModal(button.dataset.conflictFile));
+      });
+    } catch (error) {
+      window.RFUI.setHTML(container, `<p class="conflict-empty">${escapeHTML(t("recoveryFailed") + (error.message || error))}</p>`);
+    }
+  }
+  async function openConflictRecoveryModal(fileName) {
+    if (!fileName || typeof window.storage?.inspectConflictDraft !== "function") return;
+    try {
+      const plan = await window.storage.inspectConflictDraft(fileName);
+      const items = Array.isArray(plan?.items) ? plan.items : [];
+      const unresolved = items.filter((item) => item.conflict);
+      const choices = {};
+      unresolved.forEach((item) => {
+        choices[item.id] = "current";
+      });
+      openModal("");
+      const modalEl = document.getElementById("modal-overlay");
+      const modalBody = document.getElementById("modal-body");
+      const renderCompare = () => {
+        if (!modalEl?.classList.contains("active") || !modalBody) return;
+        const rows = unresolved.length ? unresolved.map((item, idx) => `
+        <div class="conflict-compare-item">
+          <div class="conflict-item-head">
+            <strong>${escapeHTML(item.label)}</strong>
+            <span>${escapeHTML(item.collection ? `${item.collection} · ${item.field || item.recordId}` : item.id)}</span>
+          </div>
+          <div class="conflict-choice-grid">
+            ${["current", "local", "base"].map((source) => `
+              <label class="conflict-choice-card ${choices[item.id] === source ? "selected" : ""}">
+                <input type="radio" name="conflict-choice-${idx}" data-conflict-id="${escapeHTML(item.id)}" value="${source}" ${choices[item.id] === source ? "checked" : ""}>
+                <span>${escapeHTML(t(source === "current" ? "recoveryCurrent" : source === "local" ? "recoveryLocal" : "recoveryBase"))}</span>
+                ${renderConflictValueCell(item[`${source}Value`])}
+              </label>
+            `).join("")}
+          </div>
+        </div>
+      `).join("") : `<p class="conflict-empty">${escapeHTML(t("recoveryNoConflicts"))}</p>`;
+        window.RFUI.setHTML(modalBody, `
+        <div class="modal-header">
+          <div>
+            <h2>${escapeHTML(t("recoveryCompareTitle"))}</h2>
+            <p class="text-muted">${escapeHTML(fileName)} · ${escapeHTML(t("recoveryAutomatic"))}</p>
+          </div>
+          <button class="btn-secondary btn-icon" id="btn-close-modal" type="button" aria-label="${escapeHTML(t("cancel"))}">✕</button>
+        </div>
+        <div class="conflict-compare-list">${rows}</div>
+        <div class="modal-footer">
+          <button class="btn-secondary" id="btn-cancel-recovery" type="button">${escapeHTML(t("cancel"))}</button>
+          <button class="btn-primary" id="btn-preview-recovery" type="button">${escapeHTML(t("recoveryPreview"))}</button>
+        </div>
+      `);
+        modalBody.querySelector("#btn-close-modal")?.addEventListener("click", closeModal);
+        modalBody.querySelector("#btn-cancel-recovery")?.addEventListener("click", closeModal);
+        modalBody.querySelectorAll("input[data-conflict-id]").forEach((input) => {
+          input.addEventListener("change", () => {
+            choices[input.dataset.conflictId] = input.value;
+            input.closest(".conflict-choice-grid")?.querySelectorAll(".conflict-choice-card").forEach((card) => card.classList.toggle("selected", card.contains(input)));
+          });
+        });
+        modalBody.querySelector("#btn-preview-recovery")?.addEventListener("click", () => renderPreview());
+      };
+      const renderPreview = async () => {
+        const preview = await window.storage.inspectConflictDraft(fileName, choices);
+        if (!modalEl?.classList.contains("active") || !modalBody) return;
+        if (preview.currentRevision !== plan.currentRevision) {
+          showGlobalToast(t("recoveryInvalidated"), "warning");
+          closeModal();
+          await refreshConflictDrafts2();
+          return;
+        }
+        const changes = Array.isArray(preview?.changes) ? preview.changes : [];
+        const rows = changes.length ? changes.map((change) => `
+        <div class="conflict-preview-item">
+          <strong>${escapeHTML(change.label)}</strong>
+          <div class="conflict-preview-grid">
+            <div><span>${escapeHTML(t("recoveryBefore"))}</span>${renderConflictValueCell(change.before)}</div>
+            <div><span>${escapeHTML(t("recoveryAfter"))}</span>${renderConflictValueCell(change.after)}</div>
+          </div>
+        </div>
+      `).join("") : `<p class="conflict-empty">${escapeHTML(t("recoveryNoChanges"))}</p>`;
+        window.RFUI.setHTML(modalBody, `
+        <div class="modal-header">
+          <div>
+            <h2>${escapeHTML(t("recoveryPreviewTitle"))}</h2>
+            <p class="text-muted">${escapeHTML(fileName)} · ${escapeHTML(t("recoveryRevision"))}${escapeHTML(String(preview.currentRevision ?? "—"))}</p>
+          </div>
+          <button class="btn-secondary btn-icon" id="btn-close-modal" type="button" aria-label="${escapeHTML(t("cancel"))}">✕</button>
+        </div>
+        <div class="conflict-compare-list">${rows}</div>
+        <div class="modal-footer">
+          <button class="btn-secondary" id="btn-back-recovery" type="button">${escapeHTML(t("recoveryBack"))}</button>
+          <button class="btn-primary" id="btn-apply-recovery" type="button" ${changes.length ? "" : "disabled"}>${escapeHTML(t("recoveryApply"))}</button>
+        </div>
+      `);
+        modalBody.querySelector("#btn-close-modal")?.addEventListener("click", closeModal);
+        modalBody.querySelector("#btn-back-recovery")?.addEventListener("click", renderCompare);
+        modalBody.querySelector("#btn-apply-recovery")?.addEventListener("click", async (event) => {
+          if (pendingSubmissionSaves > 0 || document.querySelector('[data-submission-autosave-status][data-state="pending"], [data-submission-autosave-status][data-state="saving"]')) {
+            showGlobalToast(t("recoveryPending"), "warning");
+            return;
+          }
+          const button = event.currentTarget;
+          button.disabled = true;
+          try {
+            const result = await window.storage.applyConflictDraftResolution(
+              fileName,
+              choices,
+              preview.currentRevision
+            );
+            db = await window.storage.loadAll();
+            currentLanguage = resolvePreferredLanguage();
+            applyThemePreference(db?.settings?.profile?.theme);
+            applyLanguage();
+            renderDashboard();
+            renderKanban();
+            renderSubmissions();
+            await renderSettings();
+            closeModal();
+            const receiptWarning = result?.receiptError ? t("recoveryReceiptWarning") : "";
+            showGlobalToast(`${t("recoverySuccess")}${result?.backupFileName || ""}${receiptWarning}`, result?.receiptError ? "warning" : "success");
+          } catch (error) {
+            button.disabled = false;
+            showGlobalToast(t("recoveryFailed") + (error.message || error), "error");
+          }
+        });
+      };
+      renderCompare();
+    } catch (error) {
+      showGlobalToast(t("recoveryFailed") + (error.message || error), "error");
+    }
+  }
 
-    const diagnosticBlob = new Blob(
-      [JSON.stringify(diagnosticReport, null, 2)],
-      { type: 'application/json;charset=utf-8' }
-    );
-    const diagnosticUrl = URL.createObjectURL(diagnosticBlob);
-    const anchor = document.createElement('a');
-    anchor.href = diagnosticUrl;
-    anchor.download = `researchflow-diagnostics-${new Date().toISOString().slice(0, 10)}.json`;
-    document.body.appendChild(anchor);
-    anchor.click();
-    anchor.remove();
-    setTimeout(() => URL.revokeObjectURL(diagnosticUrl), 1000);
-    showGlobalToast(t('diagnosticsExported'), 'success');
+  // src/modules/settings-view.ts
+  bindSettingsRoutingListeners();
+  function setupSettingsListeners() {
+    const languageSelect = document.getElementById("ui-language");
+    if (languageSelect) {
+      languageSelect.addEventListener("change", async () => {
+        currentLanguage = languageSelect.value;
+        document.documentElement.lang = currentLanguage === "zh" ? "zh-CN" : "en";
+        db.settings = db.settings || {};
+        db.settings.profile = db.settings.profile || {};
+        db.settings.profile.language = currentLanguage;
+        if (typeof applyLanguage === "function") applyLanguage();
+        if (typeof refreshActiveViewForLanguage === "function") refreshActiveViewForLanguage();
+        languageSelect.disabled = true;
+        try {
+          if (window.storage?.saveAll) await window.storage.saveAll(db);
+        } finally {
+          languageSelect.disabled = false;
+        }
+        showGlobalToast(t("languageSaved"), "success");
+      });
+    }
+    const themeSelect = document.getElementById("ui-theme");
+    if (themeSelect) {
+      themeSelect.addEventListener("change", async () => {
+        const previousTheme = typeof normalizeThemePreference === "function" ? normalizeThemePreference(db.settings?.profile?.theme) : "";
+        const nextTheme = typeof applyThemePreference === "function" ? applyThemePreference(themeSelect.value) : themeSelect.value;
+        db.settings = db.settings || {};
+        db.settings.profile = db.settings.profile || {};
+        db.settings.profile.theme = nextTheme;
+        themeSelect.disabled = true;
+        try {
+          if (window.storage?.saveAll) await window.storage.saveAll(db);
+        } finally {
+          themeSelect.disabled = false;
+        }
+        if (previousTheme !== nextTheme) {
+          showGlobalToast(t("themeSaved"), "success");
+        }
+      });
+    }
+  }
+  setupSettingsListeners();
+  document.getElementById("btn-export-db")?.addEventListener("click", () => {
+    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(stripCredentialsForExport(db), null, 2));
+    const dlAnchorElem = document.createElement("a");
+    dlAnchorElem.setAttribute("href", dataStr);
+    dlAnchorElem.setAttribute("download", `zotero_paperflow_backup_${(/* @__PURE__ */ new Date()).toISOString().split("T")[0]}.json`);
+    dlAnchorElem.click();
+    showGlobalToast(t("databaseExported"), "success");
   });
-
-  // Trigger File Import Dialog
-  document.getElementById('btn-trigger-import')?.addEventListener('click', async () => {
+  document.getElementById("btn-export-diagnostics")?.addEventListener("click", () => {
+    const report = buildPrivacySafeDiagnostics(db);
+    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(report, null, 2));
+    const dlAnchorElem = document.createElement("a");
+    dlAnchorElem.setAttribute("href", dataStr);
+    dlAnchorElem.setAttribute("download", `zotero_paperflow_diagnostics_${(/* @__PURE__ */ new Date()).toISOString().split("T")[0]}.json`);
+    dlAnchorElem.click();
+    showGlobalToast(t("diagnosticsExported"), "success");
+  });
+  document.getElementById("btn-trigger-import")?.addEventListener("click", async () => {
     const isZoteroEnv = Boolean(
-      (typeof ZoteroBridge !== 'undefined' && ZoteroBridge.isZotero) ||
-      (typeof window !== 'undefined' && (window.Zotero || window.parent?.Zotero))
+      typeof ZoteroBridge !== "undefined" && ZoteroBridge.isZotero || typeof window !== "undefined" && (window.Zotero || window.parent?.Zotero)
     );
-    if (isZoteroEnv && typeof ZoteroBridge !== 'undefined' && ZoteroBridge.importDatabase) {
+    if (isZoteroEnv && typeof ZoteroBridge !== "undefined" && ZoteroBridge.importDatabase) {
       try {
-        const res = await ZoteroBridge.importDatabase('merge');
+        const res = await ZoteroBridge.importDatabase("merge");
         if (res?.success && res.data) {
           db = res.data;
-          await renderAllViews();
-          await loadSettings();
-          showGlobalToast(t('databaseImported') || '数据库导入成功！', 'success');
+          if (typeof renderAllViews === "function") await renderAllViews();
+          if (typeof loadSettings === "function") await loadSettings();
+          showGlobalToast(t("databaseImported") || "数据库导入成功！", "success");
           return;
         }
         if (res?.cancelled) {
           return;
         }
-        showGlobalToast(res?.error || t('invalidBackup'), 'error');
+        showGlobalToast(res?.error || t("invalidBackup"), "error");
       } catch (e) {
-        console.error('[ResearchFlow] Zotero native import failed:', e);
-        showGlobalToast(e.message || t('invalidBackup'), 'error');
+        console.error("[ResearchFlow] Zotero native import failed:", e);
+        showGlobalToast(e.message || t("invalidBackup"), "error");
       }
       return;
     }
-    document.getElementById('import-db-file').click();
+    document.getElementById("import-db-file")?.click();
   });
-
-  document.getElementById('btn-restore-import-backup')?.addEventListener('click', async () => {
-    if (!confirm(t('restoreImportConfirm'))) return;
-
+  document.getElementById("btn-restore-import-backup")?.addEventListener("click", async () => {
+    if (!confirm(t("restoreImportConfirm"))) return;
     const isZoteroEnv = Boolean(
-      (typeof ZoteroBridge !== 'undefined' && ZoteroBridge.isZotero) ||
-      (typeof window !== 'undefined' && (window.Zotero || window.parent?.Zotero))
+      typeof ZoteroBridge !== "undefined" && ZoteroBridge.isZotero || typeof window !== "undefined" && (window.Zotero || window.parent?.Zotero)
     );
-    if (isZoteroEnv && typeof ZoteroBridge !== 'undefined' && ZoteroBridge.restoreBackup) {
+    if (isZoteroEnv && typeof ZoteroBridge !== "undefined" && ZoteroBridge.restoreBackup) {
       try {
         const res = await ZoteroBridge.restoreBackup();
         if (res?.success && res.data) {
           db = res.data;
-          await renderAllViews();
-          await loadSettings();
-          showGlobalToast(t('importBackupRestored'), 'success');
+          if (typeof renderAllViews === "function") await renderAllViews();
+          if (typeof loadSettings === "function") await loadSettings();
+          showGlobalToast(t("importBackupRestored"), "success");
           return;
         }
         if (res?.error) {
-          showGlobalToast(res.error, 'error');
+          showGlobalToast(res.error, "error");
           return;
         }
-        showGlobalToast(t('invalidBackup'), 'error');
+        showGlobalToast(t("invalidBackup"), "error");
       } catch (e) {
-        console.error('[ResearchFlow] Zotero restore failed:', e);
-        showGlobalToast(e.message || t('invalidBackup'), 'error');
+        console.error("[ResearchFlow] Zotero restore failed:", e);
+        showGlobalToast(e.message || t("invalidBackup"), "error");
       }
       return;
     }
-
+    const PRE_IMPORT_BACKUP_KEY = "paperflow_pre_import_backup";
     const result = await new Promise((resolve) => {
-      RFPlatform.storage.local.get([PRE_IMPORT_BACKUP_KEY], resolve);
+      if (typeof RFPlatform !== "undefined" && RFPlatform.storage?.local?.get) {
+        RFPlatform.storage.local.get([PRE_IMPORT_BACKUP_KEY], resolve);
+      } else {
+        resolve(null);
+      }
     });
     const backup = result?.[PRE_IMPORT_BACKUP_KEY];
     if (!backup?.database) {
-      showGlobalToast(t('noImportBackup'), 'error');
+      showGlobalToast(t("noImportBackup"), "error");
       return;
     }
-
     try {
       const normalizedBackup = await window.storage.ensureDbShape(backup.database, { stamp: false });
       db = await window.storage.saveAll(normalizedBackup, { replace: true, expectedRevision: db.revision });
-      await renderAllViews();
-      await loadSettings();
-      showGlobalToast(t('importBackupRestored'), 'success');
+      if (typeof renderAllViews === "function") await renderAllViews();
+      if (typeof loadSettings === "function") await loadSettings();
+      showGlobalToast(t("importBackupRestored"), "success");
     } catch (err) {
-      console.error('Failed to restore pre-import backup.', err);
-      showGlobalToast(err.message || t('invalidBackup'), 'error');
+      console.error("Failed to restore pre-import backup.", err);
+      showGlobalToast(err.message || t("invalidBackup"), "error");
     }
   });
-
-
-  // Handle Imported JSON File and Adapt Schema Format
-  document.getElementById('import-db-file')?.addEventListener('change', (e) => {
-    const file = e.target.files[0];
+    // Handle Imported JSON File
+  document.getElementById("import-db-file")?.addEventListener("change", (e) => {
+    const file = e.target.files?.[0];
     if (!file) return;
-    if (file.size > MAX_IMPORT_BYTES) {
-      e.target.value = '';
-      showGlobalToast(t('importFileTooLarge'), 'error');
+    if (file.size > MAX_IMPORT_DATABASE_BYTES) {
+      showGlobalToast(t("importFileTooLarge"), "error");
+      e.target.value = "";
       return;
     }
-
     const reader = new FileReader();
     reader.onload = async (event) => {
       try {
-        const importJson = JSON.parse(event.target.result);
-        const recognizedCollections = [
-          'projects',
-          'researchRecords',
-          'manuscripts',
-          'submissions',
-          'tasks',
-          'achievements',
-          'honorOpportunities',
-          'honorApplications'
-        ];
-        if (
-          !importJson
-          || typeof importJson !== 'object'
-          || Array.isArray(importJson)
-          || !recognizedCollections.some((key) => Array.isArray(importJson[key]))
-        ) {
-          throw new Error(t('invalidBackup'));
+        const importedData = JSON.parse(event.target.result);
+        if (!isValidImportedDatabaseObject(importedData)) {
+          showGlobalToast(t("invalidBackup"), "error");
+          return;
         }
-
-        if (Number(importJson.schemaVersion) > 7) throw new Error('This backup requires a newer version of ResearchFlow.');
-        function capitalize(str) {
-          if (!str) return '';
-          return str.charAt(0).toUpperCase() + str.slice(1);
-        }
-
-        // Clone current database structure (maintains user's credentials/settings if any)
-        const newDb = JSON.parse(JSON.stringify(db));
-
-        // 1. Convert Projects
-        if (Array.isArray(importJson.projects)) {
-          newDb.projects = importJson.projects.map(proj => ({
-            id: proj.id,
-            userId: proj.userId || 'user',
-            areaId: proj.areaId || null,
-            title: proj.title,
-            shortTitle: proj.shortTitle || null,
-            discipline: capitalize(proj.discipline) || (proj.area ? capitalize(proj.area.name) : 'General'),
-            abstract: proj.description || '',
-            hypothesis: proj.hypothesis || '',
-            objectives: Array.isArray(proj.objectives) ? proj.objectives : [],
-            keywords: Array.isArray(proj.keywords) ? proj.keywords : [],
-            tags: Array.isArray(proj.tags) ? proj.tags : [],
-            customFields: proj.customFields || {},
-            currentStage: proj.currentStage || (proj.status === 'completed' ? 'Completed' : 'Planning'),
-            status: proj.status || 'planning',
-            createdAt: proj.createdAt,
-            updatedAt: proj.updatedAt
-          }));
-        }
-
-        // 2. Convert Research Records
-        if (Array.isArray(importJson.researchRecords)) {
-          newDb.researchRecords = importJson.researchRecords.map(rec => ({
-            id: rec.id,
-            userId: rec.userId || 'user',
-            projectId: rec.projectId || null,
-            title: rec.title,
-            recordType: rec.recordType || 'note',
-            discipline: rec.discipline || '',
-            methodology: rec.methodology || '',
-            summary: rec.summary || '',
-            rawData: rec.rawData || null,
-            content: rec.content || '',
-            priority: rec.priority || 'medium',
-            status: rec.status || 'idea',
-            attributes: rec.attributes || {},
-            tags: Array.isArray(rec.tags) ? rec.tags : [],
-            occurredAt: rec.occurredAt || rec.createdAt,
-            createdAt: rec.createdAt,
-            updatedAt: rec.updatedAt
-          }));
-        }
-
-        // 3. Convert Manuscripts
-        if (Array.isArray(importJson.manuscripts)) {
-          newDb.manuscripts = importJson.manuscripts.map(man => ({
-            id: man.id,
-            userId: man.userId || 'user',
-            projectId: man.projectId || null,
-            title: man.title,
-            shortTitle: man.shortTitle || null,
-            manuscriptType: man.manuscriptType || 'article',
-            status: man.status || 'idea',
-            abstract: man.abstract || '',
-            keywords: Array.isArray(man.keywords) ? man.keywords : [],
-            authors: Array.isArray(man.authors) ? man.authors : [],
-            firstAuthor: man.firstAuthor || firstAuthorFromList(man.authors) || null,
-            correspondingAuthors: Array.isArray(man.correspondingAuthors) ? man.correspondingAuthors : [],
-            targetJournals: Array.isArray(man.targetJournals)
-              ? man.targetJournals
-              : (man.targetJournal ? [man.targetJournal] : []),
-            doi: normalizeDoi(man.doi || man.DOI || '') || null,
-            articleUrl: String(man.articleUrl || '').trim() || null,
-            academicCaptureProvenance: man.academicCaptureProvenance
-              && typeof man.academicCaptureProvenance === 'object'
-              && !Array.isArray(man.academicCaptureProvenance)
-              ? {
-                  sourceType: String(man.academicCaptureProvenance.sourceType || '').slice(0, 40),
-                  sourceHost: String(man.academicCaptureProvenance.sourceHost || '').slice(0, 255),
-                  sourcePageUrl: String(man.academicCaptureProvenance.sourcePageUrl || '').slice(0, 2000),
-                  pdfUrl: String(man.academicCaptureProvenance.pdfUrl || '').slice(0, 2000),
-                  confidenceScore: Number(man.academicCaptureProvenance.confidenceScore) || 0,
-                  capturedAt: man.academicCaptureProvenance.capturedAt || null,
-                  reviewedByUser: man.academicCaptureProvenance.reviewedByUser === true
-                }
-              : null,
-            currentVersion: man.currentVersion || '1.0',
-            plannedFigures: Array.isArray(man.plannedFigures) ? man.plannedFigures : [],
-            notes: man.notes || null,
-            createdAt: man.createdAt,
-            updatedAt: man.updatedAt
-          }));
-        }
-
-        // 4. Convert Submissions
-        if (Array.isArray(importJson.submissions)) {
-          newDb.submissions = importJson.submissions.map(sub => {
-            let compliance = {};
-            if (sub.complianceChecklist && typeof sub.complianceChecklist === 'object' && !Array.isArray(sub.complianceChecklist)) {
-              compliance = sub.complianceChecklist;
-            }
-            const status = sub.status || 'submitted';
-            const importedSubmission = {
-              status,
-              acceptedAt: sub.acceptedAt || null,
-              publishedAt: sub.publishedAt || null,
-              decisionDate: sub.decisionDate || sub.decisionAt || null,
-              timelineNodes: Array.isArray(sub.timelineNodes) ? sub.timelineNodes : []
-            };
-            const keepPublicationLink = canHavePublicationLink(importedSubmission);
-            const doi = keepPublicationLink
-              ? normalizeDoi(sub.doi || sub.DOI || extractDoiFromText(sub.notes || ''))
-              : '';
-            return {
-              id: sub.id,
-              userId: sub.userId || 'user',
-              manuscriptId: sub.manuscriptId,
-              projectId: sub.projectId || null,
-              firstAuthor: sub.firstAuthor || firstAuthorFromList(sub.authors) || null,
-              targetJournal: sub.targetJournal || sub.journalName || '',
-              journalUrl: sub.journalUrl || sub.submissionUrl || null,
-              doi: doi || null,
-              articleUrl: keepPublicationLink ? (sub.articleUrl || sub.publicationUrl || sub.url || null) : null,
-              status,
-              submissionDate: sub.submissionDate || sub.submittedAt || null,
-              decisionDate: sub.decisionDate || sub.decisionAt || null,
-              firstDecisionDate: sub.firstDecisionDate || null,
-              revisionDueDate: sub.revisionDueDate || sub.revisionDeadline || null,
-              notes: sub.notes || null,
-              complianceChecklist: compliance,
-              complianceChecklistKeys: Array.isArray(sub.complianceChecklistKeys)
-                ? sub.complianceChecklistKeys
-                  .filter(item => item && typeof item === 'object')
-                  .map(item => ({
-                    key: String(item.key || '').trim(),
-                    label: String(item.label || item.key || '').trim()
-                  }))
-                  .filter(item => item.key && item.label)
-                : undefined,
-              reviewMatrix: Array.isArray(sub.reviewMatrix)
-                ? sub.reviewMatrix
-                : (Array.isArray(sub.reviewRounds) ? sub.reviewRounds : []),
-              timelineNodes: Array.isArray(sub.timelineNodes) ? sub.timelineNodes : [],
-              previousSubmissionId: sub.previousSubmissionId || null,
-              previousJournal: sub.previousJournal || null,
-              roundIndex: Number.isFinite(Number(sub.roundIndex)) && Number(sub.roundIndex) > 0
-                ? Number(sub.roundIndex)
-                : 1,
-              rejectedAt: sub.rejectedAt || null,
-              rejectionNote: sub.rejectionNote || null,
-              acceptedAt: sub.acceptedAt || null,
-              publishedAt: sub.publishedAt || null,
-              externalManuscriptId: sub.externalManuscriptId || null,
-              customFields: sub.customFields && typeof sub.customFields === 'object' && !Array.isArray(sub.customFields)
-                ? sub.customFields
-                : {},
-              createdAt: sub.createdAt,
-              updatedAt: sub.updatedAt
-            };
-          });
-        }
-
-        // 5. Convert Achievements
-        if (Array.isArray(importJson.achievements)) {
-          newDb.achievements = importJson.achievements.map(ach => ({
-            id: ach.id,
-            userId: ach.userId || 'user',
-            title: ach.title,
-            achievementType: ach.achievementType,
-            description: ach.description || null,
-            date: ach.date,
-            role: ach.role,
-            doi: ach.doi || null,
-            url: ach.url || null,
-            journal: ach.journal || null,
-            volume: ach.volume || null,
-            pages: ach.pages || null,
-            impactSummary: ach.impactSummary || null,
-            metadata: ach.metadata || {},
-            tags: Array.isArray(ach.tags) ? ach.tags : [],
-            createdAt: ach.createdAt,
-            updatedAt: ach.updatedAt
-          }));
-        }
-
-        // 6. Convert Honors
-        if (Array.isArray(importJson.honorOpportunities)) {
-          newDb.honorOpportunities = importJson.honorOpportunities;
-        }
-        if (Array.isArray(importJson.honorApplications)) {
-          newDb.honorApplications = importJson.honorApplications;
-        }
-        if (Array.isArray(importJson.tasks)) {
-          newDb.tasks = importJson.tasks;
-        }
-
-        // Native backups must round-trip tombstones, capture provenance and extension fields.
-        // Legacy conversions above remain available for older third-party formats.
-        if (Number(importJson.schemaVersion) === 7) {
-          Object.assign(newDb, importJson, { settings: newDb.settings, deviceId: db.deviceId, revision: db.revision });
-          for (const key of ['researchAreas', 'projects', 'researchRecords', 'manuscripts', 'submissions', 'tasks']) {
-            newDb[key] = Array.isArray(importJson[key]) ? importJson[key] : [];
-          }
-          newDb.deletedEntities = importJson.deletedEntities || {};
-        }
-        syncManuscriptStatusesFromSubmissions(newDb);
-        const normalizedImport = await window.storage.ensureDbShape(newDb, { stamp: false });
-        const safeCurrentDb = window.storage.sanitizeDatabaseForExternalUse(db);
-        await new Promise((resolve, reject) => {
-          RFPlatform.storage.local.set({
-            [PRE_IMPORT_BACKUP_KEY]: {
-              database: safeCurrentDb,
-              createdAt: new Date().toISOString(),
-              sourceFileName: String(file.name || '').slice(0, 260)
-            }
-          }, () => {
-            if (RFPlatform.runtime.lastError) {
-              reject(new Error(`Unable to create the pre-import backup: ${RFPlatform.runtime.lastError.message}`));
-              return;
-            }
-            resolve();
-          });
-        });
-
-        // Only replace the in-memory cache after parsing, conversion,
-        // normalization and recovery-backup creation have all succeeded.
-        db = await window.storage.saveAll(normalizedImport, { replace: true, expectedRevision: db.revision });
-        await renderAllViews();
-        await loadSettings();
-        showGlobalToast(t('databaseImported'), 'success');
+        const mode = e.target.dataset.importMode === "overwrite" ? "overwrite" : "merge";
+        delete e.target.dataset.importMode;
+        await window.storage.importDatabase(importedData, mode);
+        db = await window.storage.loadAll();
+        currentLanguage = resolvePreferredLanguage();
+        applyThemePreference(db?.settings?.profile?.theme);
+        applyLanguage();
+        renderDashboard();
+        renderKanban();
+        renderSubmissions();
+        await renderSettings2();
+        showGlobalToast(t("databaseImported"), "success");
       } catch (err) {
-        console.error('Failed to import database JSON.', err);
-        showGlobalToast(err.message || t('invalidBackup'), 'error');
-      } finally {
-        e.target.value = '';
+        console.error(err);
+        showGlobalToast((currentLanguage === "zh" ? "导入 JSON 失败：" : "Failed to parse JSON: ") + err.message, "error");
       }
     };
-    reader.onerror = () => {
-      e.target.value = '';
-      showGlobalToast(t('invalidBackup'), 'error');
-    };
     reader.readAsText(file);
+    e.target.value = "";
   });
-}
-
-// --- DYNAMIC DIALOG MODAL CONTROLLER ---
-
+  document.getElementById("btn-refresh-conflicts")?.addEventListener("click", () => {
+    refreshConflictDrafts2();
+  });
+  var settingsViewExports = {
+    getDeviceSyncSecretsFromInputs,
+    renderSettings: renderSettings2,
+    updateSyncRouteNotice,
+    saveSettingsFromInputs,
+    stripCredentialsForExport,
+    buildPrivacySafeDiagnostics,
+    MAX_IMPORT_DATABASE_BYTES,
+    isValidImportedDatabaseObject,
+    formatConflictValue,
+    renderConflictValueCell,
+    formatConflictTimestamp,
+    refreshConflictDrafts: refreshConflictDrafts2,
+    openConflictRecoveryModal,
+    setupSettingsListeners
+  };
+  if (typeof globalThis !== "undefined") {
+    Object.assign(globalThis, settingsViewExports);
+  }
+  if (typeof window !== "undefined") {
+    Object.assign(window, settingsViewExports);
+  }
+  if (typeof module !== "undefined" && module.exports) {
+    module.exports = { ...module.exports || {}, ...settingsViewExports };
+  }
+})();

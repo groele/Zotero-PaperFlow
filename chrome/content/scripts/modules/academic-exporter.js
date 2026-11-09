@@ -1,352 +1,430 @@
-/**
- * Zotero PaperFlow - Academic Rebuttal Matrix & Response Letter Exporter
- * Standalone domain engine for LaTeX, Word-HTML, Markdown, and Table academic rebuttal letters,
- * revision cover letters, review comment batch parsing, and rebuttal progress metrics tracking.
- */
-
-(function (root, factory) {
-  if (typeof define === 'function' && define.amd) {
-    define([], factory);
-  } else if (typeof module === 'object' && module.exports) {
-    module.exports = factory();
-  } else {
-    const exports = factory();
-    root.RFAcademicExport = exports;
-    if (typeof window !== 'undefined') {
-      window.RFAcademicExport = exports;
-      window.escapeLatexText = exports.escapeLatexText;
-      window.safeEscapeLatex = exports.safeEscapeLatex;
-      window.copyRebuttalRichText = exports.copyRebuttalRichText;
-      window.generateAcademicRebuttalLetter = exports.generateAcademicRebuttalLetter;
-      window.parseReviewCommentsBatch = exports.parseReviewCommentsBatch;
-      window.renderRebuttalProgressTracker = exports.renderRebuttalProgressTracker;
-      window.generateRevisionCoverLetter = exports.generateRevisionCoverLetter;
-      window.openBatchReviewImportModal = exports.openBatchReviewImportModal;
-    }
-  }
-})(typeof globalThis !== 'undefined' ? globalThis : this, function () {
-
+"use strict";
+(() => {
+  // src/modules/academic-exporter/latex-helpers.ts
   function getSubmissionReviewMatrixRows(sub) {
     if (!sub) return [];
     if (Array.isArray(sub.reviewMatrix)) return sub.reviewMatrix;
     if (Array.isArray(sub.reviews)) return sub.reviews;
     return [];
   }
-
   function escapeLatexText(value) {
-    return String(value ?? '')
-      .replace(/\\/g, '\\textbackslash{}')
-      .replace(/([&%#_{}])/g, '\\$1')
-      .replace(/\$/g, '\\$')
-      .replace(/\^/g, '\\textasciicircum{}')
-      .replace(/~/g, '\\textasciitilde{}')
-      .replace(/\r?\n\r?\n/g, '\\par\\medskip ')
-      .replace(/\r?\n/g, '\\par ');
+    return String(value ?? "").replace(/\\/g, "\\textbackslash{}").replace(/([&%#_{}])/g, "\\$1").replace(/\$/g, "\\$").replace(/\^/g, "\\textasciicircum{}").replace(/~/g, "\\textasciitilde{}").replace(/\r?\n\r?\n/g, "\\par\\medskip ").replace(/\r?\n/g, "\\par ");
   }
-
   function safeEscapeLatex(value) {
-    if (typeof escapeLatex === 'function') {
+    if (typeof escapeLatex === "function") {
       return escapeLatex(value);
     }
-    return escapeLatexText(value).replace(/\\par\s*/g, ' ');
+    return escapeLatexText(value).replace(/\\par\s*/g, " ");
   }
-
-  async function copyRebuttalRichText(htmlContent, plainFallback) {
-    if (typeof ClipboardItem !== 'undefined' && navigator.clipboard && navigator.clipboard.write) {
+  async function copyRebuttalRichText(htmlContent, plainFallback = "") {
+    const plain = plainFallback || htmlContent.replace(/<[^>]+>/g, "");
+    if (typeof ClipboardItem !== "undefined" && navigator.clipboard && navigator.clipboard.write) {
       try {
-        const blobHtml = new Blob([htmlContent], { type: 'text/html' });
-        const blobText = new Blob([plainFallback], { type: 'text/plain' });
-        const item = new ClipboardItem({ 'text/html': blobHtml, 'text/plain': blobText });
+        const blobHtml = new Blob([htmlContent], { type: "text/html" });
+        const blobText = new Blob([plain], { type: "text/plain" });
+        const item = new ClipboardItem({ "text/html": blobHtml, "text/plain": blobText });
         await navigator.clipboard.write([item]);
         return true;
-      } catch (_) {}
+      } catch (_) {
+      }
     }
-    if (typeof ZoteroBridge !== 'undefined' && ZoteroBridge.copyText) {
-      ZoteroBridge.copyText(plainFallback);
+    if (typeof ZoteroBridge !== "undefined" && ZoteroBridge.copyText) {
+      ZoteroBridge.copyText(plain);
       return true;
     }
-    if (typeof navigator !== 'undefined' && navigator.clipboard && navigator.clipboard.writeText) {
-      await navigator.clipboard.writeText(plainFallback);
+    if (typeof navigator !== "undefined" && navigator.clipboard && navigator.clipboard.writeText) {
+      await navigator.clipboard.writeText(plain);
       return true;
     }
     return false;
   }
 
-  function generateAcademicRebuttalLetter(sub, man, format = 'latex') {
+  // src/modules/academic-exporter/rebuttal-letter.ts
+  function generateAcademicRebuttalLetter(sub, man, format = "latex") {
     const rows = getSubmissionReviewMatrixRows(sub);
-    const paperTitle = man ? man.title : (sub?.title || (typeof t === 'function' ? t('untitledManuscript') : 'Untitled Manuscript'));
-    const authors = (man && man.authors) ? man.authors : ((typeof getSubmissionFirstAuthor === 'function' ? getSubmissionFirstAuthor(sub, man) : null) || 'Authors');
-    const journal = typeof getSubmissionJournalName === 'function' ? getSubmissionJournalName(sub) : (sub?.targetJournal || 'Journal');
-    const msId = sub?.externalManuscriptId ? ` (ID: ${sub.externalManuscriptId})` : '';
-    const dateStr = sub?.revisionDueDate ? sub.revisionDueDate : (typeof todayString === 'function' ? todayString() : new Date().toISOString().slice(0, 10));
+    const paperTitle = man ? man.title : sub?.title || (typeof t === "function" ? t("untitledManuscript") : "Untitled Manuscript");
+    const authors = man && man.authors ? man.authors : (typeof getSubmissionFirstAuthor === "function" ? getSubmissionFirstAuthor(sub, man) : null) || "Authors";
+    const journal = typeof getSubmissionJournalName === "function" ? getSubmissionJournalName(sub) : sub?.targetJournal || "Journal";
+    const msId = sub?.externalManuscriptId ? ` (ID: ${sub.externalManuscriptId})` : "";
+    const dateStr = sub?.revisionDueDate ? sub.revisionDueDate : typeof todayString === "function" ? todayString() : (/* @__PURE__ */ new Date()).toISOString().slice(0, 10);
+    if (format === "latex") {
+      let out2 = `% =========================================================================
+% Point-by-Point Response to Reviewers
+% Generated by Zotero PaperFlow
+% =========================================================================
+\\documentclass[11pt,a4paper]{article}
+\\usepackage[margin=1in]{geometry}
+\\usepackage{xcolor}
+\\usepackage{tcolorbox}
+\\tcbuselibrary{skins,breakable}
+\\usepackage{booktabs}
+\\usepackage{longtable}
+\\usepackage{enumitem}
+\\usepackage{hyperref}
 
-    if (format === 'latex') {
-      let out = `% =========================================================================\n` +
-                `% Point-by-Point Response to Reviewers\n` +
-                `% Generated by Zotero PaperFlow\n` +
-                `% =========================================================================\n` +
-                `\\documentclass[11pt,a4paper]{article}\n` +
-                `\\usepackage[margin=1in]{geometry}\n` +
-                `\\usepackage{xcolor}\n` +
-                `\\usepackage{tcolorbox}\n` +
-                `\\tcbuselibrary{skins,breakable}\n` +
-                `\\usepackage{booktabs}\n` +
-                `\\usepackage{longtable}\n` +
-                `\\usepackage{enumitem}\n` +
-                `\\usepackage{hyperref}\n\n` +
-                `% Color definitions\n` +
-                `\\definecolor{revcolor}{RGB}{239, 246, 255}\n` +
-                `\\definecolor{revframe}{RGB}{59, 130, 246}\n` +
-                `\\definecolor{respcolor}{RGB}{240, 253, 244}\n` +
-                `\\definecolor{respframe}{RGB}{34, 197, 94}\n` +
-                `\\definecolor{changecolor}{RGB}{254, 243, 199}\n` +
-                `\\definecolor{changeframe}{RGB}{217, 119, 6}\n\n` +
-                `% Academic callout boxes\n` +
-                `\\newtcolorbox{commentbox}[1][]{colback=revcolor,colframe=revframe,arc=2mm,boxrule=0.9pt,left=10pt,right=10pt,top=8pt,bottom=8pt,breakable,#1}\n` +
-                `\\newtcolorbox{responsebox}[1][]{colback=respcolor,colframe=respframe,arc=2mm,boxrule=0.9pt,left=10pt,right=10pt,top=8pt,bottom=8pt,breakable,#1}\n` +
-                `\\newtcolorbox{changesbox}[1][]{colback=changecolor,colframe=changeframe,arc=1.5mm,boxrule=0.7pt,left=8pt,right=8pt,top=6pt,bottom=6pt,breakable,#1}\n\n` +
-                `\\begin{document}\n\n` +
-                `\\begin{center}\n` +
-                `  {\\LARGE \\bf Point-by-Point Response to Reviewers} \\\\[0.6em]\n` +
-                `  {\\large \\textbf{Manuscript: } ${safeEscapeLatex(paperTitle)}} \\\\[0.3em]\n` +
-                `  {\\normalsize \\textbf{Journal: } ${safeEscapeLatex(journal)}${safeEscapeLatex(msId)}} \\\\[0.2em]\n` +
-                `  {\\normalsize \\textbf{Authors: } ${safeEscapeLatex(authors)}} \\\\[0.2em]\n` +
-                `  {\\small \\textbf{Date: } ${safeEscapeLatex(dateStr)}}\n` +
-                `\\end{center}\n\n` +
-                `\\vspace{1em}\n` +
-                `\\noindent Dear Editor and Reviewers,\\par\\medskip\n` +
-                `\\noindent We sincerely thank the Editor and the Reviewers for their constructive comments and suggestions regarding our manuscript. We have carefully considered all comments and made corresponding revisions to the manuscript. Below is our detailed point-by-point response.\\par\\vspace{1.5em}\n\n` +
-                `\\section*{Point-by-Point Responses}\n\n`;
+% Color definitions
+\\definecolor{revcolor}{RGB}{239, 246, 255}
+\\definecolor{revframe}{RGB}{59, 130, 246}
+\\definecolor{respcolor}{RGB}{240, 253, 244}
+\\definecolor{respframe}{RGB}{34, 197, 94}
+\\definecolor{changecolor}{RGB}{254, 243, 199}
+\\definecolor{changeframe}{RGB}{217, 119, 6}
 
+% Academic callout boxes
+\\newtcolorbox{commentbox}[1][]{colback=revcolor,colframe=revframe,arc=2mm,boxrule=0.9pt,left=10pt,right=10pt,top=8pt,bottom=8pt,breakable,#1}
+\\newtcolorbox{responsebox}[1][]{colback=respcolor,colframe=respframe,arc=2mm,boxrule=0.9pt,left=10pt,right=10pt,top=8pt,bottom=8pt,breakable,#1}
+\\newtcolorbox{changesbox}[1][]{colback=changecolor,colframe=changeframe,arc=1.5mm,boxrule=0.7pt,left=8pt,right=8pt,top=6pt,bottom=6pt,breakable,#1}
+
+\\begin{document}
+
+\\begin{center}
+  {\\LARGE \\bf Point-by-Point Response to Reviewers} \\\\[0.6em]
+  {\\large \\textbf{Manuscript: } ${safeEscapeLatex(paperTitle)}} \\\\[0.3em]
+  {\\normalsize \\textbf{Journal: } ${safeEscapeLatex(journal)}${safeEscapeLatex(msId)}} \\\\[0.2em]
+  {\\normalsize \\textbf{Authors: } ${safeEscapeLatex(authors)}} \\\\[0.2em]
+  {\\small \\textbf{Date: } ${safeEscapeLatex(dateStr)}}
+\\end{center}
+
+\\vspace{1em}
+\\noindent Dear Editor and Reviewers,\\par\\medskip
+\\noindent We sincerely thank the Editor and the Reviewers for their constructive comments and suggestions regarding our manuscript. We have carefully considered all comments and made corresponding revisions to the manuscript. Below is our detailed point-by-point response.\\par\\vspace{1.5em}
+
+\\section*{Point-by-Point Responses}
+
+`;
       rows.forEach((r, idx) => {
         const reviewerTag = r.reviewer ? r.reviewer : `Reviewer Comment \\#${idx + 1}`;
-        const escapedCmt = escapeLatexText(r.comment || '');
-        const escapedResp = escapeLatexText(r.response || '');
-        const escapedChanges = r.changes ? escapeLatexText(r.changes) : '';
+        const escapedCmt = escapeLatexText(r.comment || "");
+        const escapedResp = escapeLatexText(r.response || "");
+        const escapedChanges = r.changes ? escapeLatexText(r.changes) : "";
+        out2 += `\\noindent\\textbf{${safeEscapeLatex(reviewerTag)}} \\\\[0.3em]
+\\begin{commentbox}
+\\textbf{Comment:} ${escapedCmt}
+\\end{commentbox}
 
-        out += `\\noindent\\textbf{${safeEscapeLatex(reviewerTag)}} \\\\[0.3em]\n` +
-               `\\begin{commentbox}\n` +
-               `\\textbf{Comment:} ${escapedCmt}\n` +
-               `\\end{commentbox}\n\n` +
-               `\\begin{responsebox}\n` +
-               `\\textbf{Response:} ${escapedResp}\n` +
-               `\\end{responsebox}\n\n`;
+\\begin{responsebox}
+\\textbf{Response:} ${escapedResp}
+\\end{responsebox}
 
+`;
         if (escapedChanges) {
-          out += `\\begin{changesbox}\n` +
-                 `\\textbf{\\textit{Manuscript Changes:}} ${escapedChanges}\n` +
-                 `\\end{changesbox}\n\n`;
+          out2 += `\\begin{changesbox}
+\\textbf{\\textit{Manuscript Changes:}} ${escapedChanges}
+\\end{changesbox}
+
+`;
         }
-        out += `\\vspace{0.8em}\n\n`;
+        out2 += `\\vspace{0.8em}
+
+`;
       });
+      out2 += `\\newpage
+\\section*{Rebuttal Matrix Summary Table}
 
-      out += `\\newpage\n` +
-             `\\section*{Rebuttal Matrix Summary Table}\n\n` +
-             `\\begin{longtable}{p{0.12\\textwidth} p{0.45\\textwidth} p{0.37\\textwidth}}\n` +
-             `\\toprule\n` +
-             `\\textbf{\\# / Reviewer} & \\textbf{Reviewer Comment} & \\textbf{Author Response \\& Changes} \\\\ \\midrule\n` +
-             `\\endhead\n` +
-             `\\bottomrule\n` +
-             `\\endfoot\n`;
-
+\\begin{longtable}{p{0.12\\textwidth} p{0.45\\textwidth} p{0.37\\textwidth}}
+\\toprule
+\\textbf{\\# / Reviewer} & \\textbf{Reviewer Comment} & \\textbf{Author Response \\& Changes} \\\\ \\midrule
+\\endhead
+\\bottomrule
+\\endfoot
+`;
       rows.forEach((r, idx) => {
         const rev = safeEscapeLatex(r.reviewer || `Cmt #${idx + 1}`);
-        const cmt = safeEscapeLatex(r.comment || '').slice(0, 150);
-        const resp = safeEscapeLatex(r.response || '').slice(0, 150);
-        const chg = r.changes ? ` \\textit{[Changes: ${safeEscapeLatex(r.changes)}]}` : '';
-        out += `${rev} & ${cmt} & ${resp}${chg} \\\\ \\midrule\n`;
+        const cmt = safeEscapeLatex(r.comment || "").slice(0, 150);
+        const resp = safeEscapeLatex(r.response || "").slice(0, 150);
+        const chg = r.changes ? ` \\textit{[Changes: ${safeEscapeLatex(r.changes)}]}` : "";
+        out2 += `${rev} & ${cmt} & ${resp}${chg} \\\\ \\midrule
+`;
       });
+      out2 += `\\end{longtable}
 
-      out += `\\end{longtable}\n\n` +
-             `\\vspace{1.5em}\n` +
-             `\\noindent We hope that the revised manuscript now meets the high standards of \\textit{${safeEscapeLatex(journal)}}.\\par\\vspace{1em}\n` +
-             `\\noindent Sincerely,\\\\\n` +
-             `\\noindent The Authors\n\n` +
-             `\\end{document}\n`;
+\\vspace{1.5em}
+\\noindent We hope that the revised manuscript now meets the high standards of \\textit{${safeEscapeLatex(journal)}}.\\par\\vspace{1em}
+\\noindent Sincerely,\\\\
+\\noindent The Authors
 
-      return out;
+\\end{document}
+`;
+      return out2;
     }
+    if (format === "md") {
+      let out2 = `# Point-by-Point Response to Reviewers
 
-    if (format === 'md') {
-      let out = `# Point-by-Point Response to Reviewers\n\n` +
-                `- **Manuscript Title:** ${paperTitle}\n` +
-                `- **Target Journal:** ${journal}${msId}\n` +
-                `- **Authors:** ${authors}\n` +
-                `- **Date:** ${dateStr}\n\n` +
-                `---\n\n` +
-                `### Dear Editor and Reviewers,\n\n` +
-                `We sincerely thank the Editor and the Reviewers for their constructive comments and suggestions regarding our manuscript. We have carefully addressed each comment and revised the manuscript accordingly. A detailed point-by-point response is provided below.\n\n` +
-                `---\n\n` +
-                `## Summary of Revisions\n\n` +
-                `| # | Reviewer | Comment Summary | Author Response & Manuscript Changes |\n` +
-                `|---|---|---|---|\n`;
+- **Manuscript Title:** ${paperTitle}
+- **Target Journal:** ${journal}${msId}
+- **Authors:** ${authors}
+- **Date:** ${dateStr}
 
+---
+
+### Dear Editor and Reviewers,
+
+We sincerely thank the Editor and the Reviewers for their constructive comments and suggestions regarding our manuscript. We have carefully addressed each comment and revised the manuscript accordingly. A detailed point-by-point response is provided below.
+
+---
+
+## Summary of Revisions
+
+| # | Reviewer | Comment Summary | Author Response & Manuscript Changes |
+|---|---|---|---|
+`;
       rows.forEach((r, idx) => {
-        const rev = (r.reviewer || `Comment #${idx + 1}`).replace(/\|/g, '\\|');
-        const cmt = (r.comment || '').slice(0, 120).replace(/\|/g, '\\|').replace(/\r?\n/g, ' ');
-        const resp = (r.response || '').slice(0, 120).replace(/\|/g, '\\|').replace(/\r?\n/g, ' ');
-        const chg = r.changes ? ` *(Changes: ${r.changes.replace(/\|/g, '\\|')})*` : '';
-        out += `| ${idx + 1} | ${rev} | ${cmt} | ${resp}${chg} |\n`;
+        const rev = (r.reviewer || `Comment #${idx + 1}`).replace(/\|/g, "\\|");
+        const cmt = (r.comment || "").slice(0, 120).replace(/\|/g, "\\|").replace(/\r?\n/g, " ");
+        const resp = (r.response || "").slice(0, 120).replace(/\|/g, "\\|").replace(/\r?\n/g, " ");
+        const chg = r.changes ? ` *(Changes: ${r.changes.replace(/\|/g, "\\|")})*` : "";
+        out2 += `| ${idx + 1} | ${rev} | ${cmt} | ${resp}${chg} |
+`;
       });
+      out2 += `
+---
 
-      out += `\n---\n\n` +
-             `## Detailed Point-by-Point Responses\n\n`;
+## Detailed Point-by-Point Responses
 
+`;
       rows.forEach((r, idx) => {
         const revTitle = r.reviewer ? `${r.reviewer} — Comment #${idx + 1}` : `Comment #${idx + 1}`;
-        out += `### ${revTitle}\n\n` +
-               `> **Reviewer Comment:**  \n` +
-               `> ${(r.comment || '').split(/\r?\n/).join('\n> ')}\n\n` +
-               `**Author Response:**  \n` +
-               `${r.response || '*Response pending*'}\n\n`;
+        out2 += `### ${revTitle}
 
+> **Reviewer Comment:**  
+> ${(r.comment || "").split(/\r?\n/).join("\n> ")}
+
+**Author Response:**  
+${r.response || "*Response pending*"}
+
+`;
         if (r.changes) {
-          out += `**Manuscript Changes:**  \n` +
-                 `> 📝 *${r.changes}*\n\n`;
+          out2 += `**Manuscript Changes:**  
+> 📝 *${r.changes}*
+
+`;
         }
-        out += `---\n\n`;
+        out2 += `---
+
+`;
       });
+      out2 += `We hope these revisions and clarifications address the reviewers' concerns satisfactorily.
 
-      out += `We hope these revisions and clarifications address the reviewers' concerns satisfactorily.\n\n` +
-             `Sincerely,  \n` +
-             `The Authors\n`;
-      return out;
+Sincerely,  
+The Authors
+`;
+      return out2;
     }
-
-    if (format === 'word' || format === 'html') {
-      const esc = typeof escapeHTML === 'function' ? escapeHTML : (s => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'));
-      let out = `<!DOCTYPE html>\n` +
-                `<html>\n` +
-                `<head>\n` +
-                `<meta charset="utf-8">\n` +
-                `<title>Response to Reviewers - ${esc(paperTitle)}</title>\n` +
-                `<style>\n` +
-                `  body { font-family: 'Times New Roman', Times, serif; font-size: 12pt; line-height: 1.5; color: #111827; margin: 40px auto; max-width: 820px; }\n` +
-                `  h1 { font-size: 18pt; text-align: center; margin-bottom: 8px; }\n` +
-                `  .meta-box { border-bottom: 1.5pt solid #333; padding-bottom: 12px; margin-bottom: 24px; font-size: 11pt; }\n` +
-                `  .comment-card { background: #f0f7ff; border-left: 4pt solid #2563eb; padding: 10pt 14pt; margin: 12pt 0 6pt 0; border-radius: 4px; }\n` +
-                `  .response-card { background: #f0fdf4; border-left: 4pt solid #16a34a; padding: 10pt 14pt; margin: 6pt 0 6pt 0; border-radius: 4px; }\n` +
-                `  .changes-card { background: #fefce8; border-left: 3pt solid #d97706; padding: 6pt 12pt; margin: 6pt 0 16pt 0; font-size: 11pt; border-radius: 4px; }\n` +
-                `  table.matrix-table { width: 100%; border-collapse: collapse; margin: 20px 0; font-size: 10.5pt; }\n` +
-                `  table.matrix-table th, table.matrix-table td { border: 1pt solid #cbd5e1; padding: 8pt 10pt; vertical-align: top; text-align: left; }\n` +
-                `  table.matrix-table th { background: #f1f5f9; font-weight: bold; }\n` +
-                `  .reviewer-pill { background: #e0e7ff; color: #3730a3; padding: 2px 6px; border-radius: 3px; font-size: 10pt; font-weight: 600; display: inline-block; }\n` +
-                `</style>\n` +
-                `</head>\n` +
-                `<body>\n` +
-                `<h1>Point-by-Point Response to Reviewers</h1>\n` +
-                `<div class="meta-box">\n` +
-                `  <p><strong>Manuscript Title:</strong> ${esc(paperTitle)}</p>\n` +
-                `  <p><strong>Target Journal:</strong> ${esc(journal)}${esc(msId)}</p>\n` +
-                `  <p><strong>Authors:</strong> ${esc(authors)}</p>\n` +
-                `  <p><strong>Date:</strong> ${esc(dateStr)}</p>\n` +
-                `</div>\n` +
-                `<p>Dear Editor and Reviewers,</p>\n` +
-                `<p>We sincerely thank the Editor and the Reviewers for their constructive comments and valuable suggestions on our manuscript. We have carefully addressed each point raised and revised the manuscript accordingly. A point-by-point response is detailed below.</p>\n` +
-                `<h2>Detailed Point-by-Point Responses</h2>\n`;
-
+    if (format === "word" || format === "html") {
+      const esc = typeof escapeHTML === "function" ? escapeHTML : ((s) => String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;"));
+      let out2 = `<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Response to Reviewers - ${esc(paperTitle)}</title>
+<style>
+  body { font-family: 'Times New Roman', Times, serif; font-size: 12pt; line-height: 1.5; color: #111827; margin: 40px auto; max-width: 820px; }
+  h1 { font-size: 18pt; text-align: center; margin-bottom: 8px; }
+  .meta-box { border-bottom: 1.5pt solid #333; padding-bottom: 12px; margin-bottom: 24px; font-size: 11pt; }
+  .comment-card { background: #f0f7ff; border-left: 4pt solid #2563eb; padding: 10pt 14pt; margin: 12pt 0 6pt 0; border-radius: 4px; }
+  .response-card { background: #f0fdf4; border-left: 4pt solid #16a34a; padding: 10pt 14pt; margin: 6pt 0 6pt 0; border-radius: 4px; }
+  .changes-card { background: #fefce8; border-left: 3pt solid #d97706; padding: 6pt 12pt; margin: 6pt 0 16pt 0; font-size: 11pt; border-radius: 4px; }
+  table.matrix-table { width: 100%; border-collapse: collapse; margin: 20px 0; font-size: 10.5pt; }
+  table.matrix-table th, table.matrix-table td { border: 1pt solid #cbd5e1; padding: 8pt 10pt; vertical-align: top; text-align: left; }
+  table.matrix-table th { background: #f1f5f9; font-weight: bold; }
+  .reviewer-pill { background: #e0e7ff; color: #3730a3; padding: 2px 6px; border-radius: 3px; font-size: 10pt; font-weight: 600; display: inline-block; }
+</style>
+</head>
+<body>
+<h1>Point-by-Point Response to Reviewers</h1>
+<div class="meta-box">
+  <p><strong>Manuscript Title:</strong> ${esc(paperTitle)}</p>
+  <p><strong>Target Journal:</strong> ${esc(journal)}${esc(msId)}</p>
+  <p><strong>Authors:</strong> ${esc(authors)}</p>
+  <p><strong>Date:</strong> ${esc(dateStr)}</p>
+</div>
+<p>Dear Editor and Reviewers,</p>
+<p>We sincerely thank the Editor and the Reviewers for their constructive comments and valuable suggestions on our manuscript. We have carefully addressed each point raised and revised the manuscript accordingly. A point-by-point response is detailed below.</p>
+<h2>Detailed Point-by-Point Responses</h2>
+`;
       rows.forEach((r, idx) => {
         const rev = r.reviewer ? esc(r.reviewer) : `Reviewer Comment #${idx + 1}`;
-        const cmt = esc(r.comment || '').replace(/\r?\n/g, '<br/>');
-        const resp = esc(r.response || '').replace(/\r?\n/g, '<br/>');
-        const chg = r.changes ? esc(r.changes) : '';
-
-        out += `<div style="margin-top:16pt;">\n` +
-               `  <div style="font-weight:bold; font-size:12pt; margin-bottom:4pt;">` +
-               `    <span class="reviewer-pill">${rev}</span> <span style="color:#64748b; font-size:11pt;">— Comment #${idx + 1}</span>` +
-               `  </div>\n` +
-               `  <div class="comment-card"><strong>Reviewer Comment:</strong><br/>${cmt || '<em>No comment recorded</em>'}</div>\n` +
-               `  <div class="response-card"><strong>Author Response:</strong><br/>${resp || '<em>Response pending</em>'}</div>\n`;
-
+        const cmt = esc(r.comment || "").replace(/\r?\n/g, "<br/>");
+        const resp = esc(r.response || "").replace(/\r?\n/g, "<br/>");
+        const chg = r.changes ? esc(r.changes) : "";
+        out2 += `<div style="margin-top:16pt;">
+  <div style="font-weight:bold; font-size:12pt; margin-bottom:4pt;">    <span class="reviewer-pill">${rev}</span> <span style="color:#64748b; font-size:11pt;">— Comment #${idx + 1}</span>  </div>
+  <div class="comment-card"><strong>Reviewer Comment:</strong><br/>${cmt || "<em>No comment recorded</em>"}</div>
+  <div class="response-card"><strong>Author Response:</strong><br/>${resp || "<em>Response pending</em>"}</div>
+`;
         if (chg) {
-          out += `  <div class="changes-card"><strong>📝 Manuscript Changes:</strong> ${chg}</div>\n`;
+          out2 += `  <div class="changes-card"><strong>📝 Manuscript Changes:</strong> ${chg}</div>
+`;
         }
-        out += `</div>\n`;
+        out2 += `</div>
+`;
       });
-
-      out += `<h2>Summary Table</h2>\n` +
-             `<table class="matrix-table">\n` +
-             `  <thead><tr><th style="width:15%;">Reviewer</th><th style="width:45%;">Comment</th><th style="width:40%;">Response & Changes</th></tr></thead>\n` +
-             `  <tbody>\n`;
-
+      out2 += `<h2>Summary Table</h2>
+<table class="matrix-table">
+  <thead><tr><th style="width:15%;">Reviewer</th><th style="width:45%;">Comment</th><th style="width:40%;">Response & Changes</th></tr></thead>
+  <tbody>
+`;
       rows.forEach((r, idx) => {
         const rev = esc(r.reviewer || `Comment #${idx + 1}`);
-        const cmt = esc(r.comment || '').replace(/\r?\n/g, '<br/>');
-        const resp = esc(r.response || '').replace(/\r?\n/g, '<br/>');
-        const chg = r.changes ? `<br/><small style="color:#b45309;"><strong>📝 Changes:</strong> ${esc(r.changes)}</small>` : '';
-        out += `    <tr><td><strong>${rev}</strong></td><td>${cmt}</td><td>${resp}${chg}</td></tr>\n`;
+        const cmt = esc(r.comment || "").replace(/\r?\n/g, "<br/>");
+        const resp = esc(r.response || "").replace(/\r?\n/g, "<br/>");
+        const chg = r.changes ? `<br/><small style="color:#b45309;"><strong>📝 Changes:</strong> ${esc(r.changes)}</small>` : "";
+        out2 += `    <tr><td><strong>${rev}</strong></td><td>${cmt}</td><td>${resp}${chg}</td></tr>
+`;
       });
-
-      out += `  </tbody>\n` +
-             `</table>\n` +
-             `<p style="margin-top:24pt;">We hope that these revisions satisfy the reviewers' requirements. Sincerely,<br/><strong>The Authors</strong></p>\n` +
-             `</body>\n` +
-             `</html>\n`;
-
-      return out;
+      out2 += `  </tbody>
+</table>
+<p style="margin-top:24pt;">We hope that these revisions satisfy the reviewers' requirements. Sincerely,<br/><strong>The Authors</strong></p>
+</body>
+</html>
+`;
+      return out2;
     }
-
-    // format === 'table'
-    let out = `| # | Reviewer | Comment | Response | Changes |\n` +
-              `|---|---|---|---|---|\n`;
+    let out = `| # | Reviewer | Comment | Response | Changes |
+|---|---|---|---|---|
+`;
     rows.forEach((r, idx) => {
-      const rev = (r.reviewer || '').replace(/\|/g, '\\|');
-      const cmt = (r.comment || '').replace(/\|/g, '\\|').replace(/\r?\n/g, '<br/>');
-      const resp = (r.response || '').replace(/\|/g, '\\|').replace(/\r?\n/g, '<br/>');
-      const chg = (r.changes || '').replace(/\|/g, '\\|');
-      out += `| ${idx + 1} | ${rev} | ${cmt} | ${resp} | ${chg} |\n`;
+      const rev = (r.reviewer || "").replace(/\|/g, "\\|");
+      const cmt = (r.comment || "").replace(/\|/g, "\\|").replace(/\r?\n/g, "<br/>");
+      const resp = (r.response || "").replace(/\|/g, "\\|").replace(/\r?\n/g, "<br/>");
+      const chg = (r.changes || "").replace(/\|/g, "\\|");
+      out += `| ${idx + 1} | ${rev} | ${cmt} | ${resp} | ${chg} |
+`;
     });
     return out;
   }
 
-  function parseReviewCommentsBatch(rawText = '', defaultReviewer = 'Reviewer #1') {
+  // src/modules/academic-exporter/cover-letter.ts
+  function generateRevisionCoverLetter(sub = {}, man = {}, format = "html") {
+    const esc = typeof escapeHTML === "function" ? escapeHTML : ((s) => String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;"));
+    const paperTitle = man.title || sub.title || "Untitled Manuscript";
+    const journal = sub.targetJournal || "the Journal";
+    const firstAuthor = typeof getSubmissionFirstAuthor === "function" ? getSubmissionFirstAuthor(sub, man) : man.authors || sub.firstAuthor || "Author";
+    const authors = man.authors || firstAuthor || "The Authors";
+    const msId = sub.externalManuscriptId ? ` (Manuscript ID: ${sub.externalManuscriptId})` : "";
+    const dateStr = (/* @__PURE__ */ new Date()).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" });
+    const rows = getSubmissionReviewMatrixRows(sub);
+    const totalComments = rows.length;
+    const reviewerSet = new Set(rows.map((r) => r.reviewer || "Reviewer").filter(Boolean));
+    const reviewerCount = reviewerSet.size || 2;
+    if (format === "latex") {
+      return `\\documentclass[11pt]{article}
+\\usepackage[margin=1in]{geometry}
+\\usepackage{charter}
+\\usepackage{microtype}
+\\usepackage{hyperref}
+
+\\begin{document}
+
+\\noindent ${safeEscapeLatex(dateStr)} \\\\[1.5em]
+\\noindent To:\\\\ 
+The Editor-in-Chief / Handling Editor,\\\\ 
+\\textit{${safeEscapeLatex(journal)}}\\\\[1.5em]
+
+\\noindent\\textbf{Subject: Submission of Revised Manuscript${safeEscapeLatex(msId)}}\\\\[0.5em]
+\\textbf{Title:} \`\`${safeEscapeLatex(paperTitle)}''\\\\ 
+\\textbf{Authors:} ${safeEscapeLatex(authors)}\\\\[1.5em]
+
+\\noindent Dear Editor,\\par\\medskip
+
+\\noindent Thank you very much for your letter and the constructive comments from the editorial team and the ${reviewerCount} reviewers regarding our manuscript entitled \`\`\\textbf{${safeEscapeLatex(paperTitle)}}''${safeEscapeLatex(msId)}. We greatly appreciate the time and effort devoted to evaluating our work.\\par\\medskip
+
+\\noindent We have carefully studied all comments and thoroughly revised the manuscript accordingly. In summary, the main revisions include:\\par
+\\begin{itemize}
+  \\item Fully addressing all ${totalComments} comments raised by the reviewers and editor, with corresponding textual and graphical updates.
+  \\item Providing comprehensive experimental and analytical clarifications to strengthen the core arguments.
+  \\item Highlighting all modifications in the revised manuscript and providing a detailed Point-by-Point Response document.
+\\end{itemize}\\par\\medskip
+
+\\noindent We confirm that all authors have approved this revised version and that the work has not been published or submitted elsewhere.\\par\\medskip
+
+\\noindent We believe the revised manuscript has been substantially improved and now meets the high standards of \\textit{${safeEscapeLatex(journal)}}. We look forward to your favorable consideration.\\par\\vspace{2em}
+
+\\noindent Sincerely,\\\\
+\\noindent ${safeEscapeLatex(firstAuthor || authors)}\\\\ 
+\\noindent on behalf of all co-authors
+
+\\end{document}
+`;
+    }
+    if (format === "md") {
+      return `# Cover Letter for Revised Manuscript
+
+**Date:** ${dateStr}  
+**To:** The Editor-in-Chief / Handling Editor, *${journal}*  
+**Subject:** Submission of Revised Manuscript${msId}  
+**Title:** "${paperTitle}"  
+**Authors:** ${authors}  
+
+---
+
+Dear Editor,
+
+Thank you very much for your editorial decision and the constructive feedback from the reviewers regarding our manuscript entitled **"${paperTitle}"**${msId} for publication in *${journal}*.
+
+We have carefully considered all comments and carried out a comprehensive revision of our manuscript. Specifically:
+
+- We have addressed all ${totalComments} comments and suggestions from the ${reviewerCount} reviewers and editor.
+- Additional clarifications, analyses, and data have been integrated into the revised text and figures.
+- All changes in the revised manuscript have been clearly highlighted, and our point-by-point responses are detailed in the accompanying rebuttal document.
+
+All co-authors have reviewed and approved this revised manuscript. We confirm that this work is original and is not under consideration elsewhere.
+
+We hope the revised manuscript is now suitable for publication in *${journal}*, and we look forward to hearing from you.
+
+Sincerely,
+
+**${firstAuthor || authors}**  
+*(On behalf of all co-authors)*
+`;
+    }
+    return `<div style="font-family:'Times New Roman',Times,serif; font-size:12pt; line-height:1.5; color:#111827; max-width:760px; margin:0 auto; padding:24px;"><p style="margin-bottom:16px;">${esc(dateStr)}</p><p style="margin-bottom:20px;">To:<br>The Editor-in-Chief / Handling Editor<br><em>${esc(journal)}</em></p><div style="background:#f8fafc; border-left:4px solid #0284c7; padding:12px 16px; margin-bottom:20px;"><p style="margin:0 0 6px 0; font-weight:bold; font-size:13pt;">Subject: Submission of Revised Manuscript${esc(msId)}</p><p style="margin:0 0 4px 0;"><strong>Title:</strong> “${esc(paperTitle)}”</p><p style="margin:0;"><strong>Authors:</strong> ${esc(authors)}</p></div><p style="margin-bottom:14px;">Dear Editor,</p><p style="margin-bottom:14px;">Thank you very much for your letter and the constructive comments from the reviewers regarding our manuscript entitled <strong>“${esc(paperTitle)}”</strong>${esc(msId)}. We are grateful to the editorial team and the ${reviewerCount} reviewers for their valuable suggestions to strengthen our work.</p><p style="margin-bottom:10px;">We have carefully evaluated all feedback and thoroughly revised our manuscript. In particular:</p><ul style="margin:0 0 16px 24px; padding:0;"><li style="margin-bottom:6px;">We have addressed all ${totalComments} comments raised by the reviewers and editor in detail.</li><li style="margin-bottom:6px;">We have expanded our explanations and integrated necessary additional evidence and figure updates into the manuscript.</li><li style="margin-bottom:6px;">All changes have been clearly highlighted in the revised manuscript, accompanied by our detailed Point-by-Point Response document.</li></ul><p style="margin-bottom:14px;">All co-authors have approved this revised version, and we confirm that this manuscript is not under consideration elsewhere.</p><p style="margin-bottom:24px;">We hope that our revisions satisfactorily address the concerns raised and that the manuscript is now acceptable for publication in <em>${esc(journal)}</em>. We look forward to your decision.</p><p style="margin:0;">Sincerely,</p><p style="margin:6px 0 0 0; font-weight:bold;">${esc(firstAuthor || authors)}</p><p style="margin:2px 0 0 0; font-style:italic; color:#4b5563;">On behalf of all co-authors</p></div>`;
+  }
+
+  // src/modules/academic-exporter/batch-parser.ts
+  function parseReviewCommentsBatch(rawText = "", defaultReviewer = "Reviewer #1") {
     if (!rawText || !rawText.trim()) return [];
     const lines = rawText.split(/\r?\n/);
     const comments = [];
-    let currentReviewer = defaultReviewer || 'Reviewer #1';
+    let currentReviewer = defaultReviewer || "Reviewer #1";
     let currentBuffer = [];
-
     const reviewerRegex = /^(?:(?:Reviewer|Referee|审稿人|评审人|审稿专家)\s*#?\s*([0-9]+|[A-Z一二三四五六七八九十])|(?:Editor(?:-in-Chief)?|Associate\s+Editor|Guest\s+Editor|Handling\s+Editor|主编|副主编|责任编辑|编辑部?)|Comments?\s+from\s+(?:the\s+)?(?:Editor|Reviewers?)|(?:编辑|审稿人|评审人)意见)/i;
     const pointRegex = /^(?:(?:Point|Comment|Issue|Item|Q|问题|意见|建议)\s*#?\s*([0-9]+)[\s.:)-：、]|(?:Major|Minor)\s*(?:Comments?|Points?)\s*#?\s*([0-9]+)[\s.:)-：、]|([0-9]{1,2})[\s.:)-、：]\s*|(\([0-9]{1,2}\)|（[0-9]{1,2}）)\s*|([a-z]\))\s*|[-*•·]\s+)/i;
-    const cnNumMap = { '一': '1', '二': '2', '三': '3', '四': '4', '五': '5', '六': '6', '七': '7', '八': '8', '九': '9', '十': '10' };
-
+    const cnNumMap = { "一": "1", "二": "2", "三": "3", "四": "4", "五": "5", "六": "6", "七": "7", "八": "8", "九": "9", "十": "10" };
     function flushComment() {
-      const text = currentBuffer.join('\n').trim();
+      const text = currentBuffer.join("\n").trim();
       if (text) {
         comments.push({
           id: `rev_${Date.now()}_${Math.random().toString(36).slice(2, 7)}_${comments.length}`,
           reviewer: currentReviewer,
           comment: text,
-          response: '',
-          changes: '',
-          status: 'pending'
+          response: "",
+          changes: "",
+          status: "pending"
         });
       }
       currentBuffer = [];
     }
-
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i].trim();
       if (!line) {
         if (currentBuffer.length > 0) {
-          currentBuffer.push('');
+          currentBuffer.push("");
         }
         continue;
       }
-
       const revMatch = line.match(reviewerRegex);
       if (revMatch) {
         flushComment();
         if (/Editor|主编|编辑/i.test(line)) {
-          currentReviewer = 'Editor';
+          currentReviewer = "Editor";
         } else {
-          const rawRevNum = revMatch[1] || '1';
+          const rawRevNum = revMatch[1] || "1";
           const revNum = cnNumMap[rawRevNum] || rawRevNum;
           currentReviewer = `Reviewer #${revNum}`;
         }
         continue;
       }
-
       const pointMatch = line.match(pointRegex);
       if (pointMatch) {
         flushComment();
@@ -355,346 +433,241 @@
         currentBuffer.push(line);
       }
     }
-
     flushComment();
-
     if (comments.length === 0 && rawText.trim()) {
-      const blocks = rawText.split(/\r?\n\s*\r?\n/).map(b => b.trim()).filter(Boolean);
+      const blocks = rawText.split(/\r?\n\s*\r?\n/).map((b) => b.trim()).filter(Boolean);
       blocks.forEach((block, idx) => {
         comments.push({
           id: `rev_${Date.now()}_${idx}`,
           reviewer: currentReviewer,
           comment: block,
-          response: '',
-          changes: '',
-          status: 'pending'
+          response: "",
+          changes: "",
+          status: "pending"
         });
       });
     }
-
     return comments;
   }
 
+  // src/modules/academic-exporter/progress-tracker.ts
   function renderRebuttalProgressTracker(sub = {}) {
     const rows = getSubmissionReviewMatrixRows(sub);
     const total = rows.length;
-    if (total === 0) return '';
-
-    const esc = typeof escapeHTML === 'function' ? escapeHTML : (s => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'));
-    const addressed = rows.filter(r => r.status === 'addressed' || (!r.status && r.response && r.response.trim().length > 0)).length;
-    const clarified = rows.filter(r => r.status === 'clarified').length;
+    if (total === 0) return "";
+    const esc = typeof escapeHTML === "function" ? escapeHTML : ((s) => String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;"));
+    const addressed = rows.filter((r) => r.status === "addressed" || !r.status && r.response && r.response.trim().length > 0).length;
+    const clarified = rows.filter((r) => r.status === "clarified").length;
     const resolved = addressed + clarified;
-    const inProgress = rows.filter(r => r.status === 'in_progress').length;
-    const pending = rows.filter(r => r.status === 'pending' || (!r.status && (!r.response || !r.response.trim().length))).length;
-    const withChanges = rows.filter(r => Boolean(r.changes && r.changes.trim().length > 0)).length;
-    const percent = Math.round((resolved / total) * 100);
-
-    const reviewerMap = new Map();
-    rows.forEach(r => {
-      const rev = r.reviewer || 'Reviewer';
+    const inProgress = rows.filter((r) => r.status === "in_progress").length;
+    const pending = rows.filter((r) => r.status === "pending" || !r.status && (!r.response || !r.response.trim().length)).length;
+    const withChanges = rows.filter((r) => Boolean(r.changes && r.changes.trim().length > 0)).length;
+    const percent = Math.round(resolved / total * 100);
+    const reviewerMap = /* @__PURE__ */ new Map();
+    rows.forEach((r) => {
+      const rev = r.reviewer || "Reviewer";
       if (!reviewerMap.has(rev)) reviewerMap.set(rev, { total: 0, done: 0 });
       const stat = reviewerMap.get(rev);
       stat.total++;
-      if (r.status === 'addressed' || r.status === 'clarified' || (!r.status && r.response && r.response.trim().length > 0)) {
+      if (r.status === "addressed" || r.status === "clarified" || !r.status && r.response && r.response.trim().length > 0) {
         stat.done++;
       }
     });
-
     const reviewerChips = Array.from(reviewerMap.entries()).map(([rev, stat]) => {
       const isAllDone = stat.done === stat.total;
-      const bg = isAllDone ? 'rgba(34, 197, 94, 0.12)' : 'rgba(234, 179, 8, 0.12)';
-      const color = isAllDone ? '#16a34a' : '#ca8a04';
-      return `<span style="display:inline-flex; align-items:center; gap:4px; font-size:11px; padding:2px 8px; border-radius:12px; background:${bg}; color:${color}; font-weight:600;">` +
-        `<span>${esc(rev)}:</span> <span>${stat.done}/${stat.total}</span>` +
-      `</span>`;
-    }).join(' ');
-
-    const tr = typeof t === 'function' ? t : (k => k);
+      const bg = isAllDone ? "rgba(34, 197, 94, 0.12)" : "rgba(234, 179, 8, 0.12)";
+      const color = isAllDone ? "#16a34a" : "#ca8a04";
+      return `<span style="display:inline-flex; align-items:center; gap:4px; font-size:11px; padding:2px 8px; border-radius:12px; background:${bg}; color:${color}; font-weight:600;"><span>${esc(rev)}:</span> <span>${stat.done}/${stat.total}</span></span>`;
+    }).join(" ");
+    const tr = typeof t === "function" ? t : ((k) => k);
     return `
-      <div class="rebuttal-progress-card">
-        <div class="rebuttal-progress-header">
-          <div class="rebuttal-progress-title-wrap">
-            <span class="rebuttal-progress-icon">
-              <svg class="svg-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M18 20V10M12 20V4M6 20v-6"/></svg>
-            </span>
-            <span class="rebuttal-progress-title">${esc(tr('rebuttalProgressTitle') || '修回攻坚进度')}</span>
-            <span class="badge ${percent === 100 ? 'badge-success' : 'badge-warning'} rebuttal-progress-badge">${percent}% ${percent === 100 ? '100% Completed' : 'In Progress'}</span>
-          </div>
-          <div class="rebuttal-progress-reviewers">
-            ${reviewerChips}
-          </div>
+    <div class="rebuttal-progress-card">
+      <div class="rebuttal-progress-header">
+        <div class="rebuttal-progress-title-wrap">
+          <span class="rebuttal-progress-icon">
+            <svg class="svg-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M18 20V10M12 20V4M6 20v-6"/></svg>
+          </span>
+          <span class="rebuttal-progress-title">${esc(tr("rebuttalProgressTitle") || "修回攻坚进度")}</span>
+          <span class="badge ${percent === 100 ? "badge-success" : "badge-warning"} rebuttal-progress-badge">${percent}% ${percent === 100 ? "100% Completed" : "In Progress"}</span>
         </div>
-        <div class="rebuttal-progress-bar-track">
-          <div class="rebuttal-progress-bar-fill" style="width:${percent}%;"></div>
-        </div>
-        <div class="rebuttal-progress-kpis">
-          <div class="rebuttal-kpi-chip kpi-total">
-            <span class="kpi-label">${esc(tr('rebuttalTotalComments') || '总意见')}:</span>
-            <strong class="kpi-value"><strong>${total}</strong></strong>
-          </div>
-          <div class="rebuttal-kpi-chip kpi-addressed">
-            <span class="kpi-icon">✔</span>
-            <span class="kpi-label">${esc(tr('rebuttalAddressed') || '已答复')}:</span>
-            <strong class="kpi-value">${addressed}</strong>
-          </div>
-          ${clarified > 0 ? `
-          <div class="rebuttal-kpi-chip kpi-clarified">
-            <span class="kpi-icon">💬</span>
-            <span class="kpi-label">${esc(tr('rebuttalClarified') || '已辩明')}:</span>
-            <strong class="kpi-value">${clarified}</strong>
-          </div>` : ''}
-          ${inProgress > 0 ? `
-          <div class="rebuttal-kpi-chip kpi-in-progress">
-            <span class="kpi-icon">⏳</span>
-            <span class="kpi-label">${esc(tr('rebuttalInProgress') || '处理中')}:</span>
-            <strong class="kpi-value">${inProgress}</strong>
-          </div>` : ''}
-          <div class="rebuttal-kpi-chip ${pending > 0 ? 'kpi-pending' : 'kpi-all-clear'}">
-            <span class="kpi-icon">⭕</span>
-            <span class="kpi-label">${esc(tr('rebuttalPending') || '待答复')}:</span>
-            <strong class="kpi-value">${pending}</strong>
-          </div>
-          <div class="rebuttal-kpi-chip kpi-changes">
-            <span class="kpi-icon">📝</span>
-            <span class="kpi-label">${esc(tr('rebuttalChangesNoted') || '已标定改动')}:</span>
-            <strong class="kpi-value">${withChanges}</strong>
-          </div>
+        <div class="rebuttal-progress-reviewers">
+          ${reviewerChips}
         </div>
       </div>
-    `;
+      <div class="rebuttal-progress-bar-track">
+        <div class="rebuttal-progress-bar-fill ${percent === 100 ? "is-complete" : ""}" style="width:${percent}%;"></div>
+      </div>
+      <div class="rebuttal-progress-kpis">
+        <div class="rebuttal-kpi-chip kpi-total">
+          <span class="kpi-label">${esc(tr("rebuttalTotalComments") || "总意见")}:</span>
+          <strong class="kpi-value"><strong>${total}</strong></strong>
+        </div>
+        <div class="rebuttal-kpi-chip kpi-addressed">
+          <span class="kpi-icon">✔</span>
+          <span class="kpi-label">${esc(tr("rebuttalAddressed") || "已答复")}:</span>
+          <strong class="kpi-value">${addressed}</strong>
+        </div>
+        ${clarified > 0 ? `
+        <div class="rebuttal-kpi-chip kpi-clarified">
+          <span class="kpi-icon">💬</span>
+          <span class="kpi-label">${esc(tr("rebuttalClarified") || "已辩明")}:</span>
+          <strong class="kpi-value">${clarified}</strong>
+        </div>` : ""}
+        ${inProgress > 0 ? `
+        <div class="rebuttal-kpi-chip kpi-in-progress">
+          <span class="kpi-icon">⏳</span>
+          <span class="kpi-label">${esc(tr("rebuttalInProgress") || "处理中")}:</span>
+          <strong class="kpi-value">${inProgress}</strong>
+        </div>` : ""}
+        <div class="rebuttal-kpi-chip ${pending > 0 ? "kpi-pending" : "kpi-all-clear"}">
+          <span class="kpi-icon">⭕</span>
+          <span class="kpi-label">${esc(tr("rebuttalPending") || "待答复")}:</span>
+          <strong class="kpi-value">${pending}</strong>
+        </div>
+        <div class="rebuttal-kpi-chip kpi-changes">
+          <span class="kpi-icon">📝</span>
+          <span class="kpi-label">${esc(tr("rebuttalChangesNoted") || "已标定改动")}:</span>
+          <strong class="kpi-value">${withChanges}</strong>
+        </div>
+      </div>
+    </div>
+  `;
   }
 
-  function generateRevisionCoverLetter(sub = {}, man = {}, format = 'html') {
-    const esc = typeof escapeHTML === 'function' ? escapeHTML : (s => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'));
-    const paperTitle = man.title || sub.title || 'Untitled Manuscript';
-    const journal = sub.targetJournal || 'the Journal';
-    const firstAuthor = typeof getSubmissionFirstAuthor === 'function' ? getSubmissionFirstAuthor(sub, man) : (man.authors || sub.firstAuthor || 'Author');
-    const authors = man.authors || firstAuthor || 'The Authors';
-    const msId = sub.externalManuscriptId ? ` (Manuscript ID: ${sub.externalManuscriptId})` : '';
-    const dateStr = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
-    const rows = getSubmissionReviewMatrixRows(sub);
-    const totalComments = rows.length;
-    const reviewerSet = new Set(rows.map(r => r.reviewer || 'Reviewer').filter(Boolean));
-    const reviewerCount = reviewerSet.size || 2;
-
-    if (format === 'latex') {
-      return `\\documentclass[11pt]{article}\n` +
-        `\\usepackage[margin=1in]{geometry}\n` +
-        `\\usepackage{charter}\n` +
-        `\\usepackage{microtype}\n` +
-        `\\usepackage{hyperref}\n\n` +
-        `\\begin{document}\n\n` +
-        `\\noindent ${safeEscapeLatex(dateStr)} \\\\[1.5em]\n` +
-        `\\noindent To:\\\\ \n` +
-        `The Editor-in-Chief / Handling Editor,\\\\ \n` +
-        `\\textit{${safeEscapeLatex(journal)}}\\\\[1.5em]\n\n` +
-        `\\noindent\\textbf{Subject: Submission of Revised Manuscript${safeEscapeLatex(msId)}}\\\\[0.5em]\n` +
-        `\\textbf{Title:} \`\`${safeEscapeLatex(paperTitle)}''\\\\ \n` +
-        `\\textbf{Authors:} ${safeEscapeLatex(authors)}\\\\[1.5em]\n\n` +
-        `\\noindent Dear Editor,\\par\\medskip\n\n` +
-        `\\noindent Thank you very much for your letter and the constructive comments from the editorial team and the ${reviewerCount} reviewers regarding our manuscript entitled \`\`\\textbf{${safeEscapeLatex(paperTitle)}}''${safeEscapeLatex(msId)}. We greatly appreciate the time and effort devoted to evaluating our work.\\par\\medskip\n\n` +
-        `\\noindent We have carefully studied all comments and thoroughly revised the manuscript accordingly. In summary, the main revisions include:\\par\n` +
-        `\\begin{itemize}\n` +
-        `  \\item Fully addressing all ${totalComments} comments raised by the reviewers and editor, with corresponding textual and graphical updates.\n` +
-        `  \\item Providing comprehensive experimental and analytical clarifications to strengthen the core arguments.\n` +
-        `  \\item Highlighting all modifications in the revised manuscript and providing a detailed Point-by-Point Response document.\n` +
-        `\\end{itemize}\\par\\medskip\n\n` +
-        `\\noindent We confirm that all authors have approved this revised version and that the work has not been published or submitted elsewhere.\\par\\medskip\n\n` +
-        `\\noindent We believe the revised manuscript has been substantially improved and now meets the high standards of \\textit{${safeEscapeLatex(journal)}}. We look forward to your favorable consideration.\\par\\vspace{2em}\n\n` +
-        `\\noindent Sincerely,\\\\\n` +
-        `\\noindent ${safeEscapeLatex(firstAuthor || authors)}\\\\ \n` +
-        `\\noindent on behalf of all co-authors\n\n` +
-        `\\end{document}\n`;
-    }
-
-    if (format === 'md') {
-      return `# Cover Letter for Revised Manuscript\n\n` +
-        `**Date:** ${dateStr}  \n` +
-        `**To:** The Editor-in-Chief / Handling Editor, *${journal}*  \n` +
-        `**Subject:** Submission of Revised Manuscript${msId}  \n` +
-        `**Title:** "${paperTitle}"  \n` +
-        `**Authors:** ${authors}  \n\n` +
-        `---\n\n` +
-        `Dear Editor,\n\n` +
-        `Thank you very much for your editorial decision and the constructive feedback from the reviewers regarding our manuscript entitled **"${paperTitle}"**${msId} for publication in *${journal}*.\n\n` +
-        `We have carefully considered all comments and carried out a comprehensive revision of our manuscript. Specifically:\n\n` +
-        `- We have addressed all ${totalComments} comments and suggestions from the ${reviewerCount} reviewers and editor.\n` +
-        `- Additional clarifications, analyses, and data have been integrated into the revised text and figures.\n` +
-        `- All changes in the revised manuscript have been clearly highlighted, and our point-by-point responses are detailed in the accompanying rebuttal document.\n\n` +
-        `All co-authors have reviewed and approved this revised manuscript. We confirm that this work is original and is not under consideration elsewhere.\n\n` +
-        `We hope the revised manuscript is now suitable for publication in *${journal}*, and we look forward to hearing from you.\n\n` +
-        `Sincerely,\n\n` +
-        `**${firstAuthor || authors}**  \n` +
-        `*(On behalf of all co-authors)*\n`;
-    }
-
-    // HTML format for Word / Rich Text
-    return `<div style="font-family:'Times New Roman',Times,serif; font-size:12pt; line-height:1.5; color:#111827; max-width:760px; margin:0 auto; padding:24px;">` +
-      `<p style="margin-bottom:16px;">${esc(dateStr)}</p>` +
-      `<p style="margin-bottom:20px;">` +
-        `To:<br>` +
-        `The Editor-in-Chief / Handling Editor<br>` +
-        `<em>${esc(journal)}</em>` +
-      `</p>` +
-      `<div style="background:#f8fafc; border-left:4px solid #0284c7; padding:12px 16px; margin-bottom:20px;">` +
-        `<p style="margin:0 0 6px 0; font-weight:bold; font-size:13pt;">Subject: Submission of Revised Manuscript${esc(msId)}</p>` +
-        `<p style="margin:0 0 4px 0;"><strong>Title:</strong> “${esc(paperTitle)}”</p>` +
-        `<p style="margin:0;"><strong>Authors:</strong> ${esc(authors)}</p>` +
-      `</div>` +
-      `<p style="margin-bottom:14px;">Dear Editor,</p>` +
-      `<p style="margin-bottom:14px;">` +
-        `Thank you very much for your letter and the constructive comments from the reviewers regarding our manuscript entitled ` +
-        `<strong>“${esc(paperTitle)}”</strong>${esc(msId)}. We are grateful to the editorial team and the ${reviewerCount} reviewers for their valuable suggestions to strengthen our work.` +
-      `</p>` +
-      `<p style="margin-bottom:10px;">` +
-        `We have carefully evaluated all feedback and thoroughly revised our manuscript. In particular:` +
-      `</p>` +
-      `<ul style="margin:0 0 16px 24px; padding:0;">` +
-        `<li style="margin-bottom:6px;">We have addressed all ${totalComments} comments raised by the reviewers and editor in detail.</li>` +
-        `<li style="margin-bottom:6px;">We have expanded our explanations and integrated necessary additional evidence and figure updates into the manuscript.</li>` +
-        `<li style="margin-bottom:6px;">All changes have been clearly highlighted in the revised manuscript, accompanied by our detailed Point-by-Point Response document.</li>` +
-      `</ul>` +
-      `<p style="margin-bottom:14px;">` +
-        `All co-authors have approved this revised version, and we confirm that this manuscript is not under consideration elsewhere.` +
-      `</p>` +
-      `<p style="margin-bottom:24px;">` +
-        `We hope that our revisions satisfactorily address the concerns raised and that the manuscript is now acceptable for publication in <em>${esc(journal)}</em>. We look forward to your decision.` +
-      `</p>` +
-      `<p style="margin:0;">Sincerely,</p>` +
-      `<p style="margin:6px 0 0 0; font-weight:bold;">${esc(firstAuthor || authors)}</p>` +
-      `<p style="margin:2px 0 0 0; font-style:italic; color:#4b5563;">On behalf of all co-authors</p>` +
-      `</div>`;
-  }
-
+  // src/modules/academic-exporter/batch-modal.ts
   function openBatchReviewImportModal(sub, reviewBox, onComplete) {
-    if (typeof openModal !== 'function') return;
-    const esc = typeof escapeHTML === 'function' ? escapeHTML : (s => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'));
-    const tr = typeof t === 'function' ? t : (k => k);
-    const trf = typeof tf === 'function' ? tf : ((k, p) => k);
-    const curLang = typeof currentLanguage !== 'undefined' ? currentLanguage : 'en';
-
+    if (typeof openModal !== "function") return;
+    const esc = typeof escapeHTML === "function" ? escapeHTML : ((s) => String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;"));
+    const tr = typeof t === "function" ? t : ((k) => k);
+    const trf = typeof tf === "function" ? tf : ((k, p) => k);
+    const curLang = typeof currentLanguage !== "undefined" ? currentLanguage : "en";
     openModal(`
-      <div class="modal-header">
-        <h2>✨ ${esc(tr('batchImportTitle') || '智能批量解析导入审稿意见')}</h2>
-        <button class="btn-secondary btn-icon" id="btn-close-modal">✕</button>
+    <div class="modal-header">
+      <h2>✨ ${esc(tr("batchImportTitle") || "智能批量解析导入审稿意见")}</h2>
+      <button class="btn-secondary btn-icon" id="btn-close-modal">✕</button>
+    </div>
+    <div style="font-size:12px; color:var(--text-secondary); margin-bottom:12px;">
+      ${esc(tr("batchImportHelp") || "将期刊审稿邮件或决定信全文直接粘贴至下方，智能解析器将自动按审稿人与编号拆分为独立意见条目。")}
+    </div>
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+      <label style="font-size:12px; font-weight:600;">${esc(curLang === "zh" ? "粘贴审稿信原始全文" : "Raw Decision Letter / Review Text")}</label>
+      <div style="display:flex; align-items:center; gap:6px;">
+        <span style="font-size:11px; color:var(--text-secondary);">${esc(curLang === "zh" ? "默认审稿人" : "Default Reviewer")}:</span>
+        <select id="batch-import-default-rev" style="font-size:11px; padding:2px 6px; border-radius:4px; border:1px solid var(--input-border); background:var(--input-bg); color:hsl(var(--text-primary));">
+          <option value="Reviewer #1">Reviewer #1</option>
+          <option value="Reviewer #2">Reviewer #2</option>
+          <option value="Reviewer #3">Reviewer #3</option>
+          <option value="Editor">Editor</option>
+        </select>
       </div>
-      <div style="font-size:12px; color:var(--text-secondary); margin-bottom:12px;">
-        ${esc(tr('batchImportHelp') || '将期刊审稿邮件或决定信全文直接粘贴至下方，智能解析器将自动按审稿人与编号拆分为独立意见条目。')}
-      </div>
-      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
-        <label style="font-size:12px; font-weight:600;">${esc(curLang === 'zh' ? '粘贴审稿信原始全文' : 'Raw Decision Letter / Review Text')}</label>
-        <div style="display:flex; align-items:center; gap:6px;">
-          <span style="font-size:11px; color:var(--text-secondary);">${esc(curLang === 'zh' ? '默认审稿人' : 'Default Reviewer')}:</span>
-          <select id="batch-import-default-rev" style="font-size:11px; padding:2px 6px; border-radius:4px; border:1px solid var(--input-border); background:var(--input-bg); color:hsl(var(--text-primary));">
-            <option value="Reviewer #1">Reviewer #1</option>
-            <option value="Reviewer #2">Reviewer #2</option>
-            <option value="Reviewer #3">Reviewer #3</option>
-            <option value="Editor">Editor</option>
-          </select>
-        </div>
-      </div>
-      <textarea id="batch-import-textarea" rows="8" placeholder="${esc(tr('batchImportPlaceholder') || 'Paste review comments here...')}" style="width:100%; box-sizing:border-box; font-family:inherit; font-size:12px; line-height:1.4; padding:8px; border:1px solid var(--input-border); border-radius:6px; background:var(--input-bg); color:hsl(var(--text-primary)); resize:vertical;"></textarea>
-      
-      <div id="batch-import-preview-container" style="margin-top:10px; max-height:160px; overflow-y:auto; border:1px solid var(--input-border); border-radius:6px; padding:10px; background:hsl(var(--card-bg, 0 0% 100% / 0.5));">
-        <p style="font-size:12px; color:var(--text-secondary); margin:0;">${esc(curLang === 'zh' ? '输入文本后在此实时预览解析结果...' : 'Parsed preview will appear here in real time...')}</p>
-      </div>
+    </div>
+    <textarea id="batch-import-textarea" rows="8" placeholder="${esc(tr("batchImportPlaceholder") || "Paste review comments here...")}" style="width:100%; box-sizing:border-box; font-family:inherit; font-size:12px; line-height:1.4; padding:8px; border:1px solid var(--input-border); border-radius:6px; background:var(--input-bg); color:hsl(var(--text-primary)); resize:vertical;"></textarea>
+    
+    <div id="batch-import-preview-container" style="margin-top:10px; max-height:160px; overflow-y:auto; border:1px solid var(--input-border); border-radius:6px; padding:10px; background:hsl(var(--card-bg, 0 0% 100% / 0.5));">
+      <p style="font-size:12px; color:var(--text-secondary); margin:0;">${esc(curLang === "zh" ? "输入文本后在此实时预览解析结果..." : "Parsed preview will appear here in real time...")}</p>
+    </div>
 
-      <div style="display:flex; justify-content:space-between; align-items:center; margin-top:14px; flex-wrap:wrap; gap:8px;">
-        <div id="batch-import-stats" style="font-size:12px; font-weight:600; color:var(--accent-blue, #0284c7);"></div>
-        <div style="display:flex; gap:8px;">
-          <button type="button" class="btn-secondary" id="btn-batch-do-append">
-            <span>➕ ${esc(tr('batchImportAppend') || '追加导入')}</span>
-          </button>
-          <button type="button" class="btn-primary" id="btn-batch-do-replace">
-            <span>🔄 ${esc(tr('batchImportReplace') || '覆盖替换现有')}</span>
-          </button>
-        </div>
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-top:14px; flex-wrap:wrap; gap:8px;">
+      <div id="batch-import-stats" style="font-size:12px; font-weight:600; color:var(--accent-blue, #0284c7);"></div>
+      <div style="display:flex; gap:8px;">
+        <button type="button" class="btn-secondary" id="btn-batch-do-append">
+          <span>➕ ${esc(tr("batchImportAppend") || "追加导入")}</span>
+        </button>
+        <button type="button" class="btn-primary" id="btn-batch-do-replace">
+          <span>🔄 ${esc(tr("batchImportReplace") || "覆盖替换现有")}</span>
+        </button>
       </div>
-    `);
-
-    const textarea = document.getElementById('batch-import-textarea');
-    const defaultRevSelect = document.getElementById('batch-import-default-rev');
-    const previewContainer = document.getElementById('batch-import-preview-container');
-    const statsEl = document.getElementById('batch-import-stats');
-
+    </div>
+  `);
+    const textarea = document.getElementById("batch-import-textarea");
+    const defaultRevSelect = document.getElementById("batch-import-default-rev");
+    const previewContainer = document.getElementById("batch-import-preview-container");
+    const statsEl = document.getElementById("batch-import-stats");
     let currentParsed = [];
-
     function updatePreview() {
       if (!textarea || !defaultRevSelect || !previewContainer || !statsEl) return;
       const raw = textarea.value;
       const defRev = defaultRevSelect.value;
       currentParsed = parseReviewCommentsBatch(raw, defRev);
       if (currentParsed.length === 0) {
-        previewContainer.innerHTML = `<p style="font-size:12px; color:var(--text-secondary); margin:0;">${esc(curLang === 'zh' ? '未解析到有效意见条目。请粘贴文本。' : 'No comments detected. Please paste text.')}</p>`;
-        statsEl.textContent = '';
+        previewContainer.innerHTML = `<p style="font-size:12px; color:var(--text-secondary); margin:0;">${esc(curLang === "zh" ? "未解析到有效意见条目。请粘贴文本。" : "No comments detected. Please paste text.")}</p>`;
+        statsEl.textContent = "";
         return;
       }
-      const revCount = new Set(currentParsed.map(p => p.reviewer)).size;
-      statsEl.textContent = trf('batchImportParsedSummary', { comments: currentParsed.length, reviewers: revCount }) ||
-        (curLang === 'zh' ? `已识别到 ${currentParsed.length} 条意见（来自 ${revCount} 位审稿人/编辑）` : `Detected ${currentParsed.length} comments across ${revCount} reviewer(s).`);
-
+      const revCount = new Set(currentParsed.map((p) => p.reviewer)).size;
+      statsEl.textContent = trf("batchImportParsedSummary", { comments: currentParsed.length, reviewers: revCount }) || (curLang === "zh" ? `已识别到 ${currentParsed.length} 条意见（来自 ${revCount} 位审稿人/编辑）` : `Detected ${currentParsed.length} comments across ${revCount} reviewer(s).`);
       previewContainer.innerHTML = currentParsed.map((item, idx) => `
-        <div style="margin-bottom:8px; padding-bottom:6px; border-bottom:1px solid rgba(0,0,0,0.06); font-size:11px;">
-          <div style="display:flex; align-items:center; gap:6px; margin-bottom:2px;">
-            <span class="badge badge-purple" style="font-size:10px;">${esc(item.reviewer)}</span>
-            <strong>#${idx + 1}</strong>
-          </div>
-          <div style="color:var(--text-secondary); max-height:40px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">
-            ${esc(item.comment)}
-          </div>
+      <div style="margin-bottom:8px; padding-bottom:6px; border-bottom:1px solid rgba(0,0,0,0.06); font-size:11px;">
+        <div style="display:flex; align-items:center; gap:6px; margin-bottom:2px;">
+          <span class="badge badge-purple" style="font-size:10px;">${esc(item.reviewer)}</span>
+          <strong>#${idx + 1}</strong>
         </div>
-      `).join('');
+        <div style="color:var(--text-secondary); max-height:40px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">
+          ${esc(item.comment)}
+        </div>
+      </div>
+    `).join("");
     }
-
-    textarea?.addEventListener('input', updatePreview);
-    defaultRevSelect?.addEventListener('change', updatePreview);
-
+    textarea?.addEventListener("input", updatePreview);
+    defaultRevSelect?.addEventListener("change", updatePreview);
     function executeImport(mode) {
       if (!currentParsed || currentParsed.length === 0) {
-        if (typeof showGlobalToast === 'function') showGlobalToast(tr('batchImportEmptyToast') || '请先粘贴待解析的审稿文本', 'warning');
+        if (typeof showGlobalToast === "function") showGlobalToast(tr("batchImportEmptyToast") || "请先粘贴待解析的审稿文本", "warning");
         return;
       }
-      const emptyState = reviewBox.querySelector('.empty-state');
+      const emptyState = reviewBox?.querySelector?.(".empty-state");
       if (emptyState) emptyState.remove();
-
-      if (mode === 'replace') {
-        if (window.RFUI?.setHTML) window.RFUI.setHTML(reviewBox, '');
-        else reviewBox.innerHTML = '';
+      if (mode === "replace") {
+        const w = window;
+        if (w.RFUI?.setHTML) w.RFUI.setHTML(reviewBox, "");
+        else if (reviewBox) reviewBox.innerHTML = "";
       }
-
-      const currentCount = reviewBox.querySelectorAll('.submission-edit-review-row').length;
+      const currentCount = reviewBox ? reviewBox.querySelectorAll(".submission-edit-review-row").length : 0;
       currentParsed.forEach((item, index) => {
-        if (typeof createSubmissionReviewEditorRow === 'function') {
+        if (typeof createSubmissionReviewEditorRow === "function" && reviewBox) {
           reviewBox.appendChild(createSubmissionReviewEditorRow(item, currentCount + index));
         }
       });
-
-      if (typeof reindexSubmissionReviewEditorRows === 'function') {
+      if (typeof reindexSubmissionReviewEditorRows === "function" && reviewBox) {
         reindexSubmissionReviewEditorRows(reviewBox);
       }
-      if (typeof onComplete === 'function') onComplete();
-      reviewBox.dispatchEvent(new CustomEvent('submission-autosave-request', {
+      if (typeof onComplete === "function") onComplete();
+      reviewBox?.dispatchEvent(new CustomEvent("submission-autosave-request", {
         bubbles: true,
         detail: { immediate: true }
       }));
-      if (typeof closeModal === 'function') closeModal();
-      if (typeof showGlobalToast === 'function') {
-        showGlobalToast(trf('batchImportSuccessToast', { count: currentParsed.length }) || (curLang === 'zh' ? `成功解析并导入 ${currentParsed.length} 条审稿意见！` : `Successfully imported ${currentParsed.length} comments.`), 'success');
+      if (typeof closeModal === "function") closeModal();
+      if (typeof showGlobalToast === "function") {
+        showGlobalToast(trf("batchImportSuccessToast", { count: currentParsed.length }) || (curLang === "zh" ? `成功解析并导入 ${currentParsed.length} 条审稿意见！` : `Successfully imported ${currentParsed.length} comments.`), "success");
       }
     }
-
-    document.getElementById('btn-batch-do-append')?.addEventListener('click', () => executeImport('append'));
-    document.getElementById('btn-batch-do-replace')?.addEventListener('click', () => executeImport('replace'));
+    document.getElementById("btn-batch-do-append")?.addEventListener("click", () => executeImport("append"));
+    document.getElementById("btn-batch-do-replace")?.addEventListener("click", () => executeImport("replace"));
   }
 
-  return {
+  // src/modules/academic-exporter.ts
+  var RFAcademicExport = {
+    generateAcademicRebuttalLetter,
+    generateRevisionCoverLetter,
+    parseReviewCommentsBatch,
+    renderRebuttalProgressTracker,
     escapeLatexText,
     safeEscapeLatex,
     copyRebuttalRichText,
-    generateAcademicRebuttalLetter,
-    parseReviewCommentsBatch,
-    renderRebuttalProgressTracker,
-    generateRevisionCoverLetter,
-    openBatchReviewImportModal
+    openBatchReviewImportModal,
+    getSubmissionReviewMatrixRows
   };
-});
+  var academicExports = {
+    ...RFAcademicExport,
+    RFAcademicExport
+  };
+  if (typeof globalThis !== "undefined") {
+    Object.assign(globalThis, academicExports);
+  }
+  if (typeof window !== "undefined") {
+    Object.assign(window, academicExports);
+  }
+  if (typeof module !== "undefined" && module.exports) {
+    module.exports = { ...module.exports || {}, ...academicExports };
+  }
+})();

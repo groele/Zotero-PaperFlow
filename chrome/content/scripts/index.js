@@ -4,7 +4,7 @@
   var ADDON_ID = "zotero-paperflow@groele.org";
   var CHROME_ROOT = "chrome://researchflow/content/";
   var PREF_PREFIX = "extensions.researchflow.";
-  var DEFAULT_VERSION = "16.0.0";
+  var DEFAULT_VERSION = "16.1.0";
 
   // src/modules/academic-citation/formatters.ts
   var extractCiteKey = (target) => {
@@ -1157,6 +1157,12 @@
       }
     },
     cloneDatabase(data) {
+      if (typeof structuredClone === "function") {
+        try {
+          return structuredClone(data);
+        } catch (_) {
+        }
+      }
       return JSON.parse(JSON.stringify(data));
     },
     enqueueDatabaseOperation(operation) {
