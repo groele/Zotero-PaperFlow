@@ -38,7 +38,7 @@ export function buildPrivacySafeDiagnostics(sourceDb: any): any {
   const deletedCount = (key: string) => Array.isArray(sourceDb?.deletedEntities?.[key]) ? sourceDb.deletedEntities[key].length : 0;
   return {
     app: 'Zotero PaperFlow',
-    version: '16.1.0',
+    version: '16.2.0',
     exportedAt: new Date().toISOString(),
     environment: {
       language: currentLanguage,

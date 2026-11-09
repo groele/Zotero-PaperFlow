@@ -1,4 +1,4 @@
-const RF_OPTIONS_RENDER_VERSION = '16.1.0';
+const RF_OPTIONS_RENDER_VERSION = '16.2.0';
 "use strict";
 (() => {
   var __getOwnPropNames = Object.getOwnPropertyNames;
@@ -270,7 +270,7 @@ const RF_OPTIONS_RENDER_VERSION = '16.1.0';
   var init_navigation_and_modal = __esm({
     "src/modules/options/navigation-and-modal.ts"() {
       "use strict";
-      RF_OPTIONS_RENDER_VERSION = "16.1.0";
+      RF_OPTIONS_RENDER_VERSION = "16.2.0";
       UI_THEME_OPTIONS = /* @__PURE__ */ new Set(["system", "light", "dark"]);
       g = typeof globalThis !== "undefined" ? globalThis : window;
       if (!("db" in g)) g.db = null;
