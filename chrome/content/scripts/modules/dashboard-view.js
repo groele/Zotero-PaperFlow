@@ -321,28 +321,56 @@
     }
     return newSub;
   }
-  function setPipelineViewMode(expanded) {
-    isPipelineExpanded = Boolean(expanded);
-    const ganttBox = document.getElementById("dashboard-gantt");
-    if (ganttBox) {
-      ganttBox.classList.toggle("is-compact", !isPipelineExpanded);
-      ganttBox.classList.toggle("is-expanded", isPipelineExpanded);
+  function setPipelineViewMode(expanded, options = {}) {
+    const g = typeof window !== "undefined" ? window : globalThis;
+    g.isPipelineExpanded = Boolean(expanded);
+    isPipelineExpanded = g.isPipelineExpanded;
+    const container = document.getElementById("dashboard-gantt");
+    if (container) {
+      container.classList.toggle("expanded", g.isPipelineExpanded);
+      container.classList.toggle("is-compact", !g.isPipelineExpanded);
+      container.classList.toggle("is-expanded", g.isPipelineExpanded);
     }
     updatePipelineViewToggle();
+    if (options.persist !== false) {
+      const rf = typeof window.RFPlatform !== "undefined" ? window.RFPlatform : typeof RFPlatform !== "undefined" ? RFPlatform : null;
+      rf?.storage?.local?.set?.({ researchflow_pipeline_expanded: g.isPipelineExpanded });
+    }
   }
   function updatePipelineViewToggle() {
+    const g = typeof window !== "undefined" ? window : globalThis;
+    const isExp = Boolean(g.isPipelineExpanded ?? isPipelineExpanded);
+    const container = document.getElementById("dashboard-gantt");
+    if (container) {
+      container.classList.toggle("expanded", isExp);
+    }
+    const label = document.getElementById("pipeline-view-label");
+    if (label) label.textContent = isExp ? t("expanded") : t("compact");
+    const icon = document.getElementById("pipeline-view-icon");
+    if (icon) icon.textContent = isExp ? "▦" : "▤";
+    const button = document.getElementById("btn-pipeline-view-toggle");
+    if (button) {
+      button.classList.toggle("active", isExp);
+      button.setAttribute("aria-pressed", String(isExp));
+    }
     const compactBtn = document.getElementById("btn-pipeline-compact");
-    const expandedBtn = document.getElementById("btn-pipeline-expanded");
     if (compactBtn) {
       compactBtn.textContent = t("compact");
-      compactBtn.classList.toggle("active", !isPipelineExpanded);
-      compactBtn.setAttribute("aria-pressed", String(!isPipelineExpanded));
+      compactBtn.classList.toggle("active", !isExp);
+      compactBtn.setAttribute("aria-pressed", String(!isExp));
     }
+    const expandedBtn = document.getElementById("btn-pipeline-expanded");
     if (expandedBtn) {
       expandedBtn.textContent = t("expanded");
-      expandedBtn.classList.toggle("active", isPipelineExpanded);
-      expandedBtn.setAttribute("aria-pressed", String(isPipelineExpanded));
+      expandedBtn.classList.toggle("active", isExp);
+      expandedBtn.setAttribute("aria-pressed", String(isExp));
     }
+  }
+  function initializePipelineViewMode() {
+    const rf = typeof window.RFPlatform !== "undefined" ? window.RFPlatform : typeof RFPlatform !== "undefined" ? RFPlatform : null;
+    rf?.storage?.local?.get?.(["researchflow_pipeline_expanded"], (result) => {
+      setPipelineViewMode(Boolean(result?.researchflow_pipeline_expanded), { persist: false });
+    });
   }
   function setDashboardFilter(filter) {
     currentDashboardFilter = filter;
@@ -665,12 +693,25 @@
 
   // src/modules/dashboard-view/pipeline-renderer.ts
   function bindDashboardControls() {
-    document.getElementById("btn-pipeline-compact")?.addEventListener("click", () => setPipelineViewMode(false));
-    document.getElementById("btn-pipeline-expanded")?.addEventListener("click", () => setPipelineViewMode(true));
-    document.getElementById("btn-pipeline-view-toggle")?.addEventListener("click", () => {
-      const isExpanded = document.getElementById("dashboard-gantt")?.classList.contains("expanded");
-      setPipelineViewMode(!isExpanded);
-    });
+    const toggleBtn = document.getElementById("btn-pipeline-view-toggle");
+    if (toggleBtn && !toggleBtn.dataset.bound) {
+      toggleBtn.dataset.bound = "true";
+      toggleBtn.addEventListener("click", (e) => {
+        e.preventDefault();
+        const g = typeof window !== "undefined" ? window : globalThis;
+        setPipelineViewMode(!Boolean(g.isPipelineExpanded));
+      });
+    }
+    const compactBtn = document.getElementById("btn-pipeline-compact");
+    if (compactBtn && !compactBtn.dataset.bound) {
+      compactBtn.dataset.bound = "true";
+      compactBtn.addEventListener("click", () => setPipelineViewMode(false));
+    }
+    const expandedBtn = document.getElementById("btn-pipeline-expanded");
+    if (expandedBtn && !expandedBtn.dataset.bound) {
+      expandedBtn.dataset.bound = "true";
+      expandedBtn.addEventListener("click", () => setPipelineViewMode(true));
+    }
   }
   function renderDashboard2() {
     const w = window;
@@ -745,6 +786,8 @@
     }
     const ganttBox = document.getElementById("dashboard-gantt");
     if (!ganttBox) return;
+    updatePipelineViewToggle();
+    bindDashboardControls();
     w.RFUI.setHTML(ganttBox, "");
     let submissionsList = visibleSubmissions;
     if (currentDashboardFilter === "accepted") {
@@ -913,6 +956,7 @@
       init_pipeline_renderer();
       init_card_interactions();
       bindDashboardControls();
+      initializePipelineViewMode();
       setupSaveErrorListener();
       setupDashboardFilterListeners();
       var dashboardExports = {
@@ -942,9 +986,11 @@
         createTransferredSubmission,
         setPipelineViewMode,
         updatePipelineViewToggle,
+        initializePipelineViewMode,
         setDashboardFilter,
         updateDashboardFilterUI,
         getDashboardFilterLabel,
+        bindDashboardControls,
         setupSaveErrorListener,
         setupDashboardFilterListeners,
         renderDashboard: renderDashboard2,

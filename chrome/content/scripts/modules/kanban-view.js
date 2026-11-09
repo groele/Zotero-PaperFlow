@@ -93,6 +93,24 @@ Note: This will also remove ${linkedSubmissions.length} associated submission tr
       button.textContent = t(showEmpty ? "kanbanHideEmpty" : "kanbanShowEmpty");
     }
   }
+  function initializeKanbanEmptyColumnsMode() {
+    const button = document.getElementById("btn-toggle-empty-kanban");
+    if (button && !button.dataset.bound) {
+      button.dataset.bound = "true";
+      button.addEventListener("click", () => {
+        const g = window;
+        g.showEmptyKanbanColumns = !g.showEmptyKanbanColumns;
+        updateKanbanEmptyColumns();
+        const rf2 = typeof window.RFPlatform !== "undefined" ? window.RFPlatform : typeof RFPlatform !== "undefined" ? RFPlatform : null;
+        rf2?.storage?.local?.set?.({ researchflow_kanban_show_empty: g.showEmptyKanbanColumns });
+      });
+    }
+    const rf = typeof window.RFPlatform !== "undefined" ? window.RFPlatform : typeof RFPlatform !== "undefined" ? RFPlatform : null;
+    rf?.storage?.local?.get?.(["researchflow_kanban_show_empty"], (result) => {
+      window.showEmptyKanbanColumns = result?.researchflow_kanban_show_empty !== false;
+      updateKanbanEmptyColumns();
+    });
+  }
   var init_status_helpers = __esm({
     "src/modules/kanban-view/status-helpers.ts"() {
       "use strict";
@@ -1070,11 +1088,13 @@ ${n.snippet || ""}`.trim();
       init_board_renderer();
       init_manuscript_modal();
       bindAddManuscriptButton();
+      initializeKanbanEmptyColumnsMode();
       var exportedApi = {
         renderKanban,
         deleteManuscript,
         openManuscriptModal,
-        updateKanbanEmptyColumns
+        updateKanbanEmptyColumns,
+        initializeKanbanEmptyColumnsMode
       };
       var g = typeof globalThis !== "undefined" ? globalThis : window;
       Object.assign(g, exportedApi);

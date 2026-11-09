@@ -64,8 +64,22 @@ function setupEnvironment() {
         removeAttribute(k) { delete this[k]; },
         style: {},
         dataset: {},
-        addEventListener() {},
-        removeEventListener() {},
+        _listeners: new Map(),
+        addEventListener(evt, fn) {
+          if (!this._listeners.has(evt)) this._listeners.set(evt, []);
+          this._listeners.get(evt).push(fn);
+        },
+        removeEventListener(evt, fn) {
+          const list = this._listeners.get(evt) || [];
+          this._listeners.set(evt, list.filter((h) => h !== fn));
+        },
+        dispatchEvent(evt) {
+          const type = typeof evt === 'string' ? evt : evt.type;
+          (this._listeners.get(type) || []).forEach((fn) => fn(evt));
+        },
+        click() {
+          this.dispatchEvent({ type: 'click', preventDefault() {} });
+        },
         appendChild(child) {
           if (child && child.children && child.id && child.id.startsWith('frag-')) {
             this.children.push(...child.children);
@@ -269,5 +283,46 @@ test('defensive setup listeners and search handlers execute safely with empty or
     context.setupSettingsListeners();
   });
 });
+
+test('pipeline view toggle switches between compact and expanded modes and updates UI', () => {
+  const { context, elements } = setupEnvironment();
+  const mockData = { manuscripts: [], submissions: [], settings: { profile: { theme: 'system', language: 'en' } } };
+  vm.runInContext('db = ' + JSON.stringify(mockData) + '; currentLanguage = "en";', context);
+
+  const gantt = context.document.getElementById('dashboard-gantt');
+  const btn = context.document.getElementById('btn-pipeline-view-toggle');
+  const label = context.document.getElementById('pipeline-view-label');
+  const icon = context.document.getElementById('pipeline-view-icon');
+
+  assert.equal(typeof context.setPipelineViewMode, 'function');
+  assert.equal(typeof context.bindDashboardControls, 'function');
+
+  context.bindDashboardControls();
+
+  // Initial state is compact (not expanded)
+  context.setPipelineViewMode(false);
+  assert.equal(gantt.classList.contains('expanded'), false);
+  assert.equal(btn.classList.contains('active'), false);
+  assert.equal(btn['aria-pressed'], 'false');
+  assert.equal(label.textContent, 'Compact');
+  assert.equal(icon.textContent, '▤');
+
+  // Toggle to expanded
+  btn.click();
+  assert.equal(gantt.classList.contains('expanded'), true);
+  assert.equal(btn.classList.contains('active'), true);
+  assert.equal(btn['aria-pressed'], 'true');
+  assert.equal(label.textContent, 'Expanded');
+  assert.equal(icon.textContent, '▦');
+
+  // Toggle back to compact
+  btn.click();
+  assert.equal(gantt.classList.contains('expanded'), false);
+  assert.equal(btn.classList.contains('active'), false);
+  assert.equal(btn['aria-pressed'], 'false');
+  assert.equal(label.textContent, 'Compact');
+  assert.equal(icon.textContent, '▤');
+});
+
 
 

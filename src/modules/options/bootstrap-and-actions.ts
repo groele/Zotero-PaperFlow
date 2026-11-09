@@ -156,6 +156,16 @@ export async function initializeWorkspace(): Promise<void> {
 
   applyLanguage();
 
+  if (typeof (window as any).initializePipelineViewMode === 'function') {
+    (window as any).initializePipelineViewMode();
+  }
+  if (typeof (window as any).initializeKanbanEmptyColumnsMode === 'function') {
+    (window as any).initializeKanbanEmptyColumnsMode();
+  }
+  if (typeof (window as any).bindDashboardControls === 'function') {
+    (window as any).bindDashboardControls();
+  }
+
   renderDashboard();
   renderKanban();
   renderSubmissions();

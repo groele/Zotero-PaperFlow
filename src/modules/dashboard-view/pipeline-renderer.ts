@@ -12,6 +12,7 @@ import {
 
 import {
   setPipelineViewMode,
+  updatePipelineViewToggle,
   getDashboardFilterLabel
 } from './transfer-and-status.js';
 
@@ -20,12 +21,27 @@ import { bindPipelineCardInteractions } from './card-interactions.js';
 export { renderTimelineAlerts };
 
 export function bindDashboardControls(): void {
-  document.getElementById('btn-pipeline-compact')?.addEventListener('click', () => setPipelineViewMode(false));
-  document.getElementById('btn-pipeline-expanded')?.addEventListener('click', () => setPipelineViewMode(true));
-  document.getElementById('btn-pipeline-view-toggle')?.addEventListener('click', () => {
-    const isExpanded = document.getElementById('dashboard-gantt')?.classList.contains('expanded');
-    setPipelineViewMode(!isExpanded);
-  });
+  const toggleBtn = document.getElementById('btn-pipeline-view-toggle');
+  if (toggleBtn && !toggleBtn.dataset.bound) {
+    toggleBtn.dataset.bound = 'true';
+    toggleBtn.addEventListener('click', (e: Event) => {
+      e.preventDefault();
+      const g = typeof window !== 'undefined' ? (window as any) : (globalThis as any);
+      setPipelineViewMode(!Boolean(g.isPipelineExpanded));
+    });
+  }
+
+  const compactBtn = document.getElementById('btn-pipeline-compact');
+  if (compactBtn && !compactBtn.dataset.bound) {
+    compactBtn.dataset.bound = 'true';
+    compactBtn.addEventListener('click', () => setPipelineViewMode(false));
+  }
+
+  const expandedBtn = document.getElementById('btn-pipeline-expanded');
+  if (expandedBtn && !expandedBtn.dataset.bound) {
+    expandedBtn.dataset.bound = 'true';
+    expandedBtn.addEventListener('click', () => setPipelineViewMode(true));
+  }
 }
 
 declare var db: any;
@@ -144,6 +160,8 @@ export function renderDashboard(): void {
   // 1. Pipeline Timeline Cards
   const ganttBox = document.getElementById('dashboard-gantt');
   if (!ganttBox) return;
+  updatePipelineViewToggle();
+  bindDashboardControls();
   w.RFUI.setHTML(ganttBox, '');
 
   let submissionsList = visibleSubmissions;

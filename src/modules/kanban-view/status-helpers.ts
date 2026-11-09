@@ -84,6 +84,8 @@ export async function deleteManuscript(manuscriptId: string): Promise<boolean> {
   }
 }
 
+declare var RFPlatform: any;
+
 export function updateKanbanEmptyColumns(): void {
   const board = document.querySelector('.kanban-board');
   const button = document.getElementById('btn-toggle-empty-kanban');
@@ -93,4 +95,27 @@ export function updateKanbanEmptyColumns(): void {
     button.setAttribute('aria-pressed', String(showEmpty));
     button.textContent = t(showEmpty ? 'kanbanHideEmpty' : 'kanbanShowEmpty');
   }
+}
+
+export function initializeKanbanEmptyColumnsMode(): void {
+  const button = document.getElementById('btn-toggle-empty-kanban');
+  if (button && !button.dataset.bound) {
+    button.dataset.bound = 'true';
+    button.addEventListener('click', () => {
+      const g = window as any;
+      g.showEmptyKanbanColumns = !g.showEmptyKanbanColumns;
+      updateKanbanEmptyColumns();
+      const rf = typeof (window as any).RFPlatform !== 'undefined'
+        ? (window as any).RFPlatform
+        : (typeof RFPlatform !== 'undefined' ? RFPlatform : null);
+      rf?.storage?.local?.set?.({ researchflow_kanban_show_empty: g.showEmptyKanbanColumns });
+    });
+  }
+  const rf = typeof (window as any).RFPlatform !== 'undefined'
+    ? (window as any).RFPlatform
+    : (typeof RFPlatform !== 'undefined' ? RFPlatform : null);
+  rf?.storage?.local?.get?.(['researchflow_kanban_show_empty'], (result: any) => {
+    (window as any).showEmptyKanbanColumns = result?.researchflow_kanban_show_empty !== false;
+    updateKanbanEmptyColumns();
+  });
 }

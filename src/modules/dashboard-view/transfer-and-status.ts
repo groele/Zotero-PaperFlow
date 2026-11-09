@@ -13,6 +13,7 @@ declare var db: any;
 declare var currentDashboardFilter: string;
 declare var isPipelineExpanded: boolean;
 declare var ZoteroBridge: any;
+declare var RFPlatform: any;
 declare function t(key: string): string;
 declare function inferKey(node: any): string;
 declare function getTimelineNodeByKey(sub: any, key: string): any;
@@ -190,29 +191,66 @@ export function createTransferredSubmission(sourceSub: any, targetJournal: strin
   return newSub;
 }
 
-export function setPipelineViewMode(expanded: boolean): void {
-  isPipelineExpanded = Boolean(expanded);
-  const ganttBox = document.getElementById('dashboard-gantt');
-  if (ganttBox) {
-    ganttBox.classList.toggle('is-compact', !isPipelineExpanded);
-    ganttBox.classList.toggle('is-expanded', isPipelineExpanded);
+export function setPipelineViewMode(expanded: boolean, options: { persist?: boolean } = {}): void {
+  const g = typeof window !== 'undefined' ? (window as any) : (globalThis as any);
+  g.isPipelineExpanded = Boolean(expanded);
+  isPipelineExpanded = g.isPipelineExpanded;
+  const container = document.getElementById('dashboard-gantt');
+  if (container) {
+    container.classList.toggle('expanded', g.isPipelineExpanded);
+    container.classList.toggle('is-compact', !g.isPipelineExpanded);
+    container.classList.toggle('is-expanded', g.isPipelineExpanded);
   }
   updatePipelineViewToggle();
+  if (options.persist !== false) {
+    const rf = typeof (window as any).RFPlatform !== 'undefined'
+      ? (window as any).RFPlatform
+      : (typeof RFPlatform !== 'undefined' ? RFPlatform : null);
+    rf?.storage?.local?.set?.({ researchflow_pipeline_expanded: g.isPipelineExpanded });
+  }
 }
 
 export function updatePipelineViewToggle(): void {
+  const g = typeof window !== 'undefined' ? (window as any) : (globalThis as any);
+  const isExp = Boolean(g.isPipelineExpanded ?? isPipelineExpanded);
+  const container = document.getElementById('dashboard-gantt');
+  if (container) {
+    container.classList.toggle('expanded', isExp);
+  }
+
+  const label = document.getElementById('pipeline-view-label');
+  if (label) label.textContent = isExp ? t('expanded') : t('compact');
+
+  const icon = document.getElementById('pipeline-view-icon');
+  if (icon) icon.textContent = isExp ? '▦' : '▤';
+
+  const button = document.getElementById('btn-pipeline-view-toggle');
+  if (button) {
+    button.classList.toggle('active', isExp);
+    button.setAttribute('aria-pressed', String(isExp));
+  }
+
   const compactBtn = document.getElementById('btn-pipeline-compact');
-  const expandedBtn = document.getElementById('btn-pipeline-expanded');
   if (compactBtn) {
     compactBtn.textContent = t('compact');
-    compactBtn.classList.toggle('active', !isPipelineExpanded);
-    compactBtn.setAttribute('aria-pressed', String(!isPipelineExpanded));
+    compactBtn.classList.toggle('active', !isExp);
+    compactBtn.setAttribute('aria-pressed', String(!isExp));
   }
+  const expandedBtn = document.getElementById('btn-pipeline-expanded');
   if (expandedBtn) {
     expandedBtn.textContent = t('expanded');
-    expandedBtn.classList.toggle('active', isPipelineExpanded);
-    expandedBtn.setAttribute('aria-pressed', String(isPipelineExpanded));
+    expandedBtn.classList.toggle('active', isExp);
+    expandedBtn.setAttribute('aria-pressed', String(isExp));
   }
+}
+
+export function initializePipelineViewMode(): void {
+  const rf = typeof (window as any).RFPlatform !== 'undefined'
+    ? (window as any).RFPlatform
+    : (typeof RFPlatform !== 'undefined' ? RFPlatform : null);
+  rf?.storage?.local?.get?.(['researchflow_pipeline_expanded'], (result: any) => {
+    setPipelineViewMode(Boolean(result?.researchflow_pipeline_expanded), { persist: false });
+  });
 }
 
 export function setDashboardFilter(filter: string): void {

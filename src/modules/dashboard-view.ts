@@ -31,6 +31,7 @@ import {
   createTransferredSubmission,
   setPipelineViewMode,
   updatePipelineViewToggle,
+  initializePipelineViewMode,
   setDashboardFilter,
   updateDashboardFilterUI,
   getDashboardFilterLabel
@@ -48,6 +49,7 @@ import {
 } from './dashboard-view/card-interactions.js';
 
 bindDashboardControls();
+initializePipelineViewMode();
 setupSaveErrorListener();
 setupDashboardFilterListeners();
 
@@ -78,9 +80,11 @@ const dashboardExports = {
   createTransferredSubmission,
   setPipelineViewMode,
   updatePipelineViewToggle,
+  initializePipelineViewMode,
   setDashboardFilter,
   updateDashboardFilterUI,
   getDashboardFilterLabel,
+  bindDashboardControls,
   setupSaveErrorListener,
   setupDashboardFilterListeners,
   renderDashboard,

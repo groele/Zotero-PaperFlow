@@ -406,6 +406,15 @@ const RF_OPTIONS_RENDER_VERSION = '16.1.0';
       activateWorkspaceView(defaultTab);
     }
     applyLanguage();
+    if (typeof window.initializePipelineViewMode === "function") {
+      window.initializePipelineViewMode();
+    }
+    if (typeof window.initializeKanbanEmptyColumnsMode === "function") {
+      window.initializeKanbanEmptyColumnsMode();
+    }
+    if (typeof window.bindDashboardControls === "function") {
+      window.bindDashboardControls();
+    }
     renderDashboard();
     renderKanban();
     renderSubmissions();
