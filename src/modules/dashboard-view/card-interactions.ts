@@ -44,29 +44,45 @@ export function bindPipelineCardInteractions(card: HTMLElement, sub: any): void 
   }
 
   // 3. Action buttons in Col 1
-  card.querySelector('.btn-pipeline-open')?.addEventListener('click', (e: Event) => {
-    e.stopPropagation();
-    if (typeof navigateToSubmissionDetails === 'function') {
-      navigateToSubmissionDetails(sub.id);
-    }
-  });
-
-  card.querySelector('.btn-pipeline-add')?.addEventListener('click', (e: Event) => {
-    e.stopPropagation();
-    toggleInlineStageEditor(card, true);
-  });
-
-  card.querySelector('.btn-pipeline-manage')?.addEventListener('click', (e: Event) => {
-    e.stopPropagation();
-    if (typeof openTimelineEventManager === 'function') {
-      openTimelineEventManager(sub.id);
-    }
-  });
-
-  card.querySelectorAll('.btn-pipeline-share').forEach((btn: any) => {
+  card.querySelectorAll('.btn-pipeline-open').forEach((btn: any) => {
     btn.addEventListener('click', (e: Event) => {
       e.stopPropagation();
-      const shareFn = typeof openSubmissionSharePreview === 'function' ? openSubmissionSharePreview : openSubmissionShareModal;
+      const g = typeof window !== 'undefined' ? (window as any) : (globalThis as any);
+      const navFn = g.navigateToSubmissionDetails || (typeof navigateToSubmissionDetails === 'function' ? navigateToSubmissionDetails : null);
+      if (typeof navFn === 'function') {
+        navFn(sub.id);
+      }
+    });
+  });
+
+  card.querySelectorAll('.btn-pipeline-add, .btn-quick-add-event').forEach((btn: any) => {
+    btn.addEventListener('click', (e: Event) => {
+      e.stopPropagation();
+      const g = typeof window !== 'undefined' ? (window as any) : (globalThis as any);
+      if (typeof g.toggleInlineStageEditor === 'function') {
+        g.toggleInlineStageEditor(card, true);
+      } else if (typeof toggleInlineStageEditor === 'function') {
+        toggleInlineStageEditor(card, true);
+      }
+    });
+  });
+
+  card.querySelectorAll('.btn-pipeline-manage').forEach((btn: any) => {
+    btn.addEventListener('click', (e: Event) => {
+      e.stopPropagation();
+      const g = typeof window !== 'undefined' ? (window as any) : (globalThis as any);
+      const manageFn = g.openTimelineEventManager || (typeof openTimelineEventManager === 'function' ? openTimelineEventManager : null);
+      if (typeof manageFn === 'function') {
+        manageFn(sub.id);
+      }
+    });
+  });
+
+  card.querySelectorAll('.btn-pipeline-share, .btn-quick-share').forEach((btn: any) => {
+    btn.addEventListener('click', (e: Event) => {
+      e.stopPropagation();
+      const g = typeof window !== 'undefined' ? (window as any) : (globalThis as any);
+      const shareFn = g.openSubmissionSharePreview || g.openSubmissionShareModal || (typeof openSubmissionSharePreview === 'function' ? openSubmissionSharePreview : openSubmissionShareModal);
       if (typeof shareFn === 'function') {
         shareFn(sub.id, e.currentTarget);
       }

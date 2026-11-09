@@ -1,4 +1,4 @@
-> **16.3.0 CSS 领域模块化拆分与仪表盘视觉精细化发布版**：完成核心架构彻底去单体化解耦拆分（原 2,280 行 src/index.ts 及超长单例模块全面重构），全仓 45 个源码模块 100% 达成 §5.9 360 行硬约束（0 债务）；建立全天候 scripts/architecture-guard.mjs 合规守卫，并推出全新的纯 Node.js 流式 XPI 极速打包流水线，持续加固 Zotero 10 ~ 12 现代架构兼容性。[版本说明](docs/releases/v16.3.0.md)。
+> **16.3.1 CSS 领域模块化拆分与仪表盘视觉精细化发布版**：完成核心架构彻底去单体化解耦拆分（原 2,280 行 src/index.ts 及超长单例模块全面重构），全仓 45 个源码模块 100% 达成 §5.9 360 行硬约束（0 债务）；建立全天候 scripts/architecture-guard.mjs 合规守卫，并推出全新的纯 Node.js 流式 XPI 极速打包流水线，持续加固 Zotero 10 ~ 12 现代架构兼容性。[版本说明](docs/releases/v16.3.1.md)。
 
 # Zotero PaperFlow
 
@@ -11,7 +11,7 @@
 
 [简体中文](README.md) · [English](README.en.md)
 
-[![当前版本](https://img.shields.io/badge/version-16.3.0-245ac7?style=flat-square)](https://github.com/groele/Zotero-PaperFlow/releases/tag/v16.3.0) · [下载 XPI](https://github.com/groele/Zotero-PaperFlow/releases/download/v16.3.0/zotero-paperflow-16.3.0.xpi) · [问题反馈](https://github.com/groele/Zotero-PaperFlow/issues)
+[![当前版本](https://img.shields.io/badge/version-16.3.1-245ac7?style=flat-square)](https://github.com/groele/Zotero-PaperFlow/releases/tag/v16.3.1) · [下载 XPI](https://github.com/groele/Zotero-PaperFlow/releases/download/v16.3.1/zotero-paperflow-16.3.1.xpi) · [问题反馈](https://github.com/groele/Zotero-PaperFlow/issues)
 
 [产品定位](#overview) · [安装与更新](#installation) · [快速开始](#quick-start) · [核心功能](#features) · [设置与使用](#settings) · [数据、同步与外部服务](#data) · [兼容性与验证范围](#compatibility) · [常见问题](#troubleshooting) · [开发与详细文档](#development) · [系列产品](#series) · [项目来源与许可](#license)
 
@@ -27,7 +27,7 @@
 
 ## 安装与更新
 
-1. 下载 [zotero-paperflow-16.3.0.xpi](https://github.com/groele/Zotero-PaperFlow/releases/download/v16.3.0/zotero-paperflow-16.3.0.xpi)（插件版本 **16.3.0**），不要安装 Source code ZIP。
+1. 下载 [zotero-paperflow-16.3.1.xpi](https://github.com/groele/Zotero-PaperFlow/releases/download/v16.3.1/zotero-paperflow-16.3.1.xpi)（插件版本 **16.3.1**），不要安装 Source code ZIP。
 2. 在 Zotero 打开 **工具 → 插件／附加组件**，从齿轮菜单选择 **从文件安装插件**。
 3. 选择 XPI，完成安装；按提示重启 Zotero。
 
@@ -82,9 +82,9 @@ Zotero 偏好页配置窗口和数据维护；工作台中的业务设置按实�
 
 | 项目 | 范围 |
 |---|---|
-| 当前插件版本 | 16.3.0 |
+| 当前插件版本 | 16.3.1 |
 | 清单声明的 Zotero 范围 | `10.0` 至 `12.*`（面向 Zotero 10+ 现代 Web Components 架构） |
-| 当前说明 | 16.3.0 完成 options.css 样式领域化拆分与仪表盘高保真视觉打磨，修复紧凑甘特图视图切换；全仓 45 个 TS 模块 100% 控制在 339 行内，出具正式 architecture-baseline.json 零债务基线，135 项自动化单元测试、8 项打包测试及 14 项架构守卫全部 100% 绿色通过。 |
+| 当前说明 | 16.3.1 完成 options.css 样式领域化拆分与仪表盘高保真视觉打磨，修复紧凑甘特图视图切换；全仓 45 个 TS 模块 100% 控制在 339 行内，出具正式 architecture-baseline.json 零债务基线，135 项自动化单元测试、8 项打包测试及 14 项架构守卫全部 100% 绿色通过。 |
 
 插件版本与 Zotero 版本分别管理。清单允许安装，不代表所有版本、操作系统和外部服务均已验证。本版通过全套自动化回归测试、打包校验测试、标签语法自检及隔离 Windows Zotero 10 环境验证。
 

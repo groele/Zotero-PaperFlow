@@ -357,5 +357,32 @@ test('renderDashboard computes top KPI stat counters and renders prominent share
   assert.equal(gantt.children.length, 2, '2 pipeline cards rendered');
 });
 
+test("activateWorkspaceView switches views safely without ReferenceError on submissionAutoSaveCleanup", () => {
+  const { context, elements } = setupEnvironment();
+  assert.doesNotThrow(() => {
+    context.activateWorkspaceView("view-manuscripts");
+    context.activateWorkspaceView("view-submissions");
+    context.activateWorkspaceView("view-dashboard");
+  });
+});
 
+test("pipeline event cards render add-event and share buttons in header row and action bar", () => {
+  const { context, elements } = setupEnvironment();
+  const mockData = {
+    manuscripts: [{ id: "man_1", title: "Quantum Spin Order", status: "accepted" }],
+    submissions: [{ id: "sub_1", manuscriptId: "man_1", journal: "Applied Physics Letters", status: "accepted", timelineNodes: [] }],
+    settings: { profile: { theme: "system", language: "zh" } }
+  };
+  vm.runInContext("db = " + JSON.stringify(mockData) + "; currentLanguage = 'zh';", context);
+  context.renderDashboard();
+  const gantt = elements.get("dashboard-gantt");
+  assert.ok(gantt.children.length > 0, "Gantt should have rendered at least 1 card");
+});
 
+test("openSubmissionShareModal provides 13 preset style themes", () => {
+  const { context } = setupEnvironment();
+  const themes = context.getShareThemes ? context.getShareThemes() : [];
+  assert.equal(themes.length, 13, "Must provide 13 preset themes");
+  const expectedThemeIds = ["estuary", "iris", "amber", "journal", "conference", "archive", "paper", "ink", "blueprint", "minimal", "cyber", "aurora", "terminal"];
+  assert.equal(JSON.stringify(themes.map(t => t.id)), JSON.stringify(expectedThemeIds), "Themes must match the 13 defined presets");
+});

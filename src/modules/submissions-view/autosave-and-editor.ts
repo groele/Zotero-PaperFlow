@@ -68,16 +68,21 @@ export function openSubmissionForEditing(sub: any, options: { focusEditCenter?: 
 }
 
 export function navigateToSubmissionDetails(submissionId: string): void {
-  const submission = db.submissions.find((item: any) => item.id === submissionId);
+  const g = typeof window !== 'undefined' ? (window as any) : (globalThis as any);
+  const database = g?.db || (typeof db !== 'undefined' ? db : null);
+  const submission = (database?.submissions || []).find((item: any) => item.id === submissionId);
   if (!submission) {
     showGlobalToast(t('submissionNotFound'), 'error');
     return;
   }
   const submissionView = document.getElementById('view-submissions');
   if (!submissionView?.classList.contains('active')) {
-    (document.querySelector('.nav-item[data-view="view-submissions"]') as HTMLElement | null)?.click();
+    if (typeof (window as any).activateWorkspaceView === 'function') {
+      (window as any).activateWorkspaceView('view-submissions');
+    } else {
+      (document.querySelector('.nav-item[data-view="view-submissions"]') as HTMLElement | null)?.click();
+    }
   }
-  if (!submissionView?.classList.contains('active')) return;
   openSubmissionForEditing(submission);
   document.getElementById('submission-detail-panel')?.scrollTo({ top: 0 });
 }

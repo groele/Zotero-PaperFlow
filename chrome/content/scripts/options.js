@@ -1,4 +1,4 @@
-const RF_OPTIONS_RENDER_VERSION = '16.3.0';
+const RF_OPTIONS_RENDER_VERSION = '16.3.1';
 "use strict";
 (() => {
   var __getOwnPropNames = Object.getOwnPropertyNames;
@@ -22,8 +22,12 @@ const RF_OPTIONS_RENDER_VERSION = '16.3.0';
   function activateWorkspaceView(viewId) {
     const navItems = document.querySelectorAll(".nav-item");
     const views = document.querySelectorAll(".content-view");
+    const g2 = typeof window !== "undefined" ? window : globalThis;
     if (viewId !== "view-submissions") {
-      submissionAutoSaveCleanup?.();
+      try {
+        g2?.submissionAutoSaveCleanup?.();
+      } catch (_) {
+      }
     }
     navItems.forEach((nav) => {
       nav.classList.toggle("active", nav.getAttribute("data-view") === viewId);
@@ -32,12 +36,14 @@ const RF_OPTIONS_RENDER_VERSION = '16.3.0';
       view.classList.toggle("active", view.id === viewId);
     });
     const dirtyViews = window.RFUI?.getDirtyViewsSet?.();
-    if (dirtyViews?.has(viewId)) {
-      dirtyViews.delete(viewId);
+    dirtyViews?.delete(viewId);
+    try {
       if (viewId === "view-dashboard" && typeof renderDashboard === "function") renderDashboard();
       else if (viewId === "view-manuscripts" && typeof renderKanban === "function") renderKanban();
       else if (viewId === "view-submissions" && typeof renderSubmissions === "function") renderSubmissions();
       else if (viewId === "view-settings" && typeof renderSettings === "function") renderSettings();
+    } catch (err) {
+      console.error("[PaperFlow] View render error:", err);
     }
   }
   function focusSubmissionEditCenter() {
@@ -56,13 +62,18 @@ const RF_OPTIONS_RENDER_VERSION = '16.3.0';
     }
   }
   function openSubmissionForEditing(subOrId, options = {}) {
-    const sub = typeof subOrId === "string" ? (db.submissions || []).find((item) => item.id === subOrId) : subOrId;
+    const g2 = typeof window !== "undefined" ? window : globalThis;
+    const database = g2?.db || (typeof db !== "undefined" ? db : null);
+    const sub = typeof subOrId === "string" ? (database?.submissions || []).find((item) => item.id === subOrId) : subOrId;
     if (!sub) {
       showGlobalToast(t("submissionNotFound"), "error");
       return;
     }
-    submissionAutoSaveCleanup?.();
-    selectedSubmissionId = sub.id;
+    try {
+      g2?.submissionAutoSaveCleanup?.();
+    } catch (_) {
+    }
+    if (g2) g2.selectedSubmissionId = sub.id;
     if (options.switchView) {
       activateWorkspaceView("view-submissions");
     }
@@ -136,22 +147,32 @@ const RF_OPTIONS_RENDER_VERSION = '16.3.0';
     previousModalFocus = null;
   }
   function bindModalAndNavListeners() {
-    const navItems = document.querySelectorAll?.(".nav-item") || [];
-    navItems.forEach((item) => {
-      if (typeof item?.addEventListener === "function") {
-        item.addEventListener("click", () => {
-          const targetId = item.getAttribute("data-view");
-          if (targetId) activateWorkspaceView(targetId);
-        });
-      }
-    });
+    const bindNav = () => {
+      const navItems = document.querySelectorAll?.(".nav-item") || [];
+      navItems.forEach((item) => {
+        if (item && !item.dataset.navBound) {
+          item.dataset.navBound = "true";
+          item.addEventListener("click", (e) => {
+            e.preventDefault();
+            const targetId = item.getAttribute("data-view");
+            if (targetId) activateWorkspaceView(targetId);
+          });
+        }
+      });
+    };
+    bindNav();
+    if (typeof document !== "undefined" && document.readyState === "loading") {
+      document.addEventListener("DOMContentLoaded", bindNav);
+    }
     const modal = document.getElementById("modal-overlay");
-    if (typeof modal?.addEventListener === "function") {
+    if (typeof modal?.addEventListener === "function" && !modal.dataset.modalBound) {
+      modal.dataset.modalBound = "true";
       modal.addEventListener("click", (e) => {
         if (e.target === modal) closeModal();
       });
     }
-    if (typeof document?.addEventListener === "function") {
+    if (typeof document?.addEventListener === "function" && !document._pfKeydownBound) {
+      document._pfKeydownBound = true;
       document.addEventListener("keydown", (event) => {
         const modalEl = document.getElementById("modal-overlay");
         if (!modalEl || !modalEl.classList.contains("active")) return;
@@ -201,7 +222,10 @@ const RF_OPTIONS_RENDER_VERSION = '16.3.0';
     }, 4e3);
   }
   function showAcceptanceCelebration(submission = {}) {
-    acceptanceCelebrationCleanup?.();
+    try {
+      (typeof window !== "undefined" ? window : globalThis)?.acceptanceCelebrationCleanup?.();
+    } catch (_) {
+    }
     if (typeof ZoteroBridge !== "undefined" && typeof ZoteroBridge.getPref === "function") {
       const enabled = ZoteroBridge.getPref("enableAcceptanceCelebration", true);
       if (!enabled) return;
@@ -270,7 +294,7 @@ const RF_OPTIONS_RENDER_VERSION = '16.3.0';
   var init_navigation_and_modal = __esm({
     "src/modules/options/navigation-and-modal.ts"() {
       "use strict";
-      RF_OPTIONS_RENDER_VERSION = "16.3.0";
+      RF_OPTIONS_RENDER_VERSION = "16.3.1";
       UI_THEME_OPTIONS = /* @__PURE__ */ new Set(["system", "light", "dark"]);
       g = typeof globalThis !== "undefined" ? globalThis : window;
       if (!("db" in g)) g.db = null;

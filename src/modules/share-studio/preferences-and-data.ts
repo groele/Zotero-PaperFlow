@@ -77,16 +77,26 @@ export function normalizeSharePreferences(raw: any = {}): any {
   };
 }
 
+function getDatabase(): any {
+  const g = typeof window !== 'undefined' ? (window as any) : (globalThis as any);
+  if (g.db && typeof g.db === 'object') return g.db;
+  if (typeof db !== 'undefined' && db && typeof db === 'object') return db;
+  if (!g.db) g.db = {};
+  return g.db;
+}
+
 export function getSharePreferences(): any {
-  if (!db.settings) db.settings = {};
-  db.settings.shareCard = normalizeSharePreferences(db.settings.shareCard);
-  return db.settings.shareCard;
+  const database = getDatabase();
+  if (!database.settings) database.settings = {};
+  database.settings.shareCard = normalizeSharePreferences(database.settings.shareCard);
+  return database.settings.shareCard;
 }
 
 export async function persistSharePreferences(nextPrefs: any): Promise<any> {
-  if (!db.settings) db.settings = {};
+  const database = getDatabase();
+  if (!database.settings) database.settings = {};
   const normalized = normalizeSharePreferences(nextPrefs);
-  db.settings.shareCard = normalized;
+  database.settings.shareCard = normalized;
   sharePreferenceWrites = (sharePreferenceWrites || Promise.resolve())
     .catch(() => {})
     .then(async () => {
@@ -94,7 +104,10 @@ export async function persistSharePreferences(nextPrefs: any): Promise<any> {
       const latest = await window.storage.loadAll();
       if (!latest.settings) latest.settings = {};
       latest.settings.shareCard = normalized;
-      db = await window.storage.saveAll(latest, { mergeOnConflict: true }) || latest;
+      const saved = await window.storage.saveAll(latest, { mergeOnConflict: true }) || latest;
+      const g = typeof window !== 'undefined' ? (window as any) : (globalThis as any);
+      g.db = saved;
+      db = saved;
     })
     .catch((error: any) => {
       console.warn('Could not persist share card preferences:', error);
@@ -104,7 +117,8 @@ export async function persistSharePreferences(nextPrefs: any): Promise<any> {
 }
 
 export function buildSubmissionShareJourneyData(sub: any, overrides: any = {}): any {
-  const man = (db.manuscripts || []).find((item: any) => item.id === sub.manuscriptId) || null;
+  const database = getDatabase();
+  const man = (database.manuscripts || []).find((item: any) => item.id === sub.manuscriptId) || null;
   const analysis = analyzeSubmission(sub);
   const title = man?.title || sub.title || t('untitledManuscript');
   const journal = getSubmissionJournalName(sub);

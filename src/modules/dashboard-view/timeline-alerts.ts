@@ -18,21 +18,49 @@ declare function openStageDrawer(subId: string, nodeId: string): void;
 export function renderTimelineAlerts(): void {
   const reviewMilestones = document.getElementById('dashboard-pending-milestones');
   if (!reviewMilestones) return;
-  (window as any).RFUI?.setHTML?.(reviewMilestones, '');
+  const w = typeof window !== 'undefined' ? (window as any) : (globalThis as any);
+  w.RFUI?.setHTML?.(reviewMilestones, '');
+
+  const database = w.db || (typeof db !== 'undefined' ? db : null) || {};
+  const allSubmissions = database.submissions || [];
+  const allManuscripts = database.manuscripts || [];
+
+  const checkPub = (entity: any): boolean => {
+    if (!entity) return false;
+    if (typeof hasPublicationStatus === 'function') {
+      try { return hasPublicationStatus(entity); } catch (_) {}
+    }
+    const st = String(entity.status || '').toLowerCase();
+    return st === 'accepted' || st === 'published';
+  };
+
+  const checkAccepted = (entity: any): boolean => {
+    if (!entity) return false;
+    if (typeof isAcceptedSubmission === 'function') {
+      try { return isAcceptedSubmission(entity); } catch (_) {}
+    }
+    if (typeof w.isAcceptedSubmission === 'function') {
+      try { return w.isAcceptedSubmission(entity); } catch (_) {}
+    }
+    if (typeof w.analyzeSubmission === 'function') {
+      try { return Boolean(w.analyzeSubmission(entity)?.accepted); } catch (_) {}
+    }
+    return checkPub(entity);
+  };
 
   const timelineAlerts: any[] = [];
-  (db.submissions || [])
-    .filter((s: any) => s.status !== 'rejected')
+  allSubmissions
+    .filter((s: any) => s && s.status !== 'rejected')
     .forEach((sub: any) => {
-      const man = (db.manuscripts || []).find((m: any) => m.id === sub.manuscriptId);
+      const man = allManuscripts.find((m: any) => m.id === sub.manuscriptId);
       if (man) {
-        const currentSub = (window as any).RFCore?.getCurrentSubmission?.(db, man.id);
+        const currentSub = w.RFCore?.getCurrentSubmission?.(database, man.id);
         if (currentSub && currentSub.id !== sub.id) return;
       }
 
-      const isAcceptedOrPublished = hasPublicationStatus(sub) ||
-        isAcceptedSubmission(sub) ||
-        Boolean(man && (hasPublicationStatus(man) || man.status === 'accepted' || man.status === 'published'));
+      const isAcceptedOrPublished = checkPub(sub) ||
+        checkAccepted(sub) ||
+        Boolean(man && (checkPub(man) || man.status === 'accepted' || man.status === 'published'));
       const isPublished = sub.status === 'published' || (man && man.status === 'published');
 
       if (isPublished) return;

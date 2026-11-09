@@ -44,7 +44,9 @@ export function clearActiveSharePreview(): void {
 }
 
 export async function openSubmissionShareModal(subId: string): Promise<void> {
-  const sub = (db.submissions || []).find((item: any) => item.id === subId);
+  const g = typeof window !== 'undefined' ? (window as any) : (globalThis as any);
+  const database = g.db || (typeof db !== 'undefined' ? db : null) || {};
+  const sub = (database.submissions || []).find((item: any) => item.id === subId);
   if (!sub) {
     showGlobalToast(t('submissionNotFound'), 'error');
     renderDashboard();

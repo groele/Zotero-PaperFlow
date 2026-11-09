@@ -298,16 +298,21 @@
     }
   }
   function navigateToSubmissionDetails(submissionId) {
-    const submission = db.submissions.find((item) => item.id === submissionId);
+    const g = typeof window !== "undefined" ? window : globalThis;
+    const database = g?.db || (typeof db !== "undefined" ? db : null);
+    const submission = (database?.submissions || []).find((item) => item.id === submissionId);
     if (!submission) {
       showGlobalToast(t("submissionNotFound"), "error");
       return;
     }
     const submissionView = document.getElementById("view-submissions");
     if (!submissionView?.classList.contains("active")) {
-      document.querySelector('.nav-item[data-view="view-submissions"]')?.click();
+      if (typeof window.activateWorkspaceView === "function") {
+        window.activateWorkspaceView("view-submissions");
+      } else {
+        document.querySelector('.nav-item[data-view="view-submissions"]')?.click();
+      }
     }
-    if (!submissionView?.classList.contains("active")) return;
     openSubmissionForEditing(submission);
     document.getElementById("submission-detail-panel")?.scrollTo({ top: 0 });
   }
@@ -679,9 +684,14 @@
               <p class="submission-card-title">${escapeHTML(manTitle)}</p>
             </div>
           </div>
-          <button class="btn-secondary btn-icon submission-card-edit btn-edit-submission" data-sub-id="${escapeHTML(sub.id)}" title="${escapeHTML(t("editFields"))}">
-            <svg class="svg-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z"/></svg>
-          </button>
+          <div style="display: flex; gap: 4px; align-items: center;">
+            <button type="button" class="btn-secondary btn-icon btn-sub-card-share" data-sub-id="${escapeHTML(sub.id)}" title="${escapeHTML(t("shareJourney"))}">
+              <svg viewBox="0 0 24 24" aria-hidden="true" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="m8.6 10.5 6.8-4M8.6 13.5l6.8 4"/></svg>
+            </button>
+            <button class="btn-secondary btn-icon submission-card-edit btn-edit-submission" data-sub-id="${escapeHTML(sub.id)}" title="${escapeHTML(t("editFields"))}">
+              <svg class="svg-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z"/></svg>
+            </button>
+          </div>
         </div>
         <div class="submission-card-footer">
           <span class="${w.RFUI.getSubmissionStatusBadgeClass(sub.status)}">${escapeHTML(statusText)}</span>
@@ -700,6 +710,11 @@
         card.querySelector(".btn-edit-submission")?.addEventListener("click", (event) => {
           event.stopPropagation();
           openSubmissionForEditing(sub, { focusEditCenter: true });
+        });
+        card.querySelector(".btn-sub-card-share")?.addEventListener("click", (event) => {
+          event.stopPropagation();
+          const shareFn = w.openSubmissionSharePreview || w.openSubmissionShareModal;
+          if (typeof shareFn === "function") shareFn(sub.id, event.currentTarget);
         });
         const cardZoteroBadge = card.querySelector(".zotero-card-badge");
         cardZoteroBadge?.addEventListener("click", (event) => {
@@ -1331,9 +1346,14 @@
         <h2>${escapeHTML(journalName)}</h2>
         ${sub.externalManuscriptId ? `<span class="badge badge-purple" style="font-size:11px; font-weight:600; width:fit-content; margin-top:3px;">ID: ${escapeHTML(sub.externalManuscriptId)}</span>` : ""}
       </div>
-      <button class="btn-danger btn-icon submission-delete-button" id="btn-delete-sub" title="${escapeHTML(t("deleteSubmissionTitle"))}">
-        <svg class="svg-icon" viewBox="0 0 24 24" aria-hidden="true"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
-      </button>
+      <div style="display:flex; align-items:center; gap:6px;">
+        <button type="button" class="btn-secondary btn-icon submission-share-button" id="btn-share-sub-journey" title="${escapeHTML(t("shareJourney"))}">
+          <svg viewBox="0 0 24 24" aria-hidden="true" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="m8.6 10.5 6.8-4M8.6 13.5l6.8 4"/></svg>
+        </button>
+        <button class="btn-danger btn-icon submission-delete-button" id="btn-delete-sub" title="${escapeHTML(t("deleteSubmissionTitle"))}">
+          <svg class="svg-icon" viewBox="0 0 24 24" aria-hidden="true"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
+        </button>
+      </div>
     </div>
     <div class="submission-detail-meta" style="display:flex; align-items:center; flex-wrap:wrap; gap:8px;">
       <span class="${statusBadgeClass}" data-submission-status-badge="stage">${escapeHTML(t("currentStageLabel"))}: ${escapeHTML(statusText)}</span>
@@ -1367,7 +1387,7 @@
       <div class="submission-review-preview" id="submission-review-preview"></div>
     </div>
   `);
-    detailPanel.dataset.rfRenderVersion = typeof RF_OPTIONS_RENDER_VERSION !== "undefined" ? RF_OPTIONS_RENDER_VERSION : "16.3.0";
+    detailPanel.dataset.rfRenderVersion = typeof RF_OPTIONS_RENDER_VERSION !== "undefined" ? RF_OPTIONS_RENDER_VERSION : "16.3.1";
     detailPanel.dataset.rfEditorMounted = "true";
     detailPanel.dataset.currentSubmissionId = sub.id;
     detailPanel.scrollTop = 0;
@@ -1518,6 +1538,11 @@
       renderSubmissions();
       renderSubmissionDetails(sub);
       showGlobalToast(t("rejectedToast"), "success");
+    });
+    document.getElementById("btn-share-sub-journey")?.addEventListener("click", (e) => {
+      e.stopPropagation();
+      const shareFn = w.openSubmissionSharePreview || w.openSubmissionShareModal;
+      if (typeof shareFn === "function") shareFn(sub.id, e.currentTarget);
     });
     document.getElementById("btn-transfer-submission")?.addEventListener("click", () => openTransferSubmissionModal(sub));
     document.getElementById("btn-delete-sub")?.addEventListener("click", async () => {

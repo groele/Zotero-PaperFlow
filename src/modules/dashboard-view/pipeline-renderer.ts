@@ -56,22 +56,45 @@ export function renderDashboard(): void {
   if (w.RFUI?.isViewDeferred?.('view-dashboard')) return;
 
   const currentDashboardFilter = w.currentDashboardFilter || 'all';
-  const manuscriptsById = new Map((db.manuscripts || []).map((m: any) => [m.id, m]));
-  const visibleManuscripts = db.manuscripts || [];
-  const allSubmissions = (db.submissions || []).filter((s: any) => !s.deleted && !s.isDeleted);
+  const database = w.db || (typeof db !== 'undefined' ? db : null) || {};
+  const manuscriptsById = new Map((database.manuscripts || []).map((m: any) => [m.id, m]));
+  const visibleManuscripts = database.manuscripts || [];
+  const allSubmissions = (database.submissions || []).filter((s: any) => !s.deleted && !s.isDeleted);
   const visibleSubmissions = allSubmissions.filter((s: any) => s.status !== 'rejected');
 
   // 0. Update top 3 KPI stat counters and interactive filter cards
-  const acceptedCount = visibleSubmissions.filter(isAcceptedSubmission).length;
-  const activeCount = visibleSubmissions.filter((s: any) => !isAcceptedSubmission(s)).length;
+  const checkAccepted = (s: any): boolean => {
+    if (!s) return false;
+    if (typeof isAcceptedSubmission === 'function') {
+      try { return isAcceptedSubmission(s); } catch (_) {}
+    }
+    const g = typeof window !== 'undefined' ? (window as any) : (globalThis as any);
+    if (typeof g.isAcceptedSubmission === 'function') {
+      try { return g.isAcceptedSubmission(s); } catch (_) {}
+    }
+    if (typeof g.analyzeSubmission === 'function') {
+      try { return Boolean(g.analyzeSubmission(s)?.accepted); } catch (_) {}
+    }
+    const st = String(s.status || '').toLowerCase();
+    return st === 'accepted' || st === 'published';
+  };
+
+  const acceptedCount = visibleSubmissions.filter(checkAccepted).length;
+  const activeCount = visibleSubmissions.filter((s: any) => !checkAccepted(s)).length;
   const totalCount = allSubmissions.length;
 
-  const elAccepted = document.getElementById('stat-accepted-submissions');
-  if (elAccepted) elAccepted.textContent = String(acceptedCount);
-  const elActive = document.getElementById('stat-active-submissions');
-  if (elActive) elActive.textContent = String(activeCount);
-  const elTotal = document.getElementById('stat-total-submissions');
-  if (elTotal) elTotal.textContent = String(totalCount);
+  const setStat = (id: string, val: number) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    if (typeof w.RFUI?.animateMetricValue === 'function') {
+      w.RFUI.animateMetricValue(el, val);
+    } else {
+      el.textContent = String(val);
+    }
+  };
+  setStat('stat-accepted-submissions', acceptedCount);
+  setStat('stat-active-submissions', activeCount);
+  setStat('stat-total-submissions', totalCount);
 
   const filterCards = [
     { id: 'card-filter-accepted', filter: 'accepted' },
@@ -94,7 +117,7 @@ export function renderDashboard(): void {
   const manuscriptPipelines: any[] = [];
 
   visibleManuscripts.forEach((m: any) => {
-    const canonicalSub = w.RFCore?.getCurrentSubmission?.(db, m.id);
+    const canonicalSub = w.RFCore?.getCurrentSubmission?.(database, m.id);
     if (canonicalSub && !canonicalSub.deleted && !canonicalSub.isDeleted) {
       manuscriptPipelines.push({ manuscript: m, submission: canonicalSub });
       processedSubIds.add(canonicalSub.id);
@@ -161,9 +184,9 @@ export function renderDashboard(): void {
 
   let submissionsList = visibleSubmissions;
   if (currentDashboardFilter === 'accepted') {
-    submissionsList = submissionsList.filter(isAcceptedSubmission);
+    submissionsList = submissionsList.filter(checkAccepted);
   } else if (currentDashboardFilter === 'active') {
-    submissionsList = submissionsList.filter((s: any) => !isAcceptedSubmission(s));
+    submissionsList = submissionsList.filter((s: any) => !checkAccepted(s));
   }
   submissionsList = sortDashboardSubmissions(submissionsList);
 

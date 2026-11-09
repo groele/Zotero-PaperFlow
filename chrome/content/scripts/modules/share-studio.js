@@ -65,22 +65,34 @@
       visible
     };
   }
+  function getDatabase() {
+    const g2 = typeof window !== "undefined" ? window : globalThis;
+    if (g2.db && typeof g2.db === "object") return g2.db;
+    if (typeof db !== "undefined" && db && typeof db === "object") return db;
+    if (!g2.db) g2.db = {};
+    return g2.db;
+  }
   function getSharePreferences() {
-    if (!db.settings) db.settings = {};
-    db.settings.shareCard = normalizeSharePreferences(db.settings.shareCard);
-    return db.settings.shareCard;
+    const database = getDatabase();
+    if (!database.settings) database.settings = {};
+    database.settings.shareCard = normalizeSharePreferences(database.settings.shareCard);
+    return database.settings.shareCard;
   }
   async function persistSharePreferences(nextPrefs) {
-    if (!db.settings) db.settings = {};
+    const database = getDatabase();
+    if (!database.settings) database.settings = {};
     const normalized = normalizeSharePreferences(nextPrefs);
-    db.settings.shareCard = normalized;
+    database.settings.shareCard = normalized;
     sharePreferenceWrites = (sharePreferenceWrites || Promise.resolve()).catch(() => {
     }).then(async () => {
       if (!window.storage?.saveAll) return;
       const latest = await window.storage.loadAll();
       if (!latest.settings) latest.settings = {};
       latest.settings.shareCard = normalized;
-      db = await window.storage.saveAll(latest, { mergeOnConflict: true }) || latest;
+      const saved = await window.storage.saveAll(latest, { mergeOnConflict: true }) || latest;
+      const g2 = typeof window !== "undefined" ? window : globalThis;
+      g2.db = saved;
+      db = saved;
     }).catch((error) => {
       console.warn("Could not persist share card preferences:", error);
       showGlobalToast(t("sharePrefsFailed"), "warning");
@@ -88,7 +100,8 @@
     return sharePreferenceWrites;
   }
   function buildSubmissionShareJourneyData(sub, overrides = {}) {
-    const man = (db.manuscripts || []).find((item) => item.id === sub.manuscriptId) || null;
+    const database = getDatabase();
+    const man = (database.manuscripts || []).find((item) => item.id === sub.manuscriptId) || null;
     const analysis = analyzeSubmission(sub);
     const title = man?.title || sub.title || t("untitledManuscript");
     const journal = getSubmissionJournalName(sub);
@@ -227,7 +240,9 @@
     }
   }
   async function openSubmissionShareModal(subId) {
-    const sub = (db.submissions || []).find((item) => item.id === subId);
+    const g2 = typeof window !== "undefined" ? window : globalThis;
+    const database = g2.db || (typeof db !== "undefined" ? db : null) || {};
+    const sub = (database.submissions || []).find((item) => item.id === subId);
     if (!sub) {
       showGlobalToast(t("submissionNotFound"), "error");
       renderDashboard();

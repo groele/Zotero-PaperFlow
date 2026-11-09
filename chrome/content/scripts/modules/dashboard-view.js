@@ -339,7 +339,7 @@
   }
   function updatePipelineViewToggle() {
     const g = typeof window !== "undefined" ? window : globalThis;
-    const isExp = Boolean(g.isPipelineExpanded ?? isPipelineExpanded);
+    const isExp = Boolean(g.isPipelineExpanded);
     const container = document.getElementById("dashboard-gantt");
     if (container) {
       container.classList.toggle("expanded", isExp);
@@ -373,7 +373,8 @@
     });
   }
   function setDashboardFilter(filter) {
-    currentDashboardFilter = filter;
+    const g = typeof window !== "undefined" ? window : globalThis;
+    g.currentDashboardFilter = filter;
     renderDashboard();
   }
   function updateDashboardFilterUI() {
@@ -382,9 +383,11 @@
       active: "card-filter-active",
       all: "card-filter-all"
     };
-    Object.entries(map).forEach(([filter, id]) => {
+    const g = typeof window !== "undefined" ? window : globalThis;
+    const filter = String(g.currentDashboardFilter || "all");
+    Object.entries(map).forEach(([flt, id]) => {
       const card = document.getElementById(id);
-      if (card) card.classList.toggle("active-filter", currentDashboardFilter === filter);
+      if (card) card.classList.toggle("active-filter", filter === flt);
     });
     const labelEl = document.getElementById("dashboard-filter-label");
     if (labelEl) labelEl.textContent = getDashboardFilterLabel();
@@ -392,8 +395,10 @@
   function getDashboardFilterLabel() {
     const showSortHint = typeof ZoteroBridge !== "undefined" ? ZoteroBridge.getPref("showTimelineSortHint", true) : true;
     const sortHint = showSortHint ? ` · ${t("timelineSortedBySubmissionDate")}` : "";
-    if (currentDashboardFilter === "accepted") return `${t("acceptedPipelines")}${sortHint}`;
-    if (currentDashboardFilter === "active") return `${t("activePipelines")}${sortHint}`;
+    const g = typeof window !== "undefined" ? window : globalThis;
+    const filter = String(g.currentDashboardFilter || "all");
+    if (filter === "accepted") return `${t("acceptedPipelines")}${sortHint}`;
+    if (filter === "active") return `${t("activePipelines")}${sortHint}`;
     return `${t("allPipelines")}${sortHint}`;
   }
   var init_transfer_and_status = __esm({
@@ -407,15 +412,52 @@
   function renderTimelineAlerts() {
     const reviewMilestones = document.getElementById("dashboard-pending-milestones");
     if (!reviewMilestones) return;
-    window.RFUI?.setHTML?.(reviewMilestones, "");
+    const w = typeof window !== "undefined" ? window : globalThis;
+    w.RFUI?.setHTML?.(reviewMilestones, "");
+    const database = w.db || (typeof db !== "undefined" ? db : null) || {};
+    const allSubmissions = database.submissions || [];
+    const allManuscripts = database.manuscripts || [];
+    const checkPub = (entity) => {
+      if (!entity) return false;
+      if (typeof hasPublicationStatus === "function") {
+        try {
+          return hasPublicationStatus(entity);
+        } catch (_) {
+        }
+      }
+      const st = String(entity.status || "").toLowerCase();
+      return st === "accepted" || st === "published";
+    };
+    const checkAccepted = (entity) => {
+      if (!entity) return false;
+      if (typeof isAcceptedSubmission === "function") {
+        try {
+          return isAcceptedSubmission(entity);
+        } catch (_) {
+        }
+      }
+      if (typeof w.isAcceptedSubmission === "function") {
+        try {
+          return w.isAcceptedSubmission(entity);
+        } catch (_) {
+        }
+      }
+      if (typeof w.analyzeSubmission === "function") {
+        try {
+          return Boolean(w.analyzeSubmission(entity)?.accepted);
+        } catch (_) {
+        }
+      }
+      return checkPub(entity);
+    };
     const timelineAlerts = [];
-    (db.submissions || []).filter((s) => s.status !== "rejected").forEach((sub) => {
-      const man = (db.manuscripts || []).find((m) => m.id === sub.manuscriptId);
+    allSubmissions.filter((s) => s && s.status !== "rejected").forEach((sub) => {
+      const man = allManuscripts.find((m) => m.id === sub.manuscriptId);
       if (man) {
-        const currentSub = window.RFCore?.getCurrentSubmission?.(db, man.id);
+        const currentSub = w.RFCore?.getCurrentSubmission?.(database, man.id);
         if (currentSub && currentSub.id !== sub.id) return;
       }
-      const isAcceptedOrPublished = hasPublicationStatus(sub) || isAcceptedSubmission(sub) || Boolean(man && (hasPublicationStatus(man) || man.status === "accepted" || man.status === "published"));
+      const isAcceptedOrPublished = checkPub(sub) || checkAccepted(sub) || Boolean(man && (checkPub(man) || man.status === "accepted" || man.status === "published"));
       const isPublished = sub.status === "published" || man && man.status === "published";
       if (isPublished) return;
       (sub.timelineNodes || []).forEach((node) => {
@@ -544,26 +586,42 @@
         }
       });
     }
-    card.querySelector(".btn-pipeline-open")?.addEventListener("click", (e) => {
-      e.stopPropagation();
-      if (typeof navigateToSubmissionDetails === "function") {
-        navigateToSubmissionDetails(sub.id);
-      }
-    });
-    card.querySelector(".btn-pipeline-add")?.addEventListener("click", (e) => {
-      e.stopPropagation();
-      toggleInlineStageEditor(card, true);
-    });
-    card.querySelector(".btn-pipeline-manage")?.addEventListener("click", (e) => {
-      e.stopPropagation();
-      if (typeof openTimelineEventManager === "function") {
-        openTimelineEventManager(sub.id);
-      }
-    });
-    card.querySelectorAll(".btn-pipeline-share").forEach((btn) => {
+    card.querySelectorAll(".btn-pipeline-open").forEach((btn) => {
       btn.addEventListener("click", (e) => {
         e.stopPropagation();
-        const shareFn = typeof openSubmissionSharePreview === "function" ? openSubmissionSharePreview : openSubmissionShareModal;
+        const g = typeof window !== "undefined" ? window : globalThis;
+        const navFn = g.navigateToSubmissionDetails || (typeof navigateToSubmissionDetails === "function" ? navigateToSubmissionDetails : null);
+        if (typeof navFn === "function") {
+          navFn(sub.id);
+        }
+      });
+    });
+    card.querySelectorAll(".btn-pipeline-add, .btn-quick-add-event").forEach((btn) => {
+      btn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        const g = typeof window !== "undefined" ? window : globalThis;
+        if (typeof g.toggleInlineStageEditor === "function") {
+          g.toggleInlineStageEditor(card, true);
+        } else if (typeof toggleInlineStageEditor === "function") {
+          toggleInlineStageEditor(card, true);
+        }
+      });
+    });
+    card.querySelectorAll(".btn-pipeline-manage").forEach((btn) => {
+      btn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        const g = typeof window !== "undefined" ? window : globalThis;
+        const manageFn = g.openTimelineEventManager || (typeof openTimelineEventManager === "function" ? openTimelineEventManager : null);
+        if (typeof manageFn === "function") {
+          manageFn(sub.id);
+        }
+      });
+    });
+    card.querySelectorAll(".btn-pipeline-share, .btn-quick-share").forEach((btn) => {
+      btn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        const g = typeof window !== "undefined" ? window : globalThis;
+        const shareFn = g.openSubmissionSharePreview || g.openSubmissionShareModal || (typeof openSubmissionSharePreview === "function" ? openSubmissionSharePreview : openSubmissionShareModal);
         if (typeof shareFn === "function") {
           shareFn(sub.id, e.currentTarget);
         }
@@ -767,8 +825,12 @@
         <div class="journal" title="${escapeHTML(journalName)}">${escapeHTML(journalName)}</div>
         ${sub.externalManuscriptId ? `<span class="badge badge-purple" style="font-size:10px; padding:1px 6px; border-radius:3px;" title="Manuscript ID: ${escapeHTML(sub.externalManuscriptId)}">ID: ${escapeHTML(sub.externalManuscriptId)}</span>` : ""}
         <span class="pipeline-compact-status" style="--state-color:${a.stateColor}">${escapeHTML(a.stateLabel)}</span>
+        <button type="button" class="btn-sm btn-quick-add-event" data-sub-id="${escapeHTML(sub.id)}" title="${escapeHTML(t("addEvent"))}" aria-label="${escapeHTML(t("addEvent"))}: ${escapeHTML(manTitle)}">
+          <svg viewBox="0 0 24 24" aria-hidden="true" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M12 5v14M5 12h14"/></svg>
+          <span>${escapeHTML(t("addEvent"))}</span>
+        </button>
         <button type="button" class="btn-pipeline-share btn-quick-share" data-sub-id="${escapeHTML(sub.id)}" title="${escapeHTML(t("shareJourney"))}" aria-label="${escapeHTML(t("shareJourney"))}: ${escapeHTML(manTitle)}">
-          <svg viewBox="0 0 24 24" aria-hidden="true" width="13" height="13"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="m8.6 10.5 6.8-4M8.6 13.5l6.8 4"/></svg>
+          <svg viewBox="0 0 24 24" aria-hidden="true" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="m8.6 10.5 6.8-4M8.6 13.5l6.8 4"/></svg>
           <span>${escapeHTML(t("shareJourney"))}</span>
         </button>
       </div>
@@ -786,7 +848,7 @@
       <div class="pipeline-link-row">
         ${doiHtml}
         ${man?.zoteroItemKey ? `
-          <span class="zotero-card-badge" data-item-key="${escapeHTML(man.zoteroItemKey)}" data-library-id="${escapeHTML(man.zoteroLibraryID || "")}" title="${escapeHTML(currentLanguage === "zh" ? "在 Zotero 文献库中选中此条目" : "Select in Zotero library")}" style="margin-left: 6px;">
+          <span class="zotero-card-badge" data-item-key="${escapeHTML(man.zoteroItemKey)}" data-library-id="${escapeHTML(man.zoteroLibraryID || "")}" title="${escapeHTML((w.currentLanguage || "zh") === "zh" ? "在 Zotero 文献库中选中此条目" : "Select in Zotero library")}" style="margin-left: 6px;">
             <svg width="11" height="11" viewBox="0 0 16 16" fill="currentColor"><path d="M2 3h12v2H6.4l5.6 6v2H2v-2h7.6L4 5V3z"/></svg>
             Zotero
           </span>
@@ -794,12 +856,15 @@
           ${man.pdfUri ? `<span class="zotero-pdf-badge" data-item-key="${escapeHTML(man.zoteroItemKey)}" data-library-id="${escapeHTML(man.zoteroLibraryID || "")}" title="${escapeHTML(currentLanguage === "zh" ? "在 Zotero 阅读器中打开 PDF" : "Open PDF in Zotero reader")}">📖 PDF</span>` : ""}
         ` : ""}
       </div>
-      <div class="pipeline-actions" style="margin-top: 10px; display: flex; gap: 8px; flex-wrap: wrap;">
+      <div class="pipeline-actions" style="margin-top: 10px; display: flex !important; gap: 8px !important; flex-wrap: wrap !important; visibility: visible !important;">
         <button type="button" class="btn-secondary btn-sm btn-pipeline-open" data-sub-id="${escapeHTML(sub.id)}" aria-label="${escapeHTML(t("openSubmissionDetails"))}: ${escapeHTML(manTitle)}">${escapeHTML(t("openSubmissionDetails"))}</button>
-        <button type="button" class="btn-secondary btn-sm btn-pipeline-add" data-sub-id="${escapeHTML(sub.id)}">${t("addEvent")}</button>
+        <button type="button" class="btn-secondary btn-sm btn-pipeline-add" data-sub-id="${escapeHTML(sub.id)}" style="display: inline-flex; align-items: center; gap: 4px; font-weight: 600; color: #4f46e5; border-color: rgba(99, 102, 241, 0.35);">
+          <svg viewBox="0 0 24 24" aria-hidden="true" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M12 5v14M5 12h14"/></svg>
+          <span>${t("addEvent")}</span>
+        </button>
         <button type="button" class="btn-secondary btn-sm btn-pipeline-manage" data-sub-id="${escapeHTML(sub.id)}">${t("manageEvents")}</button>
-        <button type="button" class="btn-secondary btn-sm btn-pipeline-share" data-sub-id="${escapeHTML(sub.id)}" title="${escapeHTML(t("shareJourney"))}" aria-label="${escapeHTML(t("shareJourney"))}: ${escapeHTML(manTitle)}">
-          <svg viewBox="0 0 24 24" aria-hidden="true" width="13" height="13"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="m8.6 10.5 6.8-4M8.6 13.5l6.8 4"/></svg>
+        <button type="button" class="btn-secondary btn-sm btn-pipeline-share" data-sub-id="${escapeHTML(sub.id)}" title="${escapeHTML(t("shareJourney"))}" aria-label="${escapeHTML(t("shareJourney"))}: ${escapeHTML(manTitle)}" style="display: inline-flex; align-items: center; gap: 5px; color: #0891b2; border-color: rgba(6, 182, 212, 0.4); font-weight: 600;">
+          <svg viewBox="0 0 24 24" aria-hidden="true" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="m8.6 10.5 6.8-4M8.6 13.5l6.8 4"/></svg>
           <span>${escapeHTML(t("shareJourney"))}</span>
         </button>
       </div>
@@ -880,20 +945,51 @@
   function renderDashboard2() {
     const w = window;
     if (w.RFUI?.isViewDeferred?.("view-dashboard")) return;
-    const currentDashboardFilter2 = w.currentDashboardFilter || "all";
-    const manuscriptsById = new Map((db.manuscripts || []).map((m) => [m.id, m]));
-    const visibleManuscripts = db.manuscripts || [];
-    const allSubmissions = (db.submissions || []).filter((s) => !s.deleted && !s.isDeleted);
+    const currentDashboardFilter = w.currentDashboardFilter || "all";
+    const database = w.db || (typeof db !== "undefined" ? db : null) || {};
+    const manuscriptsById = new Map((database.manuscripts || []).map((m) => [m.id, m]));
+    const visibleManuscripts = database.manuscripts || [];
+    const allSubmissions = (database.submissions || []).filter((s) => !s.deleted && !s.isDeleted);
     const visibleSubmissions = allSubmissions.filter((s) => s.status !== "rejected");
-    const acceptedCount = visibleSubmissions.filter(isAcceptedSubmission).length;
-    const activeCount = visibleSubmissions.filter((s) => !isAcceptedSubmission(s)).length;
+    const checkAccepted = (s) => {
+      if (!s) return false;
+      if (typeof isAcceptedSubmission === "function") {
+        try {
+          return isAcceptedSubmission(s);
+        } catch (_) {
+        }
+      }
+      const g = typeof window !== "undefined" ? window : globalThis;
+      if (typeof g.isAcceptedSubmission === "function") {
+        try {
+          return g.isAcceptedSubmission(s);
+        } catch (_) {
+        }
+      }
+      if (typeof g.analyzeSubmission === "function") {
+        try {
+          return Boolean(g.analyzeSubmission(s)?.accepted);
+        } catch (_) {
+        }
+      }
+      const st = String(s.status || "").toLowerCase();
+      return st === "accepted" || st === "published";
+    };
+    const acceptedCount = visibleSubmissions.filter(checkAccepted).length;
+    const activeCount = visibleSubmissions.filter((s) => !checkAccepted(s)).length;
     const totalCount = allSubmissions.length;
-    const elAccepted = document.getElementById("stat-accepted-submissions");
-    if (elAccepted) elAccepted.textContent = String(acceptedCount);
-    const elActive = document.getElementById("stat-active-submissions");
-    if (elActive) elActive.textContent = String(activeCount);
-    const elTotal = document.getElementById("stat-total-submissions");
-    if (elTotal) elTotal.textContent = String(totalCount);
+    const setStat = (id, val) => {
+      const el = document.getElementById(id);
+      if (!el) return;
+      if (typeof w.RFUI?.animateMetricValue === "function") {
+        w.RFUI.animateMetricValue(el, val);
+      } else {
+        el.textContent = String(val);
+      }
+    };
+    setStat("stat-accepted-submissions", acceptedCount);
+    setStat("stat-active-submissions", activeCount);
+    setStat("stat-total-submissions", totalCount);
     const filterCards = [
       { id: "card-filter-accepted", filter: "accepted" },
       { id: "card-filter-active", filter: "active" },
@@ -902,7 +998,7 @@
     filterCards.forEach(({ id, filter }) => {
       const el = document.getElementById(id);
       if (el) {
-        const isActive = currentDashboardFilter2 === filter;
+        const isActive = currentDashboardFilter === filter;
         el.classList.toggle("active", isActive);
         el.setAttribute("aria-pressed", String(isActive));
       }
@@ -912,7 +1008,7 @@
     const processedSubIds = /* @__PURE__ */ new Set();
     const manuscriptPipelines = [];
     visibleManuscripts.forEach((m) => {
-      const canonicalSub = w.RFCore?.getCurrentSubmission?.(db, m.id);
+      const canonicalSub = w.RFCore?.getCurrentSubmission?.(database, m.id);
       if (canonicalSub && !canonicalSub.deleted && !canonicalSub.isDeleted) {
         manuscriptPipelines.push({ manuscript: m, submission: canonicalSub });
         processedSubIds.add(canonicalSub.id);
@@ -963,10 +1059,10 @@
     bindDashboardControls();
     w.RFUI.setHTML(ganttBox, "");
     let submissionsList = visibleSubmissions;
-    if (currentDashboardFilter2 === "accepted") {
-      submissionsList = submissionsList.filter(isAcceptedSubmission);
-    } else if (currentDashboardFilter2 === "active") {
-      submissionsList = submissionsList.filter((s) => !isAcceptedSubmission(s));
+    if (currentDashboardFilter === "accepted") {
+      submissionsList = submissionsList.filter(checkAccepted);
+    } else if (currentDashboardFilter === "active") {
+      submissionsList = submissionsList.filter((s) => !checkAccepted(s));
     }
     submissionsList = sortDashboardSubmissions(submissionsList);
     if (submissionsList.length === 0) {

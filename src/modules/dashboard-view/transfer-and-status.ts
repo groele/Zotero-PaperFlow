@@ -212,7 +212,7 @@ export function setPipelineViewMode(expanded: boolean, options: { persist?: bool
 
 export function updatePipelineViewToggle(): void {
   const g = typeof window !== 'undefined' ? (window as any) : (globalThis as any);
-  const isExp = Boolean(g.isPipelineExpanded ?? isPipelineExpanded);
+  const isExp = Boolean(g.isPipelineExpanded);
   const container = document.getElementById('dashboard-gantt');
   if (container) {
     container.classList.toggle('expanded', isExp);
@@ -254,7 +254,8 @@ export function initializePipelineViewMode(): void {
 }
 
 export function setDashboardFilter(filter: string): void {
-  currentDashboardFilter = filter;
+  const g = typeof window !== 'undefined' ? (window as any) : (globalThis as any);
+  g.currentDashboardFilter = filter;
   renderDashboard();
 }
 
@@ -264,9 +265,11 @@ export function updateDashboardFilterUI(): void {
     active: 'card-filter-active',
     all: 'card-filter-all'
   };
-  Object.entries(map).forEach(([filter, id]) => {
+  const g = typeof window !== 'undefined' ? (window as any) : (globalThis as any);
+  const filter = String(g.currentDashboardFilter || 'all');
+  Object.entries(map).forEach(([flt, id]) => {
     const card = document.getElementById(id);
-    if (card) card.classList.toggle('active-filter', currentDashboardFilter === filter);
+    if (card) card.classList.toggle('active-filter', filter === flt);
   });
   const labelEl = document.getElementById('dashboard-filter-label');
   if (labelEl) labelEl.textContent = getDashboardFilterLabel();
@@ -277,7 +280,9 @@ export function getDashboardFilterLabel(): string {
     ? ZoteroBridge.getPref('showTimelineSortHint', true)
     : true;
   const sortHint = showSortHint ? ` · ${t('timelineSortedBySubmissionDate')}` : '';
-  if (currentDashboardFilter === 'accepted') return `${t('acceptedPipelines')}${sortHint}`;
-  if (currentDashboardFilter === 'active') return `${t('activePipelines')}${sortHint}`;
+  const g = typeof window !== 'undefined' ? (window as any) : (globalThis as any);
+  const filter = String(g.currentDashboardFilter || 'all');
+  if (filter === 'accepted') return `${t('acceptedPipelines')}${sortHint}`;
+  if (filter === 'active') return `${t('activePipelines')}${sortHint}`;
   return `${t('allPipelines')}${sortHint}`;
 }

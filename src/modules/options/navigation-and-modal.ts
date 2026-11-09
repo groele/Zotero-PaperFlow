@@ -1,7 +1,7 @@
 /**
  * Zotero PaperFlow - Workspace Navigation, Modal Lifecycle & Toast Celebrations
  */
-export const RF_OPTIONS_RENDER_VERSION = '16.3.0';
+export const RF_OPTIONS_RENDER_VERSION = '16.3.1';
 export const UI_THEME_OPTIONS = new Set(['system', 'light', 'dark']);
 
 const g: any = typeof globalThis !== 'undefined' ? globalThis : window;
@@ -38,8 +38,9 @@ declare function renderSettings(): Promise<void>;
 export function activateWorkspaceView(viewId: string): void {
   const navItems = document.querySelectorAll('.nav-item');
   const views = document.querySelectorAll('.content-view');
+  const g = typeof window !== 'undefined' ? (window as any) : (globalThis as any);
   if (viewId !== 'view-submissions') {
-    submissionAutoSaveCleanup?.();
+    try { g?.submissionAutoSaveCleanup?.(); } catch (_) {}
   }
   navItems.forEach((nav: any) => {
     nav.classList.toggle('active', nav.getAttribute('data-view') === viewId);
@@ -49,12 +50,14 @@ export function activateWorkspaceView(viewId: string): void {
   });
 
   const dirtyViews = window.RFUI?.getDirtyViewsSet?.();
-  if (dirtyViews?.has(viewId)) {
-    dirtyViews.delete(viewId);
+  dirtyViews?.delete(viewId);
+  try {
     if (viewId === 'view-dashboard' && typeof renderDashboard === 'function') renderDashboard();
     else if (viewId === 'view-manuscripts' && typeof renderKanban === 'function') renderKanban();
     else if (viewId === 'view-submissions' && typeof renderSubmissions === 'function') renderSubmissions();
     else if (viewId === 'view-settings' && typeof renderSettings === 'function') renderSettings();
+  } catch (err) {
+    console.error('[PaperFlow] View render error:', err);
   }
 }
 
@@ -75,16 +78,18 @@ export function focusSubmissionEditCenter(): void {
 }
 
 export function openSubmissionForEditing(subOrId: any, options: any = {}): void {
+  const g = typeof window !== 'undefined' ? (window as any) : (globalThis as any);
+  const database = g?.db || (typeof db !== 'undefined' ? db : null);
   const sub = typeof subOrId === 'string'
-    ? (db.submissions || []).find((item: any) => item.id === subOrId)
+    ? (database?.submissions || []).find((item: any) => item.id === subOrId)
     : subOrId;
   if (!sub) {
     showGlobalToast(t('submissionNotFound'), 'error');
     return;
   }
 
-  submissionAutoSaveCleanup?.();
-  selectedSubmissionId = sub.id;
+  try { g?.submissionAutoSaveCleanup?.(); } catch (_) {}
+  if (g) g.selectedSubmissionId = sub.id;
   if (options.switchView) {
     activateWorkspaceView('view-submissions');
   }
@@ -159,24 +164,35 @@ export function closeModal(): void {
 }
 
 export function bindModalAndNavListeners(): void {
-  const navItems = document.querySelectorAll?.('.nav-item') || [];
-  navItems.forEach((item: any) => {
-    if (typeof item?.addEventListener === 'function') {
-      item.addEventListener('click', () => {
-        const targetId = item.getAttribute('data-view');
-        if (targetId) activateWorkspaceView(targetId);
-      });
-    }
-  });
+  const bindNav = () => {
+    const navItems = document.querySelectorAll?.('.nav-item') || [];
+    navItems.forEach((item: any) => {
+      if (item && !item.dataset.navBound) {
+        item.dataset.navBound = 'true';
+        item.addEventListener('click', (e: Event) => {
+          e.preventDefault();
+          const targetId = item.getAttribute('data-view');
+          if (targetId) activateWorkspaceView(targetId);
+        });
+      }
+    });
+  };
+
+  bindNav();
+  if (typeof document !== 'undefined' && document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', bindNav);
+  }
 
   const modal = document.getElementById('modal-overlay');
-  if (typeof modal?.addEventListener === 'function') {
+  if (typeof modal?.addEventListener === 'function' && !modal.dataset.modalBound) {
+    modal.dataset.modalBound = 'true';
     modal.addEventListener('click', (e: any) => {
       if (e.target === modal) closeModal();
     });
   }
 
-  if (typeof document?.addEventListener === 'function') {
+  if (typeof document?.addEventListener === 'function' && !(document as any)._pfKeydownBound) {
+    (document as any)._pfKeydownBound = true;
     document.addEventListener('keydown', (event: KeyboardEvent) => {
     const modalEl = document.getElementById('modal-overlay');
     if (!modalEl || !modalEl.classList.contains('active')) return;
@@ -231,7 +247,7 @@ export function showGlobalToast(message: string, type = 'info'): void {
 }
 
 export function showAcceptanceCelebration(submission: any = {}): void {
-  acceptanceCelebrationCleanup?.();
+  try { ((typeof window !== 'undefined' ? window : globalThis) as any)?.acceptanceCelebrationCleanup?.(); } catch (_) {}
   if (typeof ZoteroBridge !== 'undefined' && typeof ZoteroBridge.getPref === 'function') {
     const enabled = ZoteroBridge.getPref('enableAcceptanceCelebration', true);
     if (!enabled) return;

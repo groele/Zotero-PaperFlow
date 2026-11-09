@@ -82,9 +82,14 @@ export function renderSubmissionDetails(sub: any): void {
         <h2>${escapeHTML(journalName)}</h2>
         ${sub.externalManuscriptId ? `<span class="badge badge-purple" style="font-size:11px; font-weight:600; width:fit-content; margin-top:3px;">ID: ${escapeHTML(sub.externalManuscriptId)}</span>` : ''}
       </div>
-      <button class="btn-danger btn-icon submission-delete-button" id="btn-delete-sub" title="${escapeHTML(t('deleteSubmissionTitle'))}">
-        <svg class="svg-icon" viewBox="0 0 24 24" aria-hidden="true"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
-      </button>
+      <div style="display:flex; align-items:center; gap:6px;">
+        <button type="button" class="btn-secondary btn-icon submission-share-button" id="btn-share-sub-journey" title="${escapeHTML(t('shareJourney'))}">
+          <svg viewBox="0 0 24 24" aria-hidden="true" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="m8.6 10.5 6.8-4M8.6 13.5l6.8 4"/></svg>
+        </button>
+        <button class="btn-danger btn-icon submission-delete-button" id="btn-delete-sub" title="${escapeHTML(t('deleteSubmissionTitle'))}">
+          <svg class="svg-icon" viewBox="0 0 24 24" aria-hidden="true"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
+        </button>
+      </div>
     </div>
     <div class="submission-detail-meta" style="display:flex; align-items:center; flex-wrap:wrap; gap:8px;">
       <span class="${statusBadgeClass}" data-submission-status-badge="stage">${escapeHTML(t('currentStageLabel'))}: ${escapeHTML(statusText)}</span>
@@ -119,7 +124,7 @@ export function renderSubmissionDetails(sub: any): void {
     </div>
   `);
 
-  detailPanel.dataset.rfRenderVersion = (typeof RF_OPTIONS_RENDER_VERSION !== 'undefined') ? RF_OPTIONS_RENDER_VERSION : '16.3.0';
+  detailPanel.dataset.rfRenderVersion = (typeof RF_OPTIONS_RENDER_VERSION !== 'undefined') ? RF_OPTIONS_RENDER_VERSION : '16.3.1';
   detailPanel.dataset.rfEditorMounted = 'true';
   detailPanel.dataset.currentSubmissionId = sub.id;
   detailPanel.scrollTop = 0;
@@ -277,6 +282,11 @@ function bindSubmissionDetailListeners(sub: any, man: any): void {
     renderSubmissions();
     renderSubmissionDetails(sub);
     showGlobalToast(t('rejectedToast'), 'success');
+  });
+  document.getElementById('btn-share-sub-journey')?.addEventListener('click', (e: any) => {
+    e.stopPropagation();
+    const shareFn = (w as any).openSubmissionSharePreview || (w as any).openSubmissionShareModal;
+    if (typeof shareFn === 'function') shareFn(sub.id, e.currentTarget);
   });
   document.getElementById('btn-transfer-submission')?.addEventListener('click', () => openTransferSubmissionModal(sub));
   document.getElementById('btn-delete-sub')?.addEventListener('click', async () => {
