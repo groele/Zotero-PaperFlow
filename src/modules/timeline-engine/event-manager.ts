@@ -25,6 +25,8 @@ declare function openStageDrawer(subId: string, nodeId: string): void;
 declare function getSubmissionJournalName(sub: any): string;
 declare function activateWorkspaceView(viewId: string): void;
 declare function toggleInlineStageEditor(card: any, shouldOpen?: boolean | null): void;
+declare var typeMeta: Record<string, { labelKey: string; color: string }>;
+declare function getTimelineTypeMeta(type: string): any;
 
 export function buildTimelineEventManager(sub: any, { inModal = false } = {}): string {
   const sortedNodes = autoSortNodes(sub.timelineNodes || []);
@@ -40,20 +42,25 @@ export function buildTimelineEventManager(sub: any, { inModal = false } = {}): s
       ? ` · ${node.reviewDecision === 'major' ? t('majorRevision') : t('minorRevision')}`
       : '';
     const dateSummary = `${shortDate}${dueSummary}${decisionSummary}`;
+    const statusLabel = escapeHTML(getNodeStatusLabel(computedStatus));
+    const fullDateSummary = `${escapeHTML(dateSummary)} · ${statusLabel}`;
     const typeClass = `type-${node.type || 'research'}`;
     const noteText = String(node.notes || '').trim();
     const displayName = getTimelineNodeDisplayName(node);
+    const meta = (typeof getTimelineTypeMeta === 'function' ? getTimelineTypeMeta(node.type) : null)
+      || (typeof typeMeta !== 'undefined' && typeMeta ? (typeMeta[node.type] || typeMeta.special) : null);
+    const eventColor = meta?.color || '#2563eb';
 
     return `
-      <div class="timeline-event-chip timeline-event-card status-${computedStatus} ${typeClass}${inModal ? ' modal-event-chip' : ''}" data-sub-id="${escapeHTML(sub.id)}" data-node-id="${escapeHTML(node.id)}">
+      <div class="timeline-event-chip timeline-event-card status-${computedStatus} ${typeClass}${inModal ? ' modal-event-chip' : ''}" data-sub-id="${escapeHTML(sub.id)}" data-node-id="${escapeHTML(node.id)}" style="--event-color:${eventColor}">
         <button class="timeline-event-main btn-event-edit" type="button" data-sub-id="${escapeHTML(sub.id)}" data-node-id="${escapeHTML(node.id)}" title="${escapeHTML(t('clickEditEvent'))}">
           <span class="timeline-event-dot" aria-hidden="true"></span>
           <span class="timeline-event-text">
             <span class="timeline-event-title-row">
               <strong>${escapeHTML(displayName)}</strong>
-              <span class="timeline-event-status-badge status-${computedStatus}">${escapeHTML(getNodeStatusLabel(computedStatus))}</span>
+              <span class="timeline-event-status-badge status-${computedStatus}">${statusLabel}</span>
             </span>
-            <small>${escapeHTML(dateSummary)}</small>
+            <small>${fullDateSummary}</small>
             ${noteText ? `<span class="timeline-event-note">${escapeHTML(noteText)}</span>` : ''}
           </span>
           ${inModal ? `<span class="timeline-event-edit-pill" aria-hidden="true">${escapeHTML(t('edit'))}</span>` : ''}

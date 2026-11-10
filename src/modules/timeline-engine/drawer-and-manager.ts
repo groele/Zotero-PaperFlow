@@ -34,13 +34,13 @@ declare function clearPublicationTimelineCompletion(sub: any): boolean;
 const g: any = typeof globalThis !== 'undefined' ? globalThis : window;
 export const typeMeta: Record<string, { labelKey: string; color: string }> = {
   research: { labelKey: 'eventTypeResearch', color: '#2563eb' },
-  writing: { labelKey: 'eventTypeWriting', color: '#0f766e' },
+  writing: { labelKey: 'eventTypeWriting', color: '#7c3aed' },
   submission: { labelKey: 'eventTypeSubmission', color: '#f97316' },
-  review: { labelKey: 'eventTypeReview', color: '#dc2626' },
-  revision: { labelKey: 'eventTypeRevision', color: '#d97706' },
-  rejection: { labelKey: 'statusRejected', color: '#dc2626' },
+  review: { labelKey: 'eventTypeReview', color: '#f97316' },
+  revision: { labelKey: 'eventTypeRevision', color: '#dc2626' },
+  rejection: { labelKey: 'statusRejected', color: '#b91c1c' },
   publication: { labelKey: 'eventTypePublication', color: '#16a34a' },
-  special: { labelKey: 'eventTypeSpecial', color: '#334155' }
+  special: { labelKey: 'eventTypeSpecial', color: '#64748b' }
 };
 
 export function getTimelineTypeMeta(type: string): any {

@@ -154,18 +154,20 @@
 }
 
 .timeline-event-manager-head {
-  margin-bottom: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
   color: hsl(var(--text-muted));
-  font-size: 10px;
-  font-weight: 800;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
+  font-size: 13px;
+  font-weight: 600;
 }
 
 .timeline-event-list {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: 12px;
 }
 
 .modal-event-manager {
@@ -174,18 +176,26 @@
 
 .modal-event-manager .timeline-event-list {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
-  gap: 10px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px 18px;
+}
+
+.modal-event-manager .timeline-event-status-badge,
+.modal-event-manager .timeline-event-edit-pill {
+  display: none !important;
 }
 
 .timeline-event-chip {
   display: inline-flex;
   align-items: stretch;
   max-width: 100%;
-  border: 1px solid color-mix(in srgb, var(--event-color) 28%, hsl(var(--card-border)));
-  border-radius: 10px;
-  background: color-mix(in srgb, var(--event-color) 8%, hsl(var(--card-bg)));
+  min-height: 72px;
+  border: 1px solid color-mix(in srgb, var(--event-color, #64748b) 28%, hsl(var(--card-border)));
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--event-color, #64748b) 8%, hsl(var(--card-bg)));
   overflow: hidden;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.05);
+  transition: all 0.15s ease;
 }
 
 .modal-event-chip {
@@ -197,8 +207,8 @@
   flex: 1;
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-  padding: 7px 9px;
+  gap: 14px;
+  padding: 14px 18px;
   border: 0;
   background: transparent;
   color: hsl(var(--text-primary));
@@ -206,53 +216,59 @@
 }
 
 .timeline-event-main:hover {
-  background: color-mix(in srgb, var(--event-color) 10%, transparent);
+  background: color-mix(in srgb, var(--event-color, #64748b) 6%, transparent);
 }
 
 .timeline-event-dot {
-  width: 9px;
-  height: 9px;
-  border-radius: 999px;
-  background: var(--event-color);
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  background: var(--event-color, #64748b);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--event-color, #64748b) 20%, transparent);
   flex-shrink: 0;
 }
 
 .timeline-event-text {
   min-width: 0;
+  flex: 1;
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  gap: 1px;
+  gap: 4px;
 }
 
 .timeline-event-text strong {
-  max-width: 190px;
-  font-size: 11px;
-  line-height: 1.25;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  font-size: 14px;
+  font-weight: 650;
+  line-height: 1.4;
+  color: hsl(var(--text-primary));
+  overflow-wrap: anywhere;
 }
 
 .timeline-event-text small {
   color: hsl(var(--text-muted));
-  font-size: 9.5px;
-  line-height: 1.2;
+  font-size: 12.5px;
+  line-height: 1.45;
 }
 
 .timeline-event-delete {
-  width: 30px;
+  width: 44px;
+  flex: 0 0 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   border: 0;
-  border-left: 1px solid color-mix(in srgb, var(--event-color) 18%, hsl(var(--card-border)));
+  border-left: 1px solid color-mix(in srgb, var(--event-color, #64748b) 20%, hsl(var(--card-border)));
   background: transparent;
   color: hsl(var(--text-muted));
   cursor: pointer;
-  font-size: 16px;
+  font-size: 18px;
+  transition: all 0.15s ease;
 }
 
 .timeline-event-delete:hover {
   color: hsl(var(--accent-rose));
-  background: hsl(var(--accent-rose) / 0.1);
+  background: hsl(var(--accent-rose) / 0.14);
 }
 
 /* Event Rail Stats Header on the dashboard */

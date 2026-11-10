@@ -37,19 +37,23 @@
       const dueSummary = node.dueDate ? ` · ${t("deadlineShort")} ${formatShortDate(node.dueDate)}` : "";
       const decisionSummary = node.reviewDecision ? ` · ${node.reviewDecision === "major" ? t("majorRevision") : t("minorRevision")}` : "";
       const dateSummary = `${shortDate}${dueSummary}${decisionSummary}`;
+      const statusLabel = escapeHTML(getNodeStatusLabel(computedStatus));
+      const fullDateSummary = `${escapeHTML(dateSummary)} · ${statusLabel}`;
       const typeClass = `type-${node.type || "research"}`;
       const noteText = String(node.notes || "").trim();
       const displayName = getTimelineNodeDisplayName(node);
+      const meta = (typeof getTimelineTypeMeta === "function" ? getTimelineTypeMeta(node.type) : null) || (typeof typeMeta !== "undefined" && typeMeta ? typeMeta[node.type] || typeMeta.special : null);
+      const eventColor = meta?.color || "#2563eb";
       return `
-      <div class="timeline-event-chip timeline-event-card status-${computedStatus} ${typeClass}${inModal ? " modal-event-chip" : ""}" data-sub-id="${escapeHTML(sub.id)}" data-node-id="${escapeHTML(node.id)}">
+      <div class="timeline-event-chip timeline-event-card status-${computedStatus} ${typeClass}${inModal ? " modal-event-chip" : ""}" data-sub-id="${escapeHTML(sub.id)}" data-node-id="${escapeHTML(node.id)}" style="--event-color:${eventColor}">
         <button class="timeline-event-main btn-event-edit" type="button" data-sub-id="${escapeHTML(sub.id)}" data-node-id="${escapeHTML(node.id)}" title="${escapeHTML(t("clickEditEvent"))}">
           <span class="timeline-event-dot" aria-hidden="true"></span>
           <span class="timeline-event-text">
             <span class="timeline-event-title-row">
               <strong>${escapeHTML(displayName)}</strong>
-              <span class="timeline-event-status-badge status-${computedStatus}">${escapeHTML(getNodeStatusLabel(computedStatus))}</span>
+              <span class="timeline-event-status-badge status-${computedStatus}">${statusLabel}</span>
             </span>
-            <small>${escapeHTML(dateSummary)}</small>
+            <small>${fullDateSummary}</small>
             ${noteText ? `<span class="timeline-event-note">${escapeHTML(noteText)}</span>` : ""}
           </span>
           ${inModal ? `<span class="timeline-event-edit-pill" aria-hidden="true">${escapeHTML(t("edit"))}</span>` : ""}
@@ -204,8 +208,8 @@
   });
 
   // src/modules/timeline-engine/drawer-and-manager.ts
-  function getTimelineTypeMeta(type) {
-    const meta = typeMeta[type] || typeMeta.special;
+  function getTimelineTypeMeta2(type) {
+    const meta = typeMeta2[type] || typeMeta2.special;
     return { ...meta, label: t(meta.labelKey || "eventTypeSpecial") };
   }
   function buildOptions(options, selectedValue) {
@@ -431,24 +435,24 @@
       showGlobalToast(t("eventRemovedToast"), "success");
     });
   }
-  var g, typeMeta;
+  var g, typeMeta2;
   var init_drawer_and_manager = __esm({
     "src/modules/timeline-engine/drawer-and-manager.ts"() {
       "use strict";
       init_event_manager();
       g = typeof globalThis !== "undefined" ? globalThis : window;
-      typeMeta = {
+      typeMeta2 = {
         research: { labelKey: "eventTypeResearch", color: "#2563eb" },
-        writing: { labelKey: "eventTypeWriting", color: "#0f766e" },
+        writing: { labelKey: "eventTypeWriting", color: "#7c3aed" },
         submission: { labelKey: "eventTypeSubmission", color: "#f97316" },
-        review: { labelKey: "eventTypeReview", color: "#dc2626" },
-        revision: { labelKey: "eventTypeRevision", color: "#d97706" },
-        rejection: { labelKey: "statusRejected", color: "#dc2626" },
+        review: { labelKey: "eventTypeReview", color: "#f97316" },
+        revision: { labelKey: "eventTypeRevision", color: "#dc2626" },
+        rejection: { labelKey: "statusRejected", color: "#b91c1c" },
         publication: { labelKey: "eventTypePublication", color: "#16a34a" },
-        special: { labelKey: "eventTypeSpecial", color: "#334155" }
+        special: { labelKey: "eventTypeSpecial", color: "#64748b" }
       };
-      g.typeMeta = typeMeta;
-      g.getTimelineTypeMeta = getTimelineTypeMeta;
+      g.typeMeta = typeMeta2;
+      g.getTimelineTypeMeta = getTimelineTypeMeta2;
     }
   });
 
@@ -1532,8 +1536,8 @@
       init_normalizer_and_analyzer();
       init_calendar_and_status();
       var timelineExports = {
-        typeMeta,
-        getTimelineTypeMeta,
+        typeMeta: typeMeta2,
+        getTimelineTypeMeta: getTimelineTypeMeta2,
         buildOptions,
         openStageDrawer: openStageDrawer2,
         buildTimelineEventManager,

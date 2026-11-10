@@ -261,6 +261,8 @@ test('Timeline Event Manager localizes node labels and wires add-event transitio
   assert.ok(openedHtml.includes('已投稿') || openedHtml.includes('手稿已投稿'), 'submission node should be localized cleanly');
   assert.ok(!openedHtml.includes('defaultResearchStarted') && !openedHtml.includes('defaultSubmitted'), 'must never leak i18n keys');
   assert.ok(openedHtml.includes('timeline-event-status-badge'));
+  assert.ok(openedHtml.includes('--event-color:'), 'cards must declare --event-color for semantic tinting');
+  assert.ok(openedHtml.includes('btn-event-delete'), 'cards must provide delete action');
 
   elements.get('btn-modal-add-event')._click();
   assert.equal(closed, true);
