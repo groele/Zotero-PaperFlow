@@ -1,7 +1,7 @@
 /**
  * Zotero PaperFlow - Workspace Navigation, Modal Lifecycle & Toast Celebrations
  */
-export const RF_OPTIONS_RENDER_VERSION = '16.4.9';
+export const RF_OPTIONS_RENDER_VERSION = '16.5.0';
 export const UI_THEME_OPTIONS = new Set(['system', 'light', 'dark']);
 
 const g: any = typeof globalThis !== 'undefined' ? globalThis : window;

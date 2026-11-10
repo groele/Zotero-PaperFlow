@@ -8,4 +8,4 @@ export const ADDON_REF = 'researchflow';
 export const ADDON_INSTANCE = 'ResearchFlow';
 export const CHROME_ROOT = 'chrome://researchflow/content/';
 export const PREF_PREFIX = 'extensions.researchflow.';
-export const DEFAULT_VERSION = '16.4.9';
+export const DEFAULT_VERSION = '16.5.0';
