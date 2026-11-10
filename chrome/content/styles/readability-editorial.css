@@ -98,12 +98,12 @@
   height: 28px;
   flex: 0 0 28px;
   padding: 0;
-  border-radius: 7px;
-  border: 1px solid #cbd5e1;
-  background: #f1f5f9;
-  color: #334155;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
-  font-size: 13px;
+  border-radius: 8px;
+  border: 1px solid #1d4ed8;
+  background: linear-gradient(135deg, #2563eb, #1d4ed8);
+  color: #ffffff;
+  box-shadow: 0 2px 5px rgba(37, 99, 235, 0.28);
+  font-size: 13.5px;
   font-weight: 700;
   font-variant-numeric: tabular-nums;
   display: inline-flex;
@@ -111,10 +111,10 @@
   justify-content: center;
 }
 [data-theme="dark"] .submission-index {
-  background: rgba(148, 163, 184, 0.12);
-  border-color: rgba(148, 163, 184, 0.28);
-  color: #e2e8f0;
-  box-shadow: none;
+  background: linear-gradient(135deg, #3b82f6, #2563eb);
+  border: 1px solid rgba(96, 165, 250, 0.4);
+  color: #ffffff;
+  box-shadow: 0 2px 8px rgba(37, 99, 235, 0.4);
 }
 .project-info .journal {
   min-width: 0;
@@ -123,23 +123,23 @@
   margin-bottom: 0;
   padding: 0 12px;
   border-radius: 999px;
-  border: 1px solid #cbd5e1;
-  color: #0f172a;
-  background: #ffffff;
+  border: 1px solid #bfdbfe;
+  color: #1d4ed8;
+  background: #eff6ff;
   font-size: 13.5px;
-  font-weight: 600;
+  font-weight: 700;
   line-height: 26px;
   display: inline-flex;
   align-items: center;
   gap: 7px;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
+  box-shadow: 0 1px 2px rgba(37, 99, 235, 0.08);
   letter-spacing: -0.01em;
 }
 [data-theme="dark"] .project-info .journal {
-  background: rgba(30, 41, 59, 0.75);
-  border-color: rgba(148, 163, 184, 0.28);
-  color: #f8fafc;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+  background: rgba(30, 58, 138, 0.3);
+  border: 1px solid rgba(96, 165, 250, 0.35);
+  color: #bfdbfe;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
 }
 .project-info .journal::before {
   content: '';
@@ -150,12 +150,12 @@
   margin-bottom: 0;
   border-radius: 50%;
   background: #2563eb;
-  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.22);
   flex-shrink: 0;
 }
 [data-theme="dark"] .project-info .journal::before {
   background: #60a5fa;
-  box-shadow: 0 0 0 3px rgba(96, 165, 250, 0.22);
+  box-shadow: 0 0 0 3px rgba(96, 165, 250, 0.25);
 }
 .pipeline-cards-container:not(.expanded) .project-info .journal { margin-bottom: 0; padding: 0 10px; }
 .doi-link, .doi-missing { font-size: 12px; font-weight: 400; border-radius: 5px; }

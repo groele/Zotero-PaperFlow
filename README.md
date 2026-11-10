@@ -1,4 +1,4 @@
-> **16.4.8 稿件卡片标题与期刊胶囊学术极简美学重构版**：全新重塑管线卡片序号徽标（`.submission-index`）与期刊名胶囊（`.journal`），序号徽标采用中性雅致 Slate 7px 细圆角框体（28px × 28px），期刊名胶囊采用晶莹纯白卡片圆角药丸（高度 28px，边框 `#cbd5e1`，前置 6px 宝石蓝活跃呼吸指示点 `#2563eb`），彻底消除高饱和撞色刺眼感，与底部灰白操作按钮形成高级统一的学术刊物装帧美学，完美支持暗黑模式。见[版本说明](docs/releases/v16.4.8.md)。
+> **16.4.9 稿件卡片标题与期刊胶囊皇家钴蓝视觉强化版**：根据学术视觉识别与色彩层次规范，重构管线卡片序号徽标（`.submission-index`）与期刊名胶囊（`.journal`）。序号徽标采用经典皇家钴蓝渐变（`#2563eb` ➔ `#1d4ed8`，28px × 28px Squircle，清晰白字与 0.28 弥散投影），期刊胶囊采用通透冰蓝底色（`#eff6ff`，细边框 `#bfdbfe`，深海军蓝字 `#1d4ed8`，宝石蓝微光呼吸指示点 `#2563eb`），彻底消除浅灰无对比与弱视觉问题，与右侧橙色修回标签及时间轴形成分明、高级、鲜活的学术色彩节奏。见[版本说明](docs/releases/v16.4.9.md)。
 
 # Zotero PaperFlow
 
@@ -11,7 +11,7 @@
 
 [简体中文](README.md) · [English](README.en.md)
 
-[![当前版本](https://img.shields.io/badge/version-16.4.8-245ac7?style=flat-square)](https://github.com/groele/Zotero-PaperFlow/releases/tag/v16.4.8) · [下载 XPI](https://github.com/groele/Zotero-PaperFlow/releases/download/v16.4.8/zotero-paperflow-16.4.8.xpi) · [问题反馈](https://github.com/groele/Zotero-PaperFlow/issues)
+[![当前版本](https://img.shields.io/badge/version-16.4.9-245ac7?style=flat-square)](https://github.com/groele/Zotero-PaperFlow/releases/tag/v16.4.9) · [下载 XPI](https://github.com/groele/Zotero-PaperFlow/releases/download/v16.4.9/zotero-paperflow-16.4.9.xpi) · [问题反馈](https://github.com/groele/Zotero-PaperFlow/issues)
 
 [产品定位](#overview) · [安装与更新](#installation) · [快速开始](#quick-start) · [核心功能](#features) · [设置与使用](#settings) · [数据、同步与外部服务](#data) · [兼容性与验证范围](#compatibility) · [常见问题](#troubleshooting) · [开发与详细文档](#development) · [系列产品](#series) · [项目来源与许可](#license)
 

@@ -1,4 +1,4 @@
-> **16.4.8 Refined Card Header & Journal Pill Editorial Aesthetics Release**: Completely redesigned the pipeline manuscript card index badge (`.submission-index`) and journal pill (`.journal`). Upgraded to a compact slate squircle (28px × 28px, 7px border-radius) and crisp pure white card pill with fine `#cbd5e1` border and sapphire beacon dot (`#2563eb`), eliminating saturated purple clashing and achieving harmonious academic typography with full dark-mode support. [Release notes](docs/releases/v16.4.8.md).
+> **16.4.9 Royal Cobalt Manuscript Card Header & Journal Pill Visual Enhancement Release**: Upgraded pipeline manuscript card index badge (`.submission-index`) and journal pill (`.journal`) with vibrant, authoritative academic colors. Features a solid royal cobalt gradient badge (`#2563eb` ➔ `#1d4ed8`) with crisp bold white font and refined elevation, paired with a luminous ice-blue journal pill (`#eff6ff`, border `#bfdbfe`, deep navy font `#1d4ed8`, and sapphire beacon `#2563eb`). Solves weak contrast while maintaining cohesive color rhythm with revision badges and timeline. [Release notes](docs/releases/v16.4.9.md).
 
 # Zotero PaperFlow
 
@@ -11,7 +11,7 @@ Manage manuscripts, submission rounds, and review responses.
 
 [简体中文](README.md) · [English](README.en.md)
 
-[![Release](https://img.shields.io/badge/version-16.4.8-245ac7?style=flat-square)](https://github.com/groele/Zotero-PaperFlow/releases/tag/v16.4.8) · [Download XPI](https://github.com/groele/Zotero-PaperFlow/releases/download/v16.4.8/zotero-paperflow-16.4.8.xpi) · [Report an issue](https://github.com/groele/Zotero-PaperFlow/issues)
+[![Release](https://img.shields.io/badge/version-16.4.9-245ac7?style=flat-square)](https://github.com/groele/Zotero-PaperFlow/releases/tag/v16.4.9) · [Download XPI](https://github.com/groele/Zotero-PaperFlow/releases/download/v16.4.9/zotero-paperflow-16.4.9.xpi) · [Report an issue](https://github.com/groele/Zotero-PaperFlow/issues)
 
 [Overview](#overview) · [Installation and updates](#installation) · [Quick start](#quick-start) · [Key features](#features) · [Settings](#settings) · [Data, sync, and services](#data) · [Compatibility and validation](#compatibility) · [Troubleshooting](#troubleshooting) · [Development and documentation](#development) · [The Flow series](#series) · [Origin and license](#license)
 

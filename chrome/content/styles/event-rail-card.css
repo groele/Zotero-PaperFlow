@@ -73,22 +73,22 @@
   justify-content: center !important;
   flex: 0 0 28px !important;
   padding: 0 !important;
-  border-radius: 7px !important;
-  background: #f1f5f9 !important;
-  border: 1px solid #cbd5e1 !important;
-  color: #334155 !important;
-  font-size: 13px !important;
+  border-radius: 8px !important;
+  background: linear-gradient(135deg, #2563eb, #1d4ed8) !important;
+  border: 1px solid #1d4ed8 !important;
+  color: #ffffff !important;
+  font-size: 13.5px !important;
   font-weight: 700 !important;
   line-height: 1 !important;
   font-variant-numeric: tabular-nums !important;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04) !important;
+  box-shadow: 0 2px 5px rgba(37, 99, 235, 0.28) !important;
 }
 
 [data-theme="dark"] .submission-index {
-  background: rgba(148, 163, 184, 0.12) !important;
-  border-color: rgba(148, 163, 184, 0.28) !important;
-  color: #e2e8f0 !important;
-  box-shadow: none !important;
+  background: linear-gradient(135deg, #3b82f6, #2563eb) !important;
+  border: 1px solid rgba(96, 165, 250, 0.4) !important;
+  color: #ffffff !important;
+  box-shadow: 0 2px 8px rgba(37, 99, 235, 0.4) !important;
 }
 
 .project-info .journal {
@@ -98,27 +98,27 @@
   height: 28px !important;
   padding: 0 12px !important;
   border-radius: 999px !important;
-  background: #ffffff !important;
-  color: #0f172a !important;
+  background: #eff6ff !important;
+  color: #1d4ed8 !important;
   font-size: 13.5px !important;
-  font-weight: 600 !important;
+  font-weight: 700 !important;
   line-height: 26px !important;
   white-space: nowrap !important;
   overflow: hidden !important;
   text-overflow: ellipsis !important;
-  border: 1px solid #cbd5e1 !important;
+  border: 1px solid #bfdbfe !important;
   display: inline-flex !important;
   align-items: center !important;
   gap: 7px !important;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03) !important;
+  box-shadow: 0 1px 2px rgba(37, 99, 235, 0.08) !important;
   letter-spacing: -0.01em !important;
 }
 
 [data-theme="dark"] .project-info .journal {
-  background: rgba(30, 41, 59, 0.75) !important;
-  color: #f8fafc !important;
-  border-color: rgba(148, 163, 184, 0.28) !important;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2) !important;
+  background: rgba(30, 58, 138, 0.3) !important;
+  color: #bfdbfe !important;
+  border: 1px solid rgba(96, 165, 250, 0.35) !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25) !important;
 }
 
 .btn-quick-add-event {
