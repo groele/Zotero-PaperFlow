@@ -180,17 +180,13 @@
   gap: 16px 18px;
 }
 
-.modal-event-manager .timeline-event-status-badge,
-.modal-event-manager .timeline-event-edit-pill {
-  display: none !important;
-}
-
 .timeline-event-chip {
   display: inline-flex;
   align-items: stretch;
   max-width: 100%;
   min-height: 72px;
-  border: 1px solid color-mix(in srgb, var(--event-color, #64748b) 28%, hsl(var(--card-border)));
+  border: 1px solid color-mix(in srgb, var(--event-color, #64748b) 32%, hsl(var(--card-border)));
+  border-left: 4px solid var(--event-color, #64748b);
   border-radius: 12px;
   background: color-mix(in srgb, var(--event-color, #64748b) 8%, hsl(var(--card-bg)));
   overflow: hidden;

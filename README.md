@@ -1,4 +1,4 @@
-> **16.4.5 分享工坊复选框与单选按钮 UI 视觉重构版**：全面优化 Share Studio 侧边栏内容显示控制与时间线起点的选中交互 UI，彻底消除生硬的粉色背景块，引入高品质的现代矢量动态勾选框、晶莹蓝阶选中态、平滑悬浮与清晰排版。见[版本说明](docs/releases/v16.4.5.md)。
+> **16.4.6 时间线事件管理器阶段色彩与科研节奏对齐版**：全面优化时间线事件弹窗卡片的模块化色彩映射，严格按科研生命周期工作流节奏（实验/研究-海蓝、写作初稿-紫罗兰、投稿送审-温暖橙、修改修回-深绯红、接收出版-学术绿）渲染卡片左侧指示条、柔和背景与边框，解除完成状态对模块色彩的覆盖，使已完成卡片依然保持清晰的阶段识别度。见[版本说明](docs/releases/v16.4.6.md)。
 
 # Zotero PaperFlow
 
@@ -11,7 +11,7 @@
 
 [简体中文](README.md) · [English](README.en.md)
 
-[![当前版本](https://img.shields.io/badge/version-16.4.5-245ac7?style=flat-square)](https://github.com/groele/Zotero-PaperFlow/releases/tag/v16.4.5) · [下载 XPI](https://github.com/groele/Zotero-PaperFlow/releases/download/v16.4.5/zotero-paperflow-16.4.5.xpi) · [问题反馈](https://github.com/groele/Zotero-PaperFlow/issues)
+[![当前版本](https://img.shields.io/badge/version-16.4.6-245ac7?style=flat-square)](https://github.com/groele/Zotero-PaperFlow/releases/tag/v16.4.6) · [下载 XPI](https://github.com/groele/Zotero-PaperFlow/releases/download/v16.4.6/zotero-paperflow-16.4.6.xpi) · [问题反馈](https://github.com/groele/Zotero-PaperFlow/issues)
 
 [产品定位](#overview) · [安装与更新](#installation) · [快速开始](#quick-start) · [核心功能](#features) · [设置与使用](#settings) · [数据、同步与外部服务](#data) · [兼容性与验证范围](#compatibility) · [常见问题](#troubleshooting) · [开发与详细文档](#development) · [系列产品](#series) · [项目来源与许可](#license)
 
@@ -27,7 +27,7 @@
 
 ## 安装与更新
 
-1. 下载 [zotero-paperflow-16.4.5.xpi](https://github.com/groele/Zotero-PaperFlow/releases/download/v16.4.5/zotero-paperflow-16.4.5.xpi)（插件版本 **16.4.5**），不要安装 Source code ZIP。
+1. 下载 [zotero-paperflow-16.4.6.xpi](https://github.com/groele/Zotero-PaperFlow/releases/download/v16.4.6/zotero-paperflow-16.4.6.xpi)（插件版本 **16.4.6**），不要安装 Source code ZIP。
 2. 在 Zotero 打开 **工具 → 插件／附加组件**，从齿轮菜单选择 **从文件安装插件**。
 3. 选择 XPI，完成安装；按提示重启 Zotero。
 
@@ -82,7 +82,7 @@ Zotero 偏好页配置窗口和数据维护；工作台中的业务设置按实�
 
 | 项目 | 范围 |
 |---|---|
-| 当前插件版本 | 16.4.5 |
+| 当前插件版本 | 16.4.6 |
 | 清单声明的 Zotero 范围 | `10.0` 至 `12.*`（面向 Zotero 10+ 现代 Web Components 架构） |
 | 当前说明 | 严格 TypeScript 检查、16 项架构守卫、149 项单测及打包与标签自检全部通过；无头 Edge 页面验证覆盖浅色/暗色主题与 1440×900、1024×523、640×800 视口下的分享工坊及时间线事件管理器交互。原生 Zotero 进程内图形验收仍以用户安装重启实测为准。 |
 

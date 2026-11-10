@@ -43,16 +43,40 @@ export function buildTimelineEventManager(sub: any, { inModal = false } = {}): s
       : '';
     const dateSummary = `${shortDate}${dueSummary}${decisionSummary}`;
     const statusLabel = escapeHTML(getNodeStatusLabel(computedStatus));
-    const fullDateSummary = `${escapeHTML(dateSummary)} · ${statusLabel}`;
+    const fullDateSummary = inModal ? escapeHTML(dateSummary) : `${escapeHTML(dateSummary)} · ${statusLabel}`;
     const typeClass = `type-${node.type || 'research'}`;
     const noteText = String(node.notes || '').trim();
     const displayName = getTimelineNodeDisplayName(node);
-    const meta = (typeof getTimelineTypeMeta === 'function' ? getTimelineTypeMeta(node.type) : null)
-      || (typeof typeMeta !== 'undefined' && typeMeta ? (typeMeta[node.type] || typeMeta.special) : null);
-    const eventColor = meta?.color || '#2563eb';
+    const key = (typeof inferKey === 'function' ? inferKey(node) : '') || node.key || '';
+    const keyClass = key ? ` key-${key}` : '';
+
+    let eventColor = '#2563eb';
+    if (key === 'experiment_start') {
+      eventColor = '#0891b2';
+    } else if (key === 'experiment_done' || key === 'data_org' || node.type === 'research') {
+      eventColor = '#2563eb';
+    } else if (key === 'draft_done' || node.type === 'writing') {
+      eventColor = '#7c3aed';
+    } else if (key === 'submit' || node.type === 'submission') {
+      eventColor = '#f97316';
+    } else if (key === 'r1_comments' || key === 'r2_comments' || node.type === 'review') {
+      eventColor = '#d97706';
+    } else if (key === 'r1_revised' || key === 'r2_revised' || node.type === 'revision') {
+      eventColor = '#dc2626';
+    } else if (key === 'rejected' || node.type === 'rejection') {
+      eventColor = '#b91c1c';
+    } else if (key === 'accept' || (node.type === 'publication' && !key.includes('online'))) {
+      eventColor = '#16a34a';
+    } else if (key === 'online' || (node.type === 'publication' && key.includes('online'))) {
+      eventColor = '#059669';
+    } else {
+      const meta = (typeof getTimelineTypeMeta === 'function' ? getTimelineTypeMeta(node.type) : null)
+        || (typeof typeMeta !== 'undefined' && typeMeta ? (typeMeta[node.type] || typeMeta.special) : null);
+      eventColor = meta?.color || '#2563eb';
+    }
 
     return `
-      <div class="timeline-event-chip timeline-event-card status-${computedStatus} ${typeClass}${inModal ? ' modal-event-chip' : ''}" data-sub-id="${escapeHTML(sub.id)}" data-node-id="${escapeHTML(node.id)}" style="--event-color:${eventColor}">
+      <div class="timeline-event-chip timeline-event-card status-${computedStatus} ${typeClass}${keyClass}${inModal ? ' modal-event-chip' : ''}" data-sub-id="${escapeHTML(sub.id)}" data-node-id="${escapeHTML(node.id)}" style="--event-color:${eventColor}">
         <button class="timeline-event-main btn-event-edit" type="button" data-sub-id="${escapeHTML(sub.id)}" data-node-id="${escapeHTML(node.id)}" title="${escapeHTML(t('clickEditEvent'))}">
           <span class="timeline-event-dot" aria-hidden="true"></span>
           <span class="timeline-event-text">

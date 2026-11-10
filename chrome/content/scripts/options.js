@@ -6,7 +6,7 @@
  * Target runtime: Gecko 153+ / Firefox 140+ (minify: false for Error Console audit)
  * ----------------------------------------------------------------------------------
  */
-const RF_OPTIONS_RENDER_VERSION = '16.4.5';
+const RF_OPTIONS_RENDER_VERSION = '16.4.6';
 "use strict";
 (() => {
   var __getOwnPropNames = Object.getOwnPropertyNames;
@@ -304,7 +304,7 @@ const RF_OPTIONS_RENDER_VERSION = '16.4.5';
   var init_navigation_and_modal = __esm({
     "src/modules/options/navigation-and-modal.ts"() {
       "use strict";
-      RF_OPTIONS_RENDER_VERSION = "16.4.5";
+      RF_OPTIONS_RENDER_VERSION = "16.4.6";
       UI_THEME_OPTIONS = /* @__PURE__ */ new Set(["system", "light", "dark"]);
       g = typeof globalThis !== "undefined" ? globalThis : window;
       if (!("db" in g)) g.db = null;
