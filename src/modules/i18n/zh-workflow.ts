@@ -301,5 +301,9 @@ export const ZH_WORKFLOW: Record<string, string> = {
   githubRepoLabel: '仓库名称（所有者/仓库）',
   githubBranchLabel: '分支名称',
   testGithub: '测试 GitHub 仓库',
-  backupHelp: '将研究数据库导出为 JSON，或导入并迁移现有的 Zotero PaperFlow JSON 备份。'
+  backupHelp: '将研究数据库导出为 JSON，或导入并迁移现有的 Zotero PaperFlow JSON 备份。',
+  edit: '编辑',
+  eventsSummary: '共 {total} 个节点 · {completed} 个已完成',
+  addTimelineEvent: '+ 新建事件',
+  clickCardToEditHint: '点击卡片即可编辑事件详情'
 };

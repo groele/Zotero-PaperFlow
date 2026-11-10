@@ -10,49 +10,34 @@
 (() => {
   // src/modules/share-card/constants-and-data.ts
   var CARD_WIDTH = 720;
-  var BASE_HEIGHT = 960;
+  var BASE_HEIGHT = 900;
   var STORY_MIN_HEIGHT = 1280;
   var MAX_HEIGHT = 1e4;
   var MAX_PIXEL_HEIGHT = 16384;
-  var BRAND_TEXT = "Zotero PaperFlow";
+  var MAX_PIXELS = 24e6;
   var RESOLUTION_SCALES = { standard: 1, high: 2, ultra: 3 };
   var BRAND_SIZES = /* @__PURE__ */ new Set(["compact", "balanced", "bold"]);
   var VISIBLE_FIELDS = ["title", "journal", "author", "status", "duration", "dates", "footer"];
   var DEFAULT_VISIBLE = Object.fromEntries(VISIBLE_FIELDS.map((field) => [field, true]));
   var SIZE_PREFS = /* @__PURE__ */ new Set(["portrait", "story", "auto"]);
   var THEMES = {
-    estuary: { id: "estuary", mode: "light", top: "#e0f2fe", mid: "#f8fafc", bottom: "#ecfdf5", orbA: "rgba(14, 165, 233, 0.14)", orbB: "rgba(16, 185, 129, 0.12)", card: "rgba(255, 255, 255, 0.92)", panel: "#f8fafc", border: "#cbd5e1", ink: "#0f172a", body: "#334155", muted: "#64748b", accent: "#0284c7", accentSoft: "#e0f2fe", rail: "#cbd5e1" },
-    iris: { id: "iris", mode: "light", top: "#eef2ff", mid: "#f8fafc", bottom: "#fdf2f8", orbA: "rgba(79, 70, 229, 0.14)", orbB: "rgba(219, 39, 119, 0.10)", card: "rgba(255, 255, 255, 0.92)", panel: "#f8fafc", border: "#cbd5e1", ink: "#111827", body: "#334155", muted: "#64748b", accent: "#4f46e5", accentSoft: "#eef2ff", rail: "#cbd5e1" },
-    amber: { id: "amber", mode: "light", top: "#fffbeb", mid: "#fafaf9", bottom: "#f0fdf4", orbA: "rgba(217, 119, 6, 0.14)", orbB: "rgba(5, 150, 105, 0.10)", card: "rgba(255, 255, 255, 0.93)", panel: "#fafaf9", border: "#d6d3d1", ink: "#1c1917", body: "#44403c", muted: "#78716c", accent: "#b45309", accentSoft: "#fef3c7", rail: "#d6d3d1" },
-    journal: { id: "journal", mode: "light", top: "#f8fafc", mid: "#ffffff", bottom: "#eff6ff", orbA: "rgba(30, 64, 175, 0.10)", orbB: "rgba(14, 116, 144, 0.08)", card: "#ffffff", panel: "#f8fafc", border: "#cbd5e1", ink: "#0f172a", body: "#1e293b", muted: "#64748b", accent: "#1d4ed8", accentSoft: "#dbeafe", rail: "#cbd5e1" },
-    conference: { id: "conference", mode: "light", top: "#ecfeff", mid: "#f8fafc", bottom: "#f0fdfa", orbA: "rgba(8, 145, 178, 0.16)", orbB: "rgba(13, 148, 136, 0.14)", card: "rgba(255, 255, 255, 0.94)", panel: "#f0fdfa", border: "#99f6e4", ink: "#083344", body: "#134e4a", muted: "#0f766e", accent: "#0f766e", accentSoft: "#ccfbf1", rail: "#99f6e4" },
-    archive: { id: "archive", mode: "light", top: "#f5f5f4", mid: "#fafaf9", bottom: "#fefce8", orbA: "rgba(120, 113, 108, 0.10)", orbB: "rgba(180, 83, 9, 0.08)", card: "#fffbeb", panel: "#f5f5f4", border: "#d6d3d1", ink: "#1c1917", body: "#44403c", muted: "#78716c", accent: "#9a3412", accentSoft: "#ffedd5", rail: "#d6d3d1" },
-    paper: { id: "paper", mode: "light", top: "#f8fafc", mid: "#ffffff", bottom: "#f1f5f9", orbA: "rgba(15, 23, 42, 0.05)", orbB: "rgba(37, 99, 235, 0.06)", card: "#ffffff", panel: "#f8fafc", border: "#cbd5e1", ink: "#0f172a", body: "#334155", muted: "#64748b", accent: "#0f766e", accentSoft: "#ccfbf1", rail: "#cbd5e1" },
-    ink: { id: "ink", mode: "dark", top: "#090d16", mid: "#0f172a", bottom: "#111827", orbA: "rgba(56, 189, 248, 0.18)", orbB: "rgba(16, 185, 129, 0.14)", card: "rgba(15, 23, 42, 0.92)", panel: "rgba(30, 41, 59, 0.86)", border: "#334155", ink: "#f8fafc", body: "#e2e8f0", muted: "#94a3b8", accent: "#38bdf8", accentSoft: "rgba(56, 189, 248, 0.16)", rail: "#334155" },
-    blueprint: { id: "blueprint", mode: "dark", top: "#082f49", mid: "#0f172a", bottom: "#042f2e", orbA: "rgba(56, 189, 248, 0.18)", orbB: "rgba(45, 212, 191, 0.14)", card: "rgba(15, 23, 42, 0.90)", panel: "rgba(12, 74, 110, 0.44)", border: "#1e3a8a", ink: "#f0f9ff", body: "#bae6fd", muted: "#7dd3fc", accent: "#38bdf8", accentSoft: "rgba(56, 189, 248, 0.18)", rail: "#0369a1" },
-    minimal: { id: "minimal", mode: "light", top: "#ffffff", mid: "#ffffff", bottom: "#f8fafc", orbA: "rgba(15, 23, 42, 0)", orbB: "rgba(15, 23, 42, 0)", card: "#ffffff", panel: "#f8fafc", border: "#e2e8f0", ink: "#0f172a", body: "#334155", muted: "#64748b", accent: "#0f172a", accentSoft: "#f1f5f9", rail: "#cbd5e1" },
-    cyber: { id: "cyber", mode: "dark", top: "#070b14", mid: "#0f172a", bottom: "#042f2e", orbA: "rgba(34, 211, 238, 0.24)", orbB: "rgba(244, 63, 94, 0.18)", card: "rgba(9, 13, 22, 0.93)", panel: "rgba(15, 23, 42, 0.90)", border: "#0891b2", ink: "#ecfeff", body: "#cffafe", muted: "#67e8f9", accent: "#22d3ee", accentSoft: "rgba(34, 211, 238, 0.18)", rail: "#0891b2" },
-    aurora: { id: "aurora", mode: "dark", top: "#052e2b", mid: "#0f172a", bottom: "#172554", orbA: "rgba(45, 212, 191, 0.22)", orbB: "rgba(56, 189, 248, 0.20)", card: "rgba(15, 23, 42, 0.90)", panel: "rgba(17, 94, 89, 0.34)", border: "#0f766e", ink: "#f0fdfa", body: "#ccfbf1", muted: "#5eead4", accent: "#2dd4bf", accentSoft: "rgba(45, 212, 191, 0.18)", rail: "#0d9488" },
-    terminal: { id: "terminal", mode: "dark", top: "#05080f", mid: "#0b1220", bottom: "#052e16", orbA: "rgba(16, 185, 129, 0.16)", orbB: "rgba(14, 165, 233, 0.12)", card: "rgba(8, 13, 23, 0.94)", panel: "rgba(15, 23, 42, 0.88)", border: "#14532d", ink: "#ecfdf5", body: "#bbf7d0", muted: "#4ade80", accent: "#10b981", accentSoft: "rgba(16, 185, 129, 0.16)", rail: "#166534" }
+    estuary: { id: "estuary", mode: "light", background: "#b3cfd5", paper: "#e4f2ef", ink: "#153d4a", muted: "#456773", line: "#9fbdc4", accent: "#186d7c", wash: "#d4e8ea", gradient: ["#8fb6cc", "#b3d2c5"], paperGradient: ["#cee0f5", "#e4f2ef", "#b8dccc"] },
+    iris: { id: "iris", mode: "light", background: "#b7b3d2", paper: "#eee5ef", ink: "#323354", muted: "#62617a", line: "#bdb2cf", accent: "#665397", wash: "#e0daec", gradient: ["#aab8d4", "#d3b5c7"], paperGradient: ["#cfdcf5", "#eee5ef", "#dec0d0"] },
+    amber: { id: "amber", mode: "light", background: "#d6baaa", paper: "#f8ecdc", ink: "#49352e", muted: "#786055", line: "#ccb6a2", accent: "#92512c", wash: "#efdfc9", gradient: ["#d8b298", "#b4c4b0"], paperGradient: ["#efd0b5", "#f8ecdc", "#ceddcb"] },
+    journal: { id: "journal", mode: "light", background: "#dce5ed", paper: "#fafbfc", ink: "#18344c", muted: "#536779", line: "#cbd7e0", accent: "#27628e", wash: "#e9f0f6", gradient: ["#cbddea", "#ebe7f1"], paperGradient: ["#ffffff", "#edf3f8"] },
+    conference: { id: "conference", mode: "light", background: "#103e48", paper: "#f4fbfa", ink: "#133d44", muted: "#486e71", line: "#b9d7d6", accent: "#087c82", wash: "#dceeed", gradient: ["#174659", "#23786c"], paperGradient: ["#ffffff", "#e0f2ee"] },
+    archive: { id: "archive", mode: "light", background: "#ddd6c8", paper: "#fffaf0", ink: "#383c34", muted: "#666c5e", line: "#d6d6c5", accent: "#607046", wash: "#efefe1", gradient: ["#e7dfcf", "#cbd7c8"], paperGradient: ["#fffdf6", "#f0f0e3"] },
+    paper: { id: "paper", mode: "light", background: "#e9efed", paper: "#ffffff", ink: "#193039", muted: "#60767c", line: "#dce6e2", accent: "#167660", wash: "#f0f6f3" },
+    ink: { id: "ink", mode: "dark", background: "#07131b", paper: "#10232d", ink: "#eef6f2", muted: "#a0b7bd", line: "#304951", accent: "#8bd8bc", wash: "#192f39" },
+    blueprint: { id: "blueprint", mode: "light", background: "#e5edf8", paper: "#f9fbff", ink: "#183b63", muted: "#556f8e", line: "#cad8e9", accent: "#235fbc", wash: "#edf3fb" },
+    minimal: { id: "minimal", mode: "light", background: "#ffffff", paper: "#ffffff", ink: "#222222", muted: "#666666", line: "#e3e3e3", accent: "#292929", wash: "#f6f6f6" },
+    cyber: { id: "cyber", mode: "dark", background: "#050b17", paper: "#0b1426", ink: "#e9f7ff", muted: "#8ca6bf", line: "#27415e", accent: "#4de8ff", accent2: "#b26cff", wash: "#10233a", gradient: ["#071329", "#120a25"], paperGradient: ["#0d1a31", "#0a1223"], grid: true },
+    aurora: { id: "aurora", mode: "dark", background: "#071421", paper: "#0e2030", ink: "#e6fff7", muted: "#86b8af", line: "#28574f", accent: "#63f5c7", accent2: "#8b7cff", wash: "#11382f", gradient: ["#071b2a", "#1c1030"], paperGradient: ["#102a38", "#0c1c2b"], grid: true },
+    terminal: { id: "terminal", mode: "dark", background: "#06110b", paper: "#0a1d12", ink: "#d9ffe4", muted: "#79ad8a", line: "#245337", accent: "#8dff6a", accent2: "#e2ff58", wash: "#102b1a", gradient: ["#07180d", "#101b08"], paperGradient: ["#0d2517", "#09190f"], grid: true }
   };
-  var TONE_COLORS = {
-    light: {
-      blue: { fg: "#1d4ed8", bg: "#dbeafe", dot: "#2563eb" },
-      teal: { fg: "#0f766e", bg: "#ccfbf1", dot: "#0d9488" },
-      amber: { fg: "#b45309", bg: "#fef3c7", dot: "#d97706" },
-      green: { fg: "#15803d", bg: "#dcfce7", dot: "#16a34a" },
-      red: { fg: "#b91c1c", bg: "#fee2e2", dot: "#dc2626" },
-      slate: { fg: "#334155", bg: "#e2e8f0", dot: "#64748b" }
-    },
-    dark: {
-      blue: { fg: "#7dd3fc", bg: "rgba(37, 99, 235, 0.24)", dot: "#38bdf8" },
-      teal: { fg: "#5eead4", bg: "rgba(13, 148, 136, 0.24)", dot: "#2dd4bf" },
-      amber: { fg: "#fcd34d", bg: "rgba(217, 119, 6, 0.24)", dot: "#f59e0b" },
-      green: { fg: "#86efac", bg: "rgba(22, 163, 74, 0.24)", dot: "#4ade80" },
-      red: { fg: "#fca5a5", bg: "rgba(220, 38, 38, 0.24)", dot: "#f87171" },
-      slate: { fg: "#cbd5e1", bg: "rgba(100, 116, 139, 0.24)", dot: "#94a3b8" }
-    }
-  };
+  function getAppearances() {
+    return Object.values(THEMES).map((palette) => ({ ...palette }));
+  }
   function clean(value, maxLength = 240) {
     return String(value ?? "").replace(/\s+/g, " ").trim().slice(0, maxLength);
   }
@@ -63,31 +48,13 @@
     const date = new Date(raw);
     return Number.isNaN(date.getTime()) ? "" : date.toISOString().split("T")[0];
   }
-  function formatDisplayDate(value, language = "en") {
+  function formatMilestoneDateParts(value, language = "en") {
     const dateText = normalizeDate(value);
-    if (!dateText) return "";
+    if (!dateText) return { dateLabel: "", yearLabel: "" };
     const [year, month, day] = dateText.split("-").map(Number);
-    if (language === "zh") return `${year}.${String(month).padStart(2, "0")}.${String(day).padStart(2, "0")}`;
-    const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-    return `${months[(month || 1) - 1] || month} ${day}, ${year}`;
-  }
-  function statusTone(status) {
-    const normalized = clean(status, 40).toLowerCase().replace(/[\s-]+/g, "_");
-    if (normalized === "accepted" || normalized === "published") return "green";
-    if (normalized === "revision") return "amber";
-    if (normalized === "under_review") return "teal";
-    if (normalized === "rejected") return "red";
-    return "blue";
-  }
-  function eventTone(node = {}) {
-    const type = clean(node.type, 40).toLowerCase();
-    const key = clean(node.key, 40).toLowerCase();
-    if (type === "publication" || key === "accept" || key === "online") return "green";
-    if (type === "rejection" || key === "rejected") return "red";
-    if (type === "review" || type === "revision" || key.startsWith("r1") || key.startsWith("r2")) return "amber";
-    if (type === "submission" || key === "submit") return "blue";
-    if (type === "research" || type === "writing") return "teal";
-    return "slate";
+    const parsed = new Date(Date.UTC(year, (month || 1) - 1, day || 1, 12, 0, 0));
+    const dateLabel = language === "zh" ? new Intl.DateTimeFormat("zh-CN", { month: "short", day: "numeric", timeZone: "UTC" }).format(parsed) : new Intl.DateTimeFormat("en-US", { month: "short", day: "2-digit", timeZone: "UTC" }).format(parsed);
+    return { dateLabel, yearLabel: String(year) };
   }
   function normalizeVisibleFields(visible = {}) {
     const result = { ...DEFAULT_VISIBLE };
@@ -105,104 +72,339 @@
     const type = clean(event.type, 40).toLowerCase();
     const key = clean(event.key, 40).toLowerCase();
     const name = clean(event.name || event.rawName, 120).toLowerCase();
-    return type === "research" || type === "writing" || key === "experiment_start" || key === "experiment_done" || key === "draft_done" || /experiment|draft|data organization|实验|初稿|数据整理/.test(name);
+    return type === "research" || type === "writing" || key === "experiment_start" || key === "experiment_done" || key === "draft_done" || /experiment|research|draft|data organization|实验|研究|初稿|数据整理/.test(name);
   }
   function normalizeBrandSize(value) {
     const size = clean(value || "balanced", 20).toLowerCase();
     return BRAND_SIZES.has(size) ? size : "balanced";
   }
   function normalizeResolution(value) {
+    if (value === 1 || value === "1") return "standard";
+    if (value === 2 || value === "2") return "high";
+    if (value === 3 || value === "3") return "ultra";
     const resolution = clean(value || "high", 20).toLowerCase();
     return resolution in RESOLUTION_SCALES ? resolution : "high";
   }
+  function normalizeAppearance(value) {
+    const key = clean(value || "estuary", 30).toLowerCase();
+    return THEMES[key] ? key : "estuary";
+  }
+  var TYPE_LABELS_ZH = {
+    research: "研究",
+    writing: "写作",
+    submission: "投稿",
+    review: "审稿",
+    revision: "修回",
+    rejection: "拒稿",
+    publication: "出版",
+    special: "节点"
+  };
+  var TYPE_LABELS_EN = {
+    research: "Research",
+    writing: "Writing",
+    submission: "Submission",
+    review: "Review",
+    revision: "Revision",
+    rejection: "Decision",
+    publication: "Publication",
+    special: "Milestone"
+  };
   function buildSubmissionShareCardData(input = {}) {
     const language = input.language === "zh" ? "zh" : "en";
-    const labels = input.labels || {};
+    const zh = language === "zh";
     const visible = normalizeVisibleFields(input.visible);
-    const theme = THEMES[input.theme]?.id || "estuary";
+    const appearance = normalizeAppearance(input.appearance || input.theme);
     const size = SIZE_PREFS.has(input.size) ? input.size : "portrait";
     const timelineStart = normalizeTimelineStart(input.timelineStart);
     const brandSize = normalizeBrandSize(input.brandSize);
     const resolution = normalizeResolution(input.resolution);
-    const datedEvents = (Array.isArray(input.events) ? input.events : []).map((event, index) => ({
-      index,
-      key: clean(event.key, 40),
-      type: clean(event.type, 40),
-      rawName: clean(event.rawName || event.name, 120),
-      name: clean(event.label || event.name, 90) || (language === "zh" ? "时间节点" : "Milestone"),
-      date: normalizeDate(event.date || event.completeDate || event.dueDate || event.planDate),
-      displayDate: visible.dates ? formatDisplayDate(event.date || event.completeDate || event.dueDate || event.planDate, language) : "",
-      tone: eventTone(event)
-    })).filter((event) => Boolean(event.date)).filter((event) => timelineStart !== "submission" || !isPreSubmissionEvent(event)).sort((a, b) => a.date.localeCompare(b.date) || a.index - b.index);
-    const maxEvents = 40;
-    const omittedCount = Math.max(0, datedEvents.length - maxEvents);
-    const events = omittedCount ? datedEvents.slice(-maxEvents) : datedEvents;
-    const durationDays = Number.isFinite(Number(input.durationDays)) ? Math.max(0, Math.round(Number(input.durationDays))) : null;
+    const typeMap = zh ? TYPE_LABELS_ZH : TYPE_LABELS_EN;
+    const rawEvents = (Array.isArray(input.events) ? input.events : []).map((event, index) => {
+      const dateStr = normalizeDate(event.date || event.completeDate || event.dueDate || event.planDate);
+      const { dateLabel, yearLabel } = formatMilestoneDateParts(dateStr, language);
+      const completed = typeof event.completed === "boolean" ? event.completed : Boolean(event.completeDate || event.status === "completed");
+      const due = typeof event.due === "boolean" ? event.due : !completed && !event.planDate && Boolean(event.dueDate);
+      const typeKey = clean(event.type || "special", 30).toLowerCase();
+      return {
+        index,
+        key: clean(event.key, 40),
+        type: typeKey,
+        rawName: clean(event.rawName || event.name, 120),
+        name: clean(event.label || event.name, 90) || (zh ? "时间节点" : "Milestone"),
+        date: dateStr,
+        completed,
+        due,
+        typeLabel: clean(event.typeLabel, 30) || typeMap[typeKey] || typeMap.special,
+        dateKindLabel: clean(event.dateKindLabel, 30) || (completed ? zh ? "已记录" : "Recorded" : due ? zh ? "截止日期" : "Due date" : zh ? "计划日期" : "Planned"),
+        dateLabel,
+        yearLabel
+      };
+    }).filter((event) => Boolean(event.date)).filter((event) => timelineStart !== "submission" || !isPreSubmissionEvent(event)).sort((a, b) => a.date.localeCompare(b.date) || a.index - b.index);
+    const rawDuration = input.durationDays ?? input.duration;
+    const duration = Number.isFinite(Number(rawDuration)) && Number(rawDuration) >= 0 ? Math.round(Number(rawDuration)) : null;
+    const durationCaption = clean(input.durationLabel, 80) || (timelineStart === "submission" ? zh ? "从投稿至今天" : "From submission to today" : zh ? "从首个记录节点至今天" : "From first recorded milestone to today");
     return {
       language,
-      theme,
+      theme: appearance,
+      appearance,
       size,
       timelineStart,
       brandSize,
       resolution,
       visible,
-      eyebrow: clean(labels.eyebrow, 80) || (language === "zh" ? "ZOTERO PAPERFLOW · 投稿历程" : "ZOTERO PAPERFLOW · SUBMISSION JOURNEY"),
-      title: visible.title ? clean(input.title, 260) || (language === "zh" ? "未命名手稿" : "Untitled Manuscript") : "",
-      journalLabel: clean(labels.journalLabel, 40) || (language === "zh" ? "目标期刊" : "TARGET JOURNAL"),
-      journal: visible.journal ? clean(input.journal, 120) || (language === "zh" ? "目标期刊" : "Target Journal") : "",
-      firstAuthorLabel: clean(labels.firstAuthorLabel, 40) || (language === "zh" ? "第一作者" : "FIRST AUTHOR"),
-      firstAuthor: visible.author ? clean(input.firstAuthor, 90) : "",
-      statusTitle: clean(labels.statusTitle, 40) || (language === "zh" ? "当前状态" : "CURRENT STATUS"),
-      statusLabel: visible.status ? clean(input.statusLabel, 60) || (language === "zh" ? "已投稿" : "Submitted") : "",
-      statusTone: statusTone(input.status || "submitted"),
-      durationLabel: clean(labels.durationLabel, 50) || (language === "zh" ? "历程天数" : "DAYS IN THIS JOURNEY"),
-      durationValue: visible.duration ? durationDays === null ? "—" : String(durationDays) : "",
-      durationUnit: visible.duration && durationDays === null ? "" : clean(labels.daysUnit, 20) || (language === "zh" ? "天" : "days"),
-      timelineTitle: clean(labels.timelineTitle, 60) || (language === "zh" ? "关键节点" : "JOURNEY MILESTONES"),
-      emptyEventsText: clean(labels.emptyEventsText, 90) || (language === "zh" ? "暂无已记录日期的节点" : "No dated milestones yet"),
-      footer: visible.footer ? clean(labels.footer, 120) || (language === "zh" ? "由 Zotero PaperFlow 在本地生成" : "Created locally with Zotero PaperFlow") : "",
-      brandText: BRAND_TEXT,
-      events,
-      omittedCount,
-      omittedLabel: omittedCount ? clean(labels.omittedLabel, 80) || (language === "zh" ? `另有 ${omittedCount} 个较早节点未展开` : `${omittedCount} earlier milestones omitted`) : ""
+      title: clean(input.title, 260) || (zh ? "未命名手稿" : "Untitled Manuscript"),
+      journal: clean(input.journal, 120) || (zh ? "目标期刊" : "Target Journal"),
+      author: clean(input.firstAuthor ?? input.author, 90),
+      status: clean(input.statusLabel || input.status, 60) || (zh ? "已投稿" : "Submitted"),
+      duration,
+      durationLabel: durationCaption,
+      events: rawEvents
     };
   }
 
-  // src/modules/share-card/canvas-renderer.ts
-  function wrapTextLines(ctx, text, maxWidth, maxLines = 3) {
-    const content = clean(text, 260);
-    if (!content) return [""];
-    const tokens = content.includes(" ") ? content.split(/\s+/) : Array.from(content);
-    const joiner = content.includes(" ") ? " " : "";
+  // src/modules/share-card/layout-builder.ts
+  var FONT = '"Microsoft YaHei UI", "PingFang SC", "Segoe UI", sans-serif';
+  var DISPLAY = 'Georgia, "Songti SC", "Microsoft YaHei", serif';
+  var BRAND_FONT = '"Segoe UI", "Microsoft YaHei UI", "PingFang SC", sans-serif';
+  var segmenter = typeof Intl !== "undefined" && typeof Intl.Segmenter === "function" ? new Intl.Segmenter(void 0, { granularity: "grapheme" }) : null;
+  var glyphs = (text) => segmenter ? Array.from(segmenter.segment(text), (item) => item.segment) : Array.from(text);
+  function fallbackMeasure(ctx, value) {
+    if (typeof ctx?.measureText === "function") return ctx.measureText(value).width;
+    return String(value || "").length * 14;
+  }
+  function wrapText(ctx, value, width, maxLines = Infinity) {
+    const input = clean(value, 280);
+    if (!input) return [];
     const lines = [];
-    let current = "";
-    const measure = (candidate) => typeof ctx?.measureText === "function" ? ctx.measureText(candidate).width : candidate.length * 14;
-    for (let i = 0; i < tokens.length; i += 1) {
-      const token = tokens[i];
-      const next = current ? `${current}${joiner}${token}` : token;
-      if (current && measure(next) > maxWidth) {
-        lines.push(current);
-        current = token;
-        if (lines.length === maxLines - 1) {
-          const rest = tokens.slice(i + 1).join(joiner);
-          let tail = rest ? `${current}${joiner}${rest}` : current;
-          if (measure(tail) > maxWidth) {
-            while (tail.length > 1 && measure(`${tail}…`) > maxWidth) {
-              tail = tail.slice(0, -1).trimEnd();
-            }
-            tail = `${tail}…`;
-          }
-          lines.push(tail);
-          return lines;
+    let line = "";
+    const tokens = input.match(/[^\s\u2e80-\u9fff]+\s*|[\u2e80-\u9fff]\s*/gu) || [input];
+    for (const token of tokens) {
+      if (fallbackMeasure(ctx, (line + token).trimEnd()) <= width) {
+        line += token;
+        continue;
+      }
+      if (line.trim()) {
+        lines.push(line.trim());
+        line = "";
+      }
+      if (fallbackMeasure(ctx, token.trim()) <= width) {
+        line = token.trimStart();
+        continue;
+      }
+      for (const glyph of glyphs(token.trim())) {
+        if (line && fallbackMeasure(ctx, line + glyph) > width) {
+          lines.push(line);
+          line = "";
         }
-      } else {
-        current = next;
+        line += glyph;
       }
     }
-    if (current) lines.push(current);
-    return lines.slice(0, maxLines);
+    if (line.trim()) lines.push(line.trim());
+    if (lines.length <= maxLines) return lines;
+    const result = lines.slice(0, maxLines);
+    const last = glyphs(result[result.length - 1]);
+    while (last.length && fallbackMeasure(ctx, `${last.join("")}…`) > width) last.pop();
+    result[result.length - 1] = `${last.join("").trimEnd()}…`;
+    return result;
   }
-  function drawRoundedRect(ctx, x, y, w, h, r) {
+  var wrapTextLines = wrapText;
+  function buildLayout(ctx, model, preferences = {}) {
+    const modelVisible = model?.visible && typeof model.visible === "object" ? model.visible : {};
+    const v = {
+      title: true,
+      journal: true,
+      author: true,
+      status: true,
+      duration: true,
+      dates: true,
+      footer: true,
+      ...modelVisible,
+      ...preferences
+    };
+    v.appearance = preferences.appearance ?? preferences.theme ?? model?.appearance ?? model?.theme ?? "estuary";
+    v.size = preferences.size ?? model?.size ?? "portrait";
+    v.brandSize = preferences.brandSize ?? model?.brandSize ?? "balanced";
+    const palette = THEMES[v.appearance] || THEMES.paper;
+    const zh = model?.language === "zh";
+    const minimal = ["minimal", "journal", "conference"].includes(v.appearance);
+    const blueprint = ["blueprint", "conference", "archive"].includes(v.appearance);
+    const cover = v.appearance === "journal";
+    const archive = v.appearance === "archive";
+    const tech = ["cyber", "aurora", "terminal"].includes(v.appearance);
+    const width = CARD_WIDTH;
+    const brandMap = {
+      compact: { scale: 0.84, name: 13, motto: 9.5 },
+      balanced: { scale: 1.06, name: 15, motto: 10.5 },
+      bold: { scale: 1.26, name: 17, motto: 11.5 }
+    };
+    const brand = brandMap[v.brandSize] || brandMap.balanced;
+    const left = 48;
+    const right = 672;
+    const blocks = [];
+    let masthead = true;
+    if (cover) blocks.push({ kind: "rect", x: 16, y: 16, width: 688, height: 12, color: palette.accent });
+    if (v.appearance === "conference") blocks.push({ kind: "rect", x: 24, y: 40, width: 6, height: 190, color: palette.accent });
+    if (tech) blocks.push({ kind: "grid", color: palette.line, accent: palette.accent2 || palette.accent });
+    const text = (role, value, x, y2, maxWidth, size, weight = 400, color = palette.ink, maxLines = 1, display = false, align = "left") => {
+      const resolvedWidth = v.footer && masthead ? Math.min(maxWidth, 496 - x) : maxWidth;
+      const font = `${weight} ${size}px ${display ? DISPLAY : FONT}`;
+      if (ctx) ctx.font = font;
+      const lines = wrapText(ctx, value, resolvedWidth, maxLines);
+      const lineHeight = Math.ceil(size * 1.36);
+      lines.forEach((line, index) => {
+        blocks.push({ kind: "text", role, text: line, x, y: y2 + index * lineHeight, width: resolvedWidth, height: lineHeight, font, color, align });
+      });
+      return lines.length * lineHeight;
+    };
+    const rule = (y2) => blocks.push({ kind: "line", x: left, y: y2, x2: right, y2, color: palette.line });
+    if (v.footer) {
+      const center = 592;
+      blocks.push({ kind: "brand-seal", role: "brand-seal", x: center, y: 86, scale: brand.scale, color: palette.accent, secondary: palette.accent2 || palette.muted });
+      const brandText = (role, value, top, size, weight, color) => {
+        let currentSize = size;
+        let font = `${weight} ${currentSize}px ${BRAND_FONT}`;
+        if (ctx) ctx.font = font;
+        while (fallbackMeasure(ctx, value) > 144 && currentSize > 7) {
+          currentSize -= 0.25;
+          font = `${weight} ${currentSize}px ${BRAND_FONT}`;
+          if (ctx) ctx.font = font;
+        }
+        const w = fallbackMeasure(ctx, value);
+        blocks.push({ kind: "text", role, text: value, x: center - w / 2, y: top, width: w, height: Math.ceil(currentSize * 1.4), font, color, align: "left" });
+      };
+      const wordmarkY = 86 + 36 * brand.scale + 10;
+      brandText("brand-wordmark", "Zotero PaperFlow", wordmarkY, brand.name, 600, palette.ink);
+      brandText("brand-motto", zh ? "探索 · 求证 · 记录" : "Explore · Verify · Record", wordmarkY + Math.ceil(brand.name * 1.4) + 5, zh ? brand.motto : brand.motto - 0.5, 400, palette.muted);
+    }
+    const allEvents = Array.isArray(model?.events) ? model.events : [];
+    const events = allEvents.length > 64 ? [allEvents[0], ...allEvents.slice(-63)] : allEvents;
+    const omitted = allEvents.length - events.length;
+    let y = 48;
+    blocks.push({ kind: "rect", x: left, y: y + 2, width: 28, height: 4, color: palette.accent });
+    text("eyebrow", zh ? "科研手记 / 投稿历程" : "FIELD NOTES / SUBMISSION JOURNEY", left + 40, y - 5, 580, 13, 600, palette.muted);
+    y += 47;
+    if (minimal && v.title && model?.title) {
+      y += text("title", model.title, left, y, 624, cover ? 36 : 32, cover ? 400 : 600, palette.ink, 6, cover && !zh) + 24;
+    }
+    if (v.journal && model?.journal) {
+      const latinJournal = !/[\u2e80-\u9fff]/u.test(model.journal);
+      const shortJournal = glyphs(String(model.journal).trim()).length <= 18;
+      const journalSize = minimal && v.title && model?.title ? 28 : shortJournal ? 48 : 34;
+      blocks.push({ kind: "rect", role: "journal-mark", x: left, y: y + 2, width: 3, height: 12, color: palette.accent });
+      text("journal-label", zh ? "投稿期刊" : "THE JOURNAL", left + 12, y, 600, 10, 600, palette.muted);
+      y += 22;
+      y += text("journal", model.journal, left, y, 624, journalSize, latinJournal ? 400 : 600, palette.ink, 3, latinJournal && !tech) + 10;
+      blocks.push({ kind: "rect", role: "journal-underline", x: left, y, width: shortJournal ? 64 : 96, height: 2, color: palette.accent });
+      y += 20;
+    }
+    if (!minimal && v.title && model?.title) {
+      y += text("title", model.title, left, y, 624, 27, 600, palette.ink, 6) + 20;
+    }
+    if (v.author && model?.author) {
+      y += text("author", `${zh ? "第一作者" : "First author"}  /  ${model.author}`, left, y, 624, 15, 400, palette.muted, 2) + 16;
+    }
+    const brandBlocks = blocks.filter((b) => ["brand-seal", "brand-wordmark", "brand-motto"].includes(b.role));
+    const brandTop = 86 - 36 * brand.scale;
+    const brandBottom = v.footer && brandBlocks.length ? brandBlocks[brandBlocks.length - 1].y + brandBlocks[brandBlocks.length - 1].height : 0;
+    const brandHeight = brandBottom - brandTop;
+    const headerBottom = Math.max(y + 8, v.footer ? 72 + brandHeight + 24 : 0);
+    if (v.footer && brandBlocks.length) {
+      const headline = blocks.find((b) => b.role === "journal" || b.role === "title");
+      const target = headline ? headline.y + headline.height / 2 - 8 : 132;
+      const top = Math.max(72, Math.min(target - brandHeight / 2, 112, headerBottom - 24 - brandHeight));
+      brandBlocks.forEach((b) => {
+        b.y += top - brandTop;
+      });
+    }
+    masthead = false;
+    rule(headerBottom);
+    y = headerBottom + 26;
+    if (v.duration || v.status) {
+      const both = Boolean(v.duration && v.status);
+      const columnWidth = both ? 294 : 624;
+      let metricHeight = 0;
+      const metricBackground = blueprint ? { kind: "rect", x: left - 16, y: y - 12, width: 656, height: 156, color: palette.wash, radius: 8 } : null;
+      if (metricBackground) blocks.push(metricBackground);
+      if (v.duration) {
+        text("duration-label", zh ? "历程天数" : "DAYS IN THIS JOURNEY", left, y, columnWidth, 12, 600, palette.muted);
+        const valid = Number.isFinite(model?.duration) && model.duration >= 0;
+        const number = valid ? String(model.duration) : "—";
+        text("duration", number, left - 2, y + 22, columnWidth - 50, 60, 400, palette.accent, 1, true);
+        if (ctx) ctx.font = `400 60px ${DISPLAY}`;
+        if (valid) {
+          const unitX = Math.min(left + fallbackMeasure(ctx, number) + 12, left + columnWidth - 48);
+          text("duration-unit", zh ? "天" : "days", unitX, y + 63, 48, 14, 500, palette.muted);
+        }
+        metricHeight = 108 + text("duration-caption", model?.durationLabel || "", left, y + 108, columnWidth, 13, 400, palette.muted, 2);
+      }
+      if (v.status) {
+        const x = both ? 378 : left;
+        if (both) blocks.push({ kind: "line", x: 350, y: y + 2, x2: 350, y2: y + 122, color: palette.line });
+        text("status-label", zh ? "当前进展" : "CURRENT CHAPTER", x, y, columnWidth, 12, 600, palette.muted);
+        const statusHeight = text("status", model?.status || "—", x, y + 37, columnWidth, 26, 600, palette.ink, 2);
+        metricHeight = Math.max(metricHeight, 37 + statusHeight + 24);
+      }
+      if (metricBackground) metricBackground.height = metricHeight + 26;
+      y += metricHeight + 26;
+      rule(y);
+      y += 32;
+    }
+    text("timeline-label", zh ? "一步一步，记录科研历程" : "The journey, step by step.", left, y, 456, 21, 600, palette.ink);
+    text("timeline-count", `${events.length} ${zh ? "个节点" : "milestones"}`, right, y + 5, 148, 13, 500, palette.muted, 1, false, "right");
+    y += 52;
+    const timelineStart = y;
+    if (!events.length) {
+      blocks.push({ kind: "rect", x: left, y, width: 624, height: 108, color: palette.wash, radius: 12 });
+      text("empty", zh ? "故事刚刚开始" : "Every journey begins somewhere.", left + 24, y + 22, 576, 21, 600, palette.ink);
+      text("empty-help", zh ? "添加带日期的节点后，即可生成时间线。" : "Add a dated milestone to begin your timeline.", left + 24, y + 62, 576, 15, 400, palette.muted);
+      y += 128;
+    }
+    const railX = v.dates ? 186 : 62;
+    const contentX = railX + 30;
+    const rowCenters = [];
+    events.forEach((event, index) => {
+      const rowBg = archive ? { kind: "rect", x: left - 12, y: y - 8, width: 648, height: 76, color: index % 2 === 0 ? palette.wash : palette.paper, radius: 4 } : null;
+      if (rowBg) blocks.push(rowBg);
+      if (omitted && index === 1) {
+        text("omitted", zh ? `另有 ${omitted} 个节点未展示` : `${omitted} earlier milestones not shown`, contentX, y, right - contentX, 13, 500, palette.muted, 2);
+        y += 48;
+      }
+      const nameHeight = text("event-name", event.name || (zh ? "未命名节点" : "Untitled milestone"), contentX, y, right - contentX, minimal ? 18 : 20, 600, palette.ink, 2);
+      const meta = [event.typeLabel, event.dateKindLabel].filter(Boolean).join(" · ");
+      const metaHeight = text("event-meta", meta, contentX, y + nameHeight + 6, right - contentX, 12, 500, palette.muted, 2);
+      let dateHeight = 0;
+      if (v.dates) {
+        dateHeight = text("event-date", event.dateLabel || "—", left, y + 1, 122, 17, 600, palette.ink, 2);
+        text("event-year", event.yearLabel || "", left, y + dateHeight + 4, 122, 12, 400, palette.muted);
+      }
+      const rowHeight = Math.max(minimal ? 64 : 76, nameHeight + metaHeight + (minimal ? 20 : 28), v.dates ? dateHeight + 36 : 0);
+      if (rowBg) rowBg.height = rowHeight - 8;
+      rowCenters.push(y + 12);
+      blocks.push({ kind: "node", x: railX, y: y + 12, completed: Boolean(event.completed), square: blueprint, color: palette.accent, background: palette.paper });
+      y += rowHeight;
+    });
+    if (rowCenters.length > 1) {
+      blocks.unshift({ kind: "line", x: railX, y: rowCenters[0], x2: railX, y2: rowCenters[rowCenters.length - 1], color: palette.line });
+    }
+    const timelineBottom = y;
+    let height = Math.ceil(y + (v.footer ? 90 : 40));
+    const minHeight = v.size === "story" ? STORY_MIN_HEIGHT : v.size === "auto" ? 0 : BASE_HEIGHT;
+    height = Math.min(MAX_HEIGHT, Math.max(minHeight, height));
+    if (v.footer) {
+      rule(height - 84);
+      text("footer-brand", "ZOTERO PAPERFLOW", left, height - 61, 260, 13, 700, palette.ink);
+      text("footer-note", zh ? "每一步，都值得记录。" : "Every step is worth recording.", right, height - 61, 317, 13, 400, palette.muted, 1, false, "right");
+    }
+    return { width, height, palette, appearance: v.appearance, blocks, headerBottom, timelineStart, timelineBottom, omitted, eventCount: events.length };
+  }
+
+  // src/modules/share-card/canvas-renderer.ts
+  function roundedRectPath(ctx, x, y, w, h, r) {
+    if (typeof ctx.roundRect === "function") {
+      ctx.beginPath();
+      ctx.roundRect(x, y, w, h, r);
+      return;
+    }
     const radius = Math.min(r, w / 2, h / 2);
     ctx.beginPath();
     ctx.moveTo(x + radius, y);
@@ -212,218 +414,182 @@
     ctx.arcTo(x, y, x + w, y, radius);
     ctx.closePath();
   }
-  function getShareCardLayout(cardInput, ctx = null) {
-    const data = cardInput?.events ? cardInput : buildSubmissionShareCardData(cardInput);
-    const font = '"Inter", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif';
-    if (ctx) ctx.font = `700 30px ${font}`;
-    const titleLines = data.title ? wrapTextLines(ctx, data.title, CARD_WIDTH - 168, 4) : [];
-    if (ctx) ctx.font = `650 18px ${font}`;
-    const journalLines = data.journal ? wrapTextLines(ctx, data.journal, CARD_WIDTH - 280, 2) : [];
-    const hasJournalRow = Boolean(data.journal || data.firstAuthor);
-    const hasStatsRow = Boolean(data.statusLabel || data.durationValue);
-    const rowPitch = data.events.length > 8 ? 50 : 54;
-    const rows = Math.max(1, data.events.length);
-    const timelineBoxHeight = Math.max(180, rows * rowPitch + (data.omittedLabel ? 50 : 22));
-    const titleBlockHeight = titleLines.length ? titleLines.length * 38 + 20 : 0;
-    const journalBlockHeight = hasJournalRow ? Math.max(76, journalLines.length * 24 + 42) + 18 : 0;
-    const statsBlockHeight = hasStatsRow ? 108 : 0;
-    const footerHeight = data.footer ? 52 : 24;
-    const contentHeight = 148 + titleBlockHeight + journalBlockHeight + statsBlockHeight + 48 + timelineBoxHeight + footerHeight;
-    const minHeight = data.size === "story" ? STORY_MIN_HEIGHT : data.size === "auto" ? 700 : BASE_HEIGHT;
-    const height = Math.min(MAX_HEIGHT, Math.max(minHeight, contentHeight));
-    const requestedScale = RESOLUTION_SCALES[data.resolution] || 2;
-    const scale = Math.max(1, Math.min(requestedScale, Math.floor(MAX_PIXEL_HEIGHT / height)));
+  function drawBrandSeal(ctx, block) {
+    ctx.save();
+    ctx.translate(block.x, block.y);
+    ctx.scale(block.scale || 1, block.scale || 1);
+    ctx.strokeStyle = block.color;
+    ctx.lineWidth = 1;
+    ctx.globalAlpha = 0.35;
+    ctx.beginPath();
+    ctx.arc(0, 0, 36, 0, Math.PI * 2);
+    ctx.stroke();
+    for (let i = 0; i < 12; i += 1) {
+      const a = i * Math.PI / 6;
+      const inner = i % 3 === 0 ? 32 : 34;
+      ctx.beginPath();
+      ctx.moveTo(Math.cos(a) * inner, Math.sin(a) * inner);
+      ctx.lineTo(Math.cos(a) * 36, Math.sin(a) * 36);
+      ctx.stroke();
+    }
+    ctx.globalAlpha = 0.7;
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(-52, -52, 104, 104);
+    ctx.rect(-20, -15, 40, 30);
+    ctx.clip("evenodd");
+    ctx.beginPath();
+    ctx.ellipse(0, 0, 46, 17, -Math.PI / 5, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.restore();
+    ctx.strokeStyle = block.secondary;
+    ctx.beginPath();
+    ctx.arc(0, 0, 28, -Math.PI / 2, Math.PI * 0.8);
+    ctx.stroke();
+    ctx.globalAlpha = 1;
+    ctx.fillStyle = block.color;
+    for (const a of [-Math.PI / 2, Math.PI / 6, Math.PI * 0.8]) {
+      ctx.beginPath();
+      ctx.arc(Math.cos(a) * 28, Math.sin(a) * 28, 2.4, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.textAlign = "center";
+    ctx.textBaseline = "alphabetic";
+    ctx.font = `600 23px ${BRAND_FONT}`;
+    const mark = typeof ctx.measureText === "function" ? ctx.measureText("RF") : { actualBoundingBoxAscent: 16, actualBoundingBoxDescent: 0 };
+    ctx.fillText("RF", 0, ((mark.actualBoundingBoxAscent ?? 16) - (mark.actualBoundingBoxDescent ?? 0)) / 2);
+    ctx.restore();
+  }
+  function drawTechGrid(ctx, block, layout) {
+    ctx.save();
+    ctx.globalAlpha = 0.22;
+    ctx.strokeStyle = block.color;
+    ctx.lineWidth = 0.5;
+    for (let gx = 48; gx <= layout.width - 48; gx += 32) {
+      ctx.beginPath();
+      ctx.moveTo(gx, 48);
+      ctx.lineTo(gx, layout.height - 48);
+      ctx.stroke();
+    }
+    for (let gy = 48; gy <= layout.height - 48; gy += 32) {
+      ctx.beginPath();
+      ctx.moveTo(48, gy);
+      ctx.lineTo(layout.width - 48, gy);
+      ctx.stroke();
+    }
+    ctx.globalAlpha = 0.8;
+    ctx.strokeStyle = block.accent;
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(48, 48);
+    ctx.lineTo(82, 48);
+    ctx.moveTo(48, 48);
+    ctx.lineTo(48, 82);
+    ctx.stroke();
+    ctx.restore();
+  }
+  function drawToCanvas(canvas, model, preferences = {}) {
+    const probeCtx = canvas.getContext("2d");
+    if (!probeCtx) throw new Error("Canvas is unavailable");
+    const layout = buildLayout(probeCtx, model, preferences);
+    const rawRes = preferences.resolution ?? model?.resolution ?? "high";
+    const requestedScale = RESOLUTION_SCALES[rawRes] || ([1, 2, 3].includes(Number(rawRes)) ? Number(rawRes) : 2);
+    const renderScale = Math.min(requestedScale, Math.sqrt(MAX_PIXELS / (layout.width * layout.height)), MAX_PIXEL_HEIGHT / layout.height);
+    canvas.width = Math.floor(layout.width * renderScale);
+    canvas.height = Math.floor(layout.height * renderScale);
+    const ctx = canvas.getContext("2d");
+    if (!ctx) throw new Error("Canvas is unavailable");
+    ctx.save();
+    ctx.scale(renderScale, renderScale);
+    if (layout.palette.gradient && typeof ctx.createLinearGradient === "function") {
+      const gradient = ctx.createLinearGradient(0, 0, layout.width, layout.height);
+      layout.palette.gradient.forEach((color, i, colors) => gradient.addColorStop(i / (colors.length - 1), color));
+      ctx.fillStyle = gradient;
+    } else {
+      ctx.fillStyle = layout.palette.background;
+    }
+    ctx.fillRect(0, 0, layout.width, layout.height);
+    const sheetRadius = layout.appearance === "minimal" ? 0 : 16;
+    roundedRectPath(ctx, 16, 16, layout.width - 32, layout.height - 32, sheetRadius);
+    if (layout.palette.paperGradient && typeof ctx.createLinearGradient === "function") {
+      const paperGradient = ctx.createLinearGradient(0, 16, layout.width, layout.height);
+      layout.palette.paperGradient.forEach((color, i, colors) => paperGradient.addColorStop(i / (colors.length - 1), color));
+      ctx.fillStyle = paperGradient;
+    } else {
+      ctx.fillStyle = layout.palette.paper;
+    }
+    ctx.fill();
+    ctx.save();
+    ctx.clip();
+    ctx.textBaseline = "top";
+    for (const block of layout.blocks) {
+      ctx.fillStyle = block.color;
+      ctx.strokeStyle = block.color;
+      ctx.lineWidth = 1;
+      if (block.kind === "brand-seal") {
+        drawBrandSeal(ctx, block);
+      } else if (block.kind === "grid") {
+        drawTechGrid(ctx, block, layout);
+      } else if (block.kind === "text") {
+        ctx.font = block.font;
+        ctx.textAlign = block.align || "left";
+        ctx.fillText(block.text, block.x, block.y);
+        ctx.textAlign = "left";
+      } else if (block.kind === "line") {
+        ctx.beginPath();
+        ctx.moveTo(block.x, block.y);
+        ctx.lineTo(block.x2, block.y2);
+        ctx.stroke();
+      } else if (block.kind === "rect") {
+        roundedRectPath(ctx, block.x, block.y, block.width, block.height, block.radius || 0);
+        ctx.fill();
+      } else if (block.kind === "node") {
+        ctx.beginPath();
+        if (block.square) ctx.rect(block.x - 5, block.y - 5, 10, 10);
+        else ctx.arc(block.x, block.y, 6, 0, Math.PI * 2);
+        ctx.fillStyle = block.completed ? block.color : block.background;
+        ctx.fill();
+        ctx.lineWidth = 2;
+        ctx.stroke();
+      }
+    }
+    ctx.restore();
+    ctx.restore();
     return {
-      width: CARD_WIDTH,
-      height,
+      layout: {
+        ...layout,
+        scale: renderScale,
+        pixelWidth: canvas.width,
+        pixelHeight: canvas.height,
+        resolutionLimited: renderScale < requestedScale,
+        omittedCount: layout.omitted
+      },
+      resolutionLimited: renderScale < requestedScale
+    };
+  }
+  function getShareCardLayout(cardInput, ctx = null) {
+    const data = cardInput?.events && cardInput?.visible ? cardInput : buildSubmissionShareCardData(cardInput);
+    const layout = buildLayout(ctx, data);
+    const requestedScale = RESOLUTION_SCALES[data.resolution] || ([1, 2, 3].includes(Number(data.resolution)) ? Number(data.resolution) : 2);
+    const scale = Math.min(requestedScale, Math.sqrt(MAX_PIXELS / (layout.width * layout.height)), MAX_PIXEL_HEIGHT / layout.height);
+    return {
+      ...layout,
       scale,
-      pixelWidth: CARD_WIDTH * scale,
-      pixelHeight: height * scale,
+      pixelWidth: Math.floor(layout.width * scale),
+      pixelHeight: Math.floor(layout.height * scale),
       resolutionLimited: scale < requestedScale,
-      rowPitch,
-      timelineBoxHeight,
-      titleLines,
-      journalLines,
-      hasJournalRow,
-      hasStatsRow
+      omittedCount: layout.omitted
     };
   }
   function renderSubmissionShareCard(canvas, cardInput) {
-    const data = cardInput?.events ? cardInput : buildSubmissionShareCardData(cardInput);
-    const ctx = canvas.getContext("2d");
-    const layout = getShareCardLayout(data, ctx);
-    const { width, height, scale, rowPitch, timelineBoxHeight, titleLines, journalLines, hasJournalRow, hasStatsRow } = layout;
-    const theme = THEMES[data.theme] || THEMES.estuary;
-    const tones = TONE_COLORS[theme.mode] || TONE_COLORS.light;
-    canvas.width = width * scale;
-    canvas.height = height * scale;
-    ctx.save();
-    ctx.scale(scale, scale);
-    const font = '"Inter", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif';
-    const bg = ctx.createLinearGradient(0, 0, width, height);
-    bg.addColorStop(0, theme.top);
-    bg.addColorStop(0.55, theme.mid);
-    bg.addColorStop(1, theme.bottom);
-    ctx.fillStyle = bg;
-    ctx.fillRect(0, 0, width, height);
-    ctx.fillStyle = theme.orbA;
-    ctx.beginPath();
-    ctx.arc(width - 90, 110, 150, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.fillStyle = theme.orbB;
-    ctx.beginPath();
-    ctx.arc(96, height - 110, 170, 0, Math.PI * 2);
-    ctx.fill();
-    drawRoundedRect(ctx, 42, 42, width - 84, height - 84, 28);
-    ctx.fillStyle = theme.card;
-    ctx.fill();
-    ctx.lineWidth = 1.5;
-    ctx.strokeStyle = theme.border;
-    ctx.stroke();
-    const brandBox = { compact: { h: 28, font: 11, pad: 13 }, balanced: { h: 32, font: 12, pad: 15 }, bold: { h: 36, font: 13.5, pad: 17 } }[data.brandSize] || { h: 32, font: 12, pad: 15 };
-    ctx.font = `700 ${brandBox.font}px ${font}`;
-    const brandWidth = Math.max(146, (ctx.measureText?.(data.brandText)?.width || 110) + brandBox.pad * 2);
-    drawRoundedRect(ctx, width - 84 - brandWidth, 72, brandWidth, brandBox.h, brandBox.h / 2);
-    ctx.fillStyle = theme.accentSoft;
-    ctx.fill();
-    ctx.fillStyle = theme.accent;
-    ctx.textAlign = "center";
-    ctx.fillText(data.brandText, width - 84 - brandWidth / 2, 72 + brandBox.h * 0.64);
-    ctx.textAlign = "left";
-    ctx.fillStyle = theme.accent;
-    ctx.font = `700 13px ${font}`;
-    ctx.fillText(data.eyebrow, 84, 92);
-    let y = 142;
-    if (titleLines.length) {
-      ctx.fillStyle = theme.ink;
-      ctx.font = `700 30px ${font}`;
-      titleLines.forEach((line) => {
-        ctx.fillText(line, 84, y);
-        y += 38;
-      });
-      y += 8;
-    }
-    if (hasJournalRow) {
-      const boxHeight = Math.max(76, journalLines.length * 24 + 42);
-      drawRoundedRect(ctx, 84, y, width - 168, boxHeight, 18);
-      ctx.fillStyle = theme.panel;
-      ctx.fill();
-      ctx.strokeStyle = theme.border;
-      ctx.stroke();
-      if (data.journal) {
-        ctx.fillStyle = theme.muted;
-        ctx.font = `600 12px ${font}`;
-        ctx.fillText(data.journalLabel, 106, y + 26);
-        ctx.fillStyle = theme.ink;
-        ctx.font = `650 18px ${font}`;
-        journalLines.forEach((line, index) => {
-          ctx.fillText(line, 106, y + 52 + index * 23);
-        });
-      }
-      if (data.firstAuthor) {
-        const authorX = data.journal ? width - 250 : 106;
-        ctx.fillStyle = theme.muted;
-        ctx.font = `600 12px ${font}`;
-        ctx.fillText(data.firstAuthorLabel, authorX, y + 26);
-        ctx.fillStyle = theme.body;
-        ctx.font = `600 16px ${font}`;
-        ctx.fillText(wrapTextLines(ctx, data.firstAuthor, 150, 1)[0], authorX, y + 52);
-      }
-      y += boxHeight + 18;
-    }
-    if (hasStatsRow) {
-      const tone = tones[data.statusTone] || tones.blue;
-      const singleStat = !(data.statusLabel && data.durationValue);
-      const statWidth = singleStat ? width - 168 : 268;
-      if (data.statusLabel) {
-        drawRoundedRect(ctx, 84, y, statWidth, 88, 18);
-        ctx.fillStyle = tone.bg;
-        ctx.fill();
-        ctx.fillStyle = tone.fg;
-        ctx.font = `600 12px ${font}`;
-        ctx.fillText(data.statusTitle, 106, y + 28);
-        ctx.font = `700 22px ${font}`;
-        ctx.fillText(wrapTextLines(ctx, data.statusLabel, statWidth - 44, 1)[0], 106, y + 61);
-      }
-      if (data.durationValue) {
-        const x = data.statusLabel ? 370 : 84;
-        const boxW = data.statusLabel ? width - 454 : statWidth;
-        drawRoundedRect(ctx, x, y, boxW, 88, 18);
-        ctx.fillStyle = theme.panel;
-        ctx.fill();
-        ctx.strokeStyle = theme.border;
-        ctx.stroke();
-        ctx.fillStyle = theme.muted;
-        ctx.font = `600 12px ${font}`;
-        ctx.fillText(data.durationLabel, x + 22, y + 28);
-        ctx.fillStyle = theme.ink;
-        ctx.font = `700 26px ${font}`;
-        const valueText = data.durationUnit ? `${data.durationValue} ${data.durationUnit}` : data.durationValue;
-        ctx.fillText(valueText, x + 22, y + 62);
-      }
-      y += 116;
-    }
-    ctx.fillStyle = theme.muted;
-    ctx.font = `700 13px ${font}`;
-    ctx.fillText(data.timelineTitle, 84, y);
-    y += 18;
-    drawRoundedRect(ctx, 84, y, width - 168, timelineBoxHeight, 20);
-    ctx.fillStyle = theme.panel;
-    ctx.fill();
-    ctx.strokeStyle = theme.border;
-    ctx.stroke();
-    if (!data.events.length) {
-      ctx.fillStyle = theme.muted;
-      ctx.font = `500 16px ${font}`;
-      ctx.fillText(data.emptyEventsText, 114, y + 64);
-    } else {
-      const startY = y + 36;
-      const endY = startY + (data.events.length - 1) * rowPitch;
-      if (data.events.length > 1) {
-        ctx.strokeStyle = theme.rail;
-        ctx.lineWidth = 2;
-        ctx.beginPath();
-        ctx.moveTo(122, startY);
-        ctx.lineTo(122, endY);
-        ctx.stroke();
-      }
-      data.events.forEach((event, index) => {
-        const rowY = startY + index * rowPitch;
-        const eventColor = tones[event.tone] || tones.slate;
-        ctx.fillStyle = eventColor.dot;
-        ctx.beginPath();
-        ctx.arc(122, rowY - 5, 7, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.fillStyle = theme.ink;
-        ctx.font = `600 16px ${font}`;
-        const labelWidth = event.displayDate ? 340 : 450;
-        ctx.fillText(wrapTextLines(ctx, event.name, labelWidth, 1)[0], 144, rowY);
-        if (event.displayDate) {
-          ctx.fillStyle = theme.muted;
-          ctx.font = `600 14px ${font}`;
-          ctx.textAlign = "right";
-          ctx.fillText(event.displayDate, width - 112, rowY);
-          ctx.textAlign = "left";
-        }
-      });
-      if (data.omittedLabel) {
-        ctx.fillStyle = theme.muted;
-        ctx.font = `500 13px ${font}`;
-        ctx.fillText(data.omittedLabel, 144, y + timelineBoxHeight - 18);
-      }
-    }
-    if (data.footer) {
-      ctx.fillStyle = theme.muted;
-      ctx.font = `500 13px ${font}`;
-      ctx.fillText(data.footer, 84, height - 66);
-      ctx.textAlign = "right";
-      ctx.font = `700 13px ${font}`;
-      ctx.fillStyle = theme.accent;
-      ctx.fillText(data.brandText, width - 84, height - 66);
-      ctx.textAlign = "left";
-    }
-    ctx.restore();
+    const data = cardInput?.events && cardInput?.visible ? cardInput : buildSubmissionShareCardData(cardInput);
+    const { layout } = drawToCanvas(canvas, data);
     return { ...data, ...layout };
+  }
+  function render(model, preferences = {}) {
+    const canvas = document.createElement("canvas");
+    const { layout, resolutionLimited } = drawToCanvas(canvas, model, preferences);
+    return { canvas, layout, resolutionLimited };
   }
 
   // src/modules/share-card.ts
@@ -437,9 +603,13 @@
     BRAND_SIZES: Array.from(BRAND_SIZES),
     THEMES: Object.keys(THEMES),
     VISIBLE_FIELDS,
+    getAppearances,
     buildSubmissionShareCardData,
-    getShareCardLayout,
+    wrapText,
     wrapTextLines,
+    buildLayout,
+    getShareCardLayout,
+    render,
     renderSubmissionShareCard
   };
   if (typeof globalThis !== "undefined") {

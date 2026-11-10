@@ -301,5 +301,9 @@ export const EN_WORKFLOW: Record<string, string> = {
   academicCaptureDetected: 'results detected',
   academicDuplicateConfirm: 'A matching manuscript already exists. Update the existing record with the reviewed fields?',
   academicDuplicateUpdated: 'Existing manuscript updated without creating a duplicate.',
-  academicCaptureSaved: 'Zotero manuscript reviewed and saved.'
+  academicCaptureSaved: 'Zotero manuscript reviewed and saved.',
+  edit: 'Edit',
+  eventsSummary: '{total} milestones · {completed} completed',
+  addTimelineEvent: '+ New Event',
+  clickCardToEditHint: 'Click any card to edit details'
 };

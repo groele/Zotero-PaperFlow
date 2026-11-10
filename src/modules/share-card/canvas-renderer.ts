@@ -1,58 +1,27 @@
 /**
- * Zotero PaperFlow - Share Card Canvas Layout & Renderer
+ * Zotero PaperFlow - Editorial Share Card Canvas Renderer
  */
 import {
-  CARD_WIDTH,
-  BASE_HEIGHT,
-  STORY_MIN_HEIGHT,
-  MAX_HEIGHT,
   MAX_PIXEL_HEIGHT,
+  MAX_PIXELS,
   RESOLUTION_SCALES,
-  THEMES,
-  TONE_COLORS,
-  clean,
   buildSubmissionShareCardData
 } from './constants-and-data.js';
+import {
+  BRAND_FONT,
+  buildLayout,
+  wrapText,
+  wrapTextLines
+} from './layout-builder.js';
 
-export function wrapTextLines(ctx: any, text: any, maxWidth: number, maxLines = 3): string[] {
-  const content = clean(text, 260);
-  if (!content) return [''];
-  const tokens = content.includes(' ') ? content.split(/\s+/) : Array.from(content);
-  const joiner = content.includes(' ') ? ' ' : '';
-  const lines: string[] = [];
-  let current = '';
+export { wrapText, wrapTextLines, buildLayout };
 
-  const measure = (candidate: string) => (
-    typeof ctx?.measureText === 'function' ? ctx.measureText(candidate).width : candidate.length * 14
-  );
-
-  for (let i = 0; i < tokens.length; i += 1) {
-    const token = tokens[i];
-    const next = current ? `${current}${joiner}${token}` : token;
-    if (current && measure(next) > maxWidth) {
-      lines.push(current);
-      current = token;
-      if (lines.length === maxLines - 1) {
-        const rest = tokens.slice(i + 1).join(joiner);
-        let tail = rest ? `${current}${joiner}${rest}` : current;
-        if (measure(tail) > maxWidth) {
-          while (tail.length > 1 && measure(`${tail}…`) > maxWidth) {
-            tail = tail.slice(0, -1).trimEnd();
-          }
-          tail = `${tail}…`;
-        }
-        lines.push(tail);
-        return lines;
-      }
-    } else {
-      current = next;
-    }
+function roundedRectPath(ctx: any, x: number, y: number, w: number, h: number, r: number): void {
+  if (typeof ctx.roundRect === 'function') {
+    ctx.beginPath();
+    ctx.roundRect(x, y, w, h, r);
+    return;
   }
-  if (current) lines.push(current);
-  return lines.slice(0, maxLines);
-}
-
-export function drawRoundedRect(ctx: any, x: number, y: number, w: number, h: number, r: number): void {
   const radius = Math.min(r, w / 2, h / 2);
   ctx.beginPath();
   ctx.moveTo(x + radius, y);
@@ -63,229 +32,180 @@ export function drawRoundedRect(ctx: any, x: number, y: number, w: number, h: nu
   ctx.closePath();
 }
 
-export function getShareCardLayout(cardInput: any, ctx: any = null): any {
-  const data = cardInput?.events ? cardInput : buildSubmissionShareCardData(cardInput);
-  const font = '"Inter", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif';
-  if (ctx) ctx.font = `700 30px ${font}`;
-  const titleLines = data.title ? wrapTextLines(ctx, data.title, CARD_WIDTH - 168, 4) : [];
-  if (ctx) ctx.font = `650 18px ${font}`;
-  const journalLines = data.journal ? wrapTextLines(ctx, data.journal, CARD_WIDTH - 280, 2) : [];
-  const hasJournalRow = Boolean(data.journal || data.firstAuthor);
-  const hasStatsRow = Boolean(data.statusLabel || data.durationValue);
-  const rowPitch = data.events.length > 8 ? 50 : 54;
-  const rows = Math.max(1, data.events.length);
-  const timelineBoxHeight = Math.max(180, rows * rowPitch + (data.omittedLabel ? 50 : 22));
-  const titleBlockHeight = titleLines.length ? titleLines.length * 38 + 20 : 0;
-  const journalBlockHeight = hasJournalRow ? Math.max(76, journalLines.length * 24 + 42) + 18 : 0;
-  const statsBlockHeight = hasStatsRow ? 108 : 0;
-  const footerHeight = data.footer ? 52 : 24;
-  const contentHeight = 148 + titleBlockHeight + journalBlockHeight + statsBlockHeight + 48 + timelineBoxHeight + footerHeight;
-  const minHeight = data.size === 'story' ? STORY_MIN_HEIGHT : (data.size === 'auto' ? 700 : BASE_HEIGHT);
-  const height = Math.min(MAX_HEIGHT, Math.max(minHeight, contentHeight));
-  const requestedScale = RESOLUTION_SCALES[data.resolution] || 2;
-  const scale = Math.max(1, Math.min(requestedScale, Math.floor(MAX_PIXEL_HEIGHT / height)));
+function drawBrandSeal(ctx: any, block: any): void {
+  ctx.save();
+  ctx.translate(block.x, block.y);
+  ctx.scale(block.scale || 1, block.scale || 1);
+  ctx.strokeStyle = block.color;
+  ctx.lineWidth = 1;
+  ctx.globalAlpha = 0.35;
+  ctx.beginPath();
+  ctx.arc(0, 0, 36, 0, Math.PI * 2);
+  ctx.stroke();
+  for (let i = 0; i < 12; i += 1) {
+    const a = (i * Math.PI) / 6;
+    const inner = i % 3 === 0 ? 32 : 34;
+    ctx.beginPath();
+    ctx.moveTo(Math.cos(a) * inner, Math.sin(a) * inner);
+    ctx.lineTo(Math.cos(a) * 36, Math.sin(a) * 36);
+    ctx.stroke();
+  }
+  ctx.globalAlpha = 0.7;
+  ctx.save();
+  ctx.beginPath();
+  ctx.rect(-52, -52, 104, 104);
+  ctx.rect(-20, -15, 40, 30);
+  ctx.clip('evenodd');
+  ctx.beginPath();
+  ctx.ellipse(0, 0, 46, 17, -Math.PI / 5, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.restore();
+  ctx.strokeStyle = block.secondary;
+  ctx.beginPath();
+  ctx.arc(0, 0, 28, -Math.PI / 2, Math.PI * 0.8);
+  ctx.stroke();
+  ctx.globalAlpha = 1;
+  ctx.fillStyle = block.color;
+  for (const a of [-Math.PI / 2, Math.PI / 6, Math.PI * 0.8]) {
+    ctx.beginPath();
+    ctx.arc(Math.cos(a) * 28, Math.sin(a) * 28, 2.4, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'alphabetic';
+  ctx.font = `600 23px ${BRAND_FONT}`;
+  const mark = typeof ctx.measureText === 'function'
+    ? ctx.measureText('RF')
+    : { actualBoundingBoxAscent: 16, actualBoundingBoxDescent: 0 };
+  ctx.fillText('RF', 0, ((mark.actualBoundingBoxAscent ?? 16) - (mark.actualBoundingBoxDescent ?? 0)) / 2);
+  ctx.restore();
+}
+
+function drawTechGrid(ctx: any, block: any, layout: any): void {
+  ctx.save();
+  ctx.globalAlpha = 0.22;
+  ctx.strokeStyle = block.color;
+  ctx.lineWidth = 0.5;
+  for (let gx = 48; gx <= layout.width - 48; gx += 32) {
+    ctx.beginPath(); ctx.moveTo(gx, 48); ctx.lineTo(gx, layout.height - 48); ctx.stroke();
+  }
+  for (let gy = 48; gy <= layout.height - 48; gy += 32) {
+    ctx.beginPath(); ctx.moveTo(48, gy); ctx.lineTo(layout.width - 48, gy); ctx.stroke();
+  }
+  ctx.globalAlpha = 0.8;
+  ctx.strokeStyle = block.accent;
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(48, 48); ctx.lineTo(82, 48);
+  ctx.moveTo(48, 48); ctx.lineTo(48, 82);
+  ctx.stroke();
+  ctx.restore();
+}
+
+function drawToCanvas(canvas: HTMLCanvasElement, model: any, preferences: any = {}): any {
+  const probeCtx = canvas.getContext('2d');
+  if (!probeCtx) throw new Error('Canvas is unavailable');
+  const layout = buildLayout(probeCtx, model, preferences);
+  const rawRes = preferences.resolution ?? model?.resolution ?? 'high';
+  const requestedScale = RESOLUTION_SCALES[rawRes] || ([1, 2, 3].includes(Number(rawRes)) ? Number(rawRes) : 2);
+  const renderScale = Math.min(requestedScale, Math.sqrt(MAX_PIXELS / (layout.width * layout.height)), MAX_PIXEL_HEIGHT / layout.height);
+
+  canvas.width = Math.floor(layout.width * renderScale);
+  canvas.height = Math.floor(layout.height * renderScale);
+  const ctx = canvas.getContext('2d');
+  if (!ctx) throw new Error('Canvas is unavailable');
+
+  ctx.save();
+  ctx.scale(renderScale, renderScale);
+
+  if (layout.palette.gradient && typeof ctx.createLinearGradient === 'function') {
+    const gradient = ctx.createLinearGradient(0, 0, layout.width, layout.height);
+    layout.palette.gradient.forEach((color: string, i: number, colors: string[]) => gradient.addColorStop(i / (colors.length - 1), color));
+    ctx.fillStyle = gradient;
+  } else {
+    ctx.fillStyle = layout.palette.background;
+  }
+  ctx.fillRect(0, 0, layout.width, layout.height);
+
+  const sheetRadius = layout.appearance === 'minimal' ? 0 : 16;
+  roundedRectPath(ctx, 16, 16, layout.width - 32, layout.height - 32, sheetRadius);
+  if (layout.palette.paperGradient && typeof ctx.createLinearGradient === 'function') {
+    const paperGradient = ctx.createLinearGradient(0, 16, layout.width, layout.height);
+    layout.palette.paperGradient.forEach((color: string, i: number, colors: string[]) => paperGradient.addColorStop(i / (colors.length - 1), color));
+    ctx.fillStyle = paperGradient;
+  } else {
+    ctx.fillStyle = layout.palette.paper;
+  }
+  ctx.fill();
+  ctx.save();
+  ctx.clip();
+  ctx.textBaseline = 'top';
+
+  for (const block of layout.blocks) {
+    ctx.fillStyle = block.color;
+    ctx.strokeStyle = block.color;
+    ctx.lineWidth = 1;
+    if (block.kind === 'brand-seal') {
+      drawBrandSeal(ctx, block);
+    } else if (block.kind === 'grid') {
+      drawTechGrid(ctx, block, layout);
+    } else if (block.kind === 'text') {
+      ctx.font = block.font;
+      ctx.textAlign = block.align || 'left';
+      ctx.fillText(block.text, block.x, block.y);
+      ctx.textAlign = 'left';
+    } else if (block.kind === 'line') {
+      ctx.beginPath(); ctx.moveTo(block.x, block.y); ctx.lineTo(block.x2, block.y2); ctx.stroke();
+    } else if (block.kind === 'rect') {
+      roundedRectPath(ctx, block.x, block.y, block.width, block.height, block.radius || 0);
+      ctx.fill();
+    } else if (block.kind === 'node') {
+      ctx.beginPath();
+      if (block.square) ctx.rect(block.x - 5, block.y - 5, 10, 10);
+      else ctx.arc(block.x, block.y, 6, 0, Math.PI * 2);
+      ctx.fillStyle = block.completed ? block.color : block.background;
+      ctx.fill(); ctx.lineWidth = 2; ctx.stroke();
+    }
+  }
+  ctx.restore();
+  ctx.restore();
+
   return {
-    width: CARD_WIDTH,
-    height,
-    scale,
-    pixelWidth: CARD_WIDTH * scale,
-    pixelHeight: height * scale,
-    resolutionLimited: scale < requestedScale,
-    rowPitch,
-    timelineBoxHeight,
-    titleLines,
-    journalLines,
-    hasJournalRow,
-    hasStatsRow
+    layout: {
+      ...layout,
+      scale: renderScale,
+      pixelWidth: canvas.width,
+      pixelHeight: canvas.height,
+      resolutionLimited: renderScale < requestedScale,
+      omittedCount: layout.omitted
+    },
+    resolutionLimited: renderScale < requestedScale
   };
 }
 
-export function renderSubmissionShareCard(canvas: any, cardInput: any): any {
-  const data = cardInput?.events ? cardInput : buildSubmissionShareCardData(cardInput);
-  const ctx = canvas.getContext('2d');
-  const layout = getShareCardLayout(data, ctx);
-  const { width, height, scale, rowPitch, timelineBoxHeight, titleLines, journalLines, hasJournalRow, hasStatsRow } = layout;
-  const theme = THEMES[data.theme] || THEMES.estuary;
-  const tones = TONE_COLORS[theme.mode] || TONE_COLORS.light;
-  canvas.width = width * scale;
-  canvas.height = height * scale;
-  ctx.save();
-  ctx.scale(scale, scale);
+export function getShareCardLayout(cardInput: any, ctx: any = null): any {
+  const data = cardInput?.events && cardInput?.visible ? cardInput : buildSubmissionShareCardData(cardInput);
+  const layout = buildLayout(ctx, data);
+  const requestedScale = RESOLUTION_SCALES[data.resolution] || ([1, 2, 3].includes(Number(data.resolution)) ? Number(data.resolution) : 2);
+  const scale = Math.min(requestedScale, Math.sqrt(MAX_PIXELS / (layout.width * layout.height)), MAX_PIXEL_HEIGHT / layout.height);
+  return {
+    ...layout,
+    scale,
+    pixelWidth: Math.floor(layout.width * scale),
+    pixelHeight: Math.floor(layout.height * scale),
+    resolutionLimited: scale < requestedScale,
+    omittedCount: layout.omitted
+  };
+}
 
-  const font = '"Inter", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif';
-  const bg = ctx.createLinearGradient(0, 0, width, height);
-  bg.addColorStop(0, theme.top);
-  bg.addColorStop(0.55, theme.mid);
-  bg.addColorStop(1, theme.bottom);
-  ctx.fillStyle = bg;
-  ctx.fillRect(0, 0, width, height);
-
-  ctx.fillStyle = theme.orbA;
-  ctx.beginPath(); ctx.arc(width - 90, 110, 150, 0, Math.PI * 2); ctx.fill();
-  ctx.fillStyle = theme.orbB;
-  ctx.beginPath(); ctx.arc(96, height - 110, 170, 0, Math.PI * 2); ctx.fill();
-
-  drawRoundedRect(ctx, 42, 42, width - 84, height - 84, 28);
-  ctx.fillStyle = theme.card;
-  ctx.fill();
-  ctx.lineWidth = 1.5;
-  ctx.strokeStyle = theme.border;
-  ctx.stroke();
-
-  const brandBox = { compact: { h: 28, font: 11, pad: 13 }, balanced: { h: 32, font: 12, pad: 15 }, bold: { h: 36, font: 13.5, pad: 17 } }[data.brandSize as 'compact' | 'balanced' | 'bold'] || { h: 32, font: 12, pad: 15 };
-  ctx.font = `700 ${brandBox.font}px ${font}`;
-  const brandWidth = Math.max(146, (ctx.measureText?.(data.brandText)?.width || 110) + brandBox.pad * 2);
-  drawRoundedRect(ctx, width - 84 - brandWidth, 72, brandWidth, brandBox.h, brandBox.h / 2);
-  ctx.fillStyle = theme.accentSoft;
-  ctx.fill();
-  ctx.fillStyle = theme.accent;
-  ctx.textAlign = 'center';
-  ctx.fillText(data.brandText, width - 84 - brandWidth / 2, 72 + brandBox.h * 0.64);
-  ctx.textAlign = 'left';
-
-  ctx.fillStyle = theme.accent;
-  ctx.font = `700 13px ${font}`;
-  ctx.fillText(data.eyebrow, 84, 92);
-
-  let y = 142;
-  if (titleLines.length) {
-    ctx.fillStyle = theme.ink;
-    ctx.font = `700 30px ${font}`;
-    titleLines.forEach((line: string) => {
-      ctx.fillText(line, 84, y);
-      y += 38;
-    });
-    y += 8;
-  }
-
-  if (hasJournalRow) {
-    const boxHeight = Math.max(76, journalLines.length * 24 + 42);
-    drawRoundedRect(ctx, 84, y, width - 168, boxHeight, 18);
-    ctx.fillStyle = theme.panel;
-    ctx.fill();
-    ctx.strokeStyle = theme.border;
-    ctx.stroke();
-
-    if (data.journal) {
-      ctx.fillStyle = theme.muted;
-      ctx.font = `600 12px ${font}`;
-      ctx.fillText(data.journalLabel, 106, y + 26);
-      ctx.fillStyle = theme.ink;
-      ctx.font = `650 18px ${font}`;
-      journalLines.forEach((line: string, index: number) => {
-        ctx.fillText(line, 106, y + 52 + index * 23);
-      });
-    }
-
-    if (data.firstAuthor) {
-      const authorX = data.journal ? width - 250 : 106;
-      ctx.fillStyle = theme.muted;
-      ctx.font = `600 12px ${font}`;
-      ctx.fillText(data.firstAuthorLabel, authorX, y + 26);
-      ctx.fillStyle = theme.body;
-      ctx.font = `600 16px ${font}`;
-      ctx.fillText(wrapTextLines(ctx, data.firstAuthor, 150, 1)[0], authorX, y + 52);
-    }
-    y += boxHeight + 18;
-  }
-
-  if (hasStatsRow) {
-    const tone = tones[data.statusTone] || tones.blue;
-    const singleStat = !(data.statusLabel && data.durationValue);
-    const statWidth = singleStat ? width - 168 : 268;
-    if (data.statusLabel) {
-      drawRoundedRect(ctx, 84, y, statWidth, 88, 18);
-      ctx.fillStyle = tone.bg;
-      ctx.fill();
-      ctx.fillStyle = tone.fg;
-      ctx.font = `600 12px ${font}`;
-      ctx.fillText(data.statusTitle, 106, y + 28);
-      ctx.font = `700 22px ${font}`;
-      ctx.fillText(wrapTextLines(ctx, data.statusLabel, statWidth - 44, 1)[0], 106, y + 61);
-    }
-    if (data.durationValue) {
-      const x = data.statusLabel ? 370 : 84;
-      const boxW = data.statusLabel ? width - 454 : statWidth;
-      drawRoundedRect(ctx, x, y, boxW, 88, 18);
-      ctx.fillStyle = theme.panel;
-      ctx.fill();
-      ctx.strokeStyle = theme.border;
-      ctx.stroke();
-      ctx.fillStyle = theme.muted;
-      ctx.font = `600 12px ${font}`;
-      ctx.fillText(data.durationLabel, x + 22, y + 28);
-      ctx.fillStyle = theme.ink;
-      ctx.font = `700 26px ${font}`;
-      const valueText = data.durationUnit ? `${data.durationValue} ${data.durationUnit}` : data.durationValue;
-      ctx.fillText(valueText, x + 22, y + 62);
-    }
-    y += 116;
-  }
-
-  ctx.fillStyle = theme.muted;
-  ctx.font = `700 13px ${font}`;
-  ctx.fillText(data.timelineTitle, 84, y);
-  y += 18;
-
-  drawRoundedRect(ctx, 84, y, width - 168, timelineBoxHeight, 20);
-  ctx.fillStyle = theme.panel;
-  ctx.fill();
-  ctx.strokeStyle = theme.border;
-  ctx.stroke();
-
-  if (!data.events.length) {
-    ctx.fillStyle = theme.muted;
-    ctx.font = `500 16px ${font}`;
-    ctx.fillText(data.emptyEventsText, 114, y + 64);
-  } else {
-    const startY = y + 36;
-    const endY = startY + (data.events.length - 1) * rowPitch;
-    if (data.events.length > 1) {
-      ctx.strokeStyle = theme.rail;
-      ctx.lineWidth = 2;
-      ctx.beginPath();
-      ctx.moveTo(122, startY);
-      ctx.lineTo(122, endY);
-      ctx.stroke();
-    }
-    data.events.forEach((event: any, index: number) => {
-      const rowY = startY + index * rowPitch;
-      const eventColor = tones[event.tone] || tones.slate;
-      ctx.fillStyle = eventColor.dot;
-      ctx.beginPath();
-      ctx.arc(122, rowY - 5, 7, 0, Math.PI * 2);
-      ctx.fill();
-
-      ctx.fillStyle = theme.ink;
-      ctx.font = `600 16px ${font}`;
-      const labelWidth = event.displayDate ? 340 : 450;
-      ctx.fillText(wrapTextLines(ctx, event.name, labelWidth, 1)[0], 144, rowY);
-
-      if (event.displayDate) {
-        ctx.fillStyle = theme.muted;
-        ctx.font = `600 14px ${font}`;
-        ctx.textAlign = 'right';
-        ctx.fillText(event.displayDate, width - 112, rowY);
-        ctx.textAlign = 'left';
-      }
-    });
-    if (data.omittedLabel) {
-      ctx.fillStyle = theme.muted;
-      ctx.font = `500 13px ${font}`;
-      ctx.fillText(data.omittedLabel, 144, y + timelineBoxHeight - 18);
-    }
-  }
-
-  if (data.footer) {
-    ctx.fillStyle = theme.muted;
-    ctx.font = `500 13px ${font}`;
-    ctx.fillText(data.footer, 84, height - 66);
-    ctx.textAlign = 'right';
-    ctx.font = `700 13px ${font}`;
-    ctx.fillStyle = theme.accent;
-    ctx.fillText(data.brandText, width - 84, height - 66);
-    ctx.textAlign = 'left';
-  }
-  ctx.restore();
+export function renderSubmissionShareCard(canvas: HTMLCanvasElement, cardInput: any): any {
+  const data = cardInput?.events && cardInput?.visible ? cardInput : buildSubmissionShareCardData(cardInput);
+  const { layout } = drawToCanvas(canvas, data);
   return { ...data, ...layout };
+}
+
+export function render(model: any, preferences: any = {}): any {
+  const canvas = document.createElement('canvas');
+  const { layout, resolutionLimited } = drawToCanvas(canvas, model, preferences);
+  return { canvas, layout, resolutionLimited };
 }

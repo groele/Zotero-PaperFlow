@@ -29,6 +29,7 @@
   function buildTimelineEventManager(sub, { inModal = false } = {}) {
     const sortedNodes = autoSortNodes(sub.timelineNodes || []);
     if (sortedNodes.length === 0) return "";
+    const completedCount = sortedNodes.filter((n) => computeNodeStatus(n) === "completed").length;
     const items = sortedNodes.map((node) => {
       const computedStatus = computeNodeStatus(node);
       const dateStr = getNodeDate(node);
@@ -37,75 +38,126 @@
       const decisionSummary = node.reviewDecision ? ` · ${node.reviewDecision === "major" ? t("majorRevision") : t("minorRevision")}` : "";
       const dateSummary = `${shortDate}${dueSummary}${decisionSummary}`;
       const typeClass = `type-${node.type || "research"}`;
+      const noteText = String(node.notes || "").trim();
+      const displayName = getTimelineNodeDisplayName(node);
       return `
-      <div class="timeline-event-chip status-${computedStatus} ${typeClass}" data-sub-id="${escapeHTML(sub.id)}" data-node-id="${escapeHTML(node.id)}">
+      <div class="timeline-event-chip timeline-event-card status-${computedStatus} ${typeClass}${inModal ? " modal-event-chip" : ""}" data-sub-id="${escapeHTML(sub.id)}" data-node-id="${escapeHTML(node.id)}">
         <button class="timeline-event-main btn-event-edit" type="button" data-sub-id="${escapeHTML(sub.id)}" data-node-id="${escapeHTML(node.id)}" title="${escapeHTML(t("clickEditEvent"))}">
-          <span class="timeline-event-dot"></span>
+          <span class="timeline-event-dot" aria-hidden="true"></span>
           <span class="timeline-event-text">
-            <strong>${escapeHTML(getTimelineNodeDisplayName(node))}</strong>
-            <small>${escapeHTML(dateSummary)} · ${escapeHTML(getNodeStatusLabel(computedStatus))}</small>
+            <span class="timeline-event-title-row">
+              <strong>${escapeHTML(displayName)}</strong>
+              <span class="timeline-event-status-badge status-${computedStatus}">${escapeHTML(getNodeStatusLabel(computedStatus))}</span>
+            </span>
+            <small>${escapeHTML(dateSummary)}</small>
+            ${noteText ? `<span class="timeline-event-note">${escapeHTML(noteText)}</span>` : ""}
           </span>
+          ${inModal ? `<span class="timeline-event-edit-pill" aria-hidden="true">${escapeHTML(t("edit"))}</span>` : ""}
         </button>
-        <button class="timeline-event-delete btn-event-delete" type="button" data-sub-id="${escapeHTML(sub.id)}" data-node-id="${escapeHTML(node.id)}" title="${escapeHTML(t("delete"))}">×</button>
+        <button class="timeline-event-delete btn-event-delete" type="button" data-sub-id="${escapeHTML(sub.id)}" data-node-id="${escapeHTML(node.id)}" title="${escapeHTML(t("delete"))}" aria-label="${escapeHTML(t("delete"))} ${escapeHTML(displayName)}">×</button>
       </div>
     `;
     }).join("");
     return `
     <div class="timeline-event-manager ${inModal ? "modal-event-manager" : ""}">
-      <div class="timeline-event-manager-head">${t("timelineEvents")}</div>
+      <div class="timeline-event-manager-head">
+        <span>${escapeHTML(tf("eventsSummary", { total: sortedNodes.length, completed: completedCount }))}</span>
+        ${inModal ? `<span class="timeline-event-manager-hint">${escapeHTML(t("clickCardToEditHint"))}</span>` : ""}
+      </div>
       <div class="timeline-event-list">${items}</div>
     </div>
   `;
   }
   function openTimelineEventManager(subId) {
-    const sub = db.submissions.find((s) => s.id === subId);
+    const g2 = typeof window !== "undefined" ? window : globalThis;
+    const database = g2.db || (typeof db !== "undefined" ? db : null) || { submissions: [], manuscripts: [] };
+    const sub = (database.submissions || []).find((s) => s.id === subId);
     if (!sub) {
       showGlobalToast(t("submissionNotFound"), "error");
       return;
     }
-    const openModalFn = window.openModal || (typeof openModal === "function" ? openModal : null);
+    const openModalFn = g2.openModal || (typeof openModal === "function" ? openModal : null);
     const closeModalFn = () => {
-      const fn = window.closeModal || (typeof closeModal === "function" ? closeModal : null);
+      const fn = g2.closeModal || (typeof closeModal === "function" ? closeModal : null);
       if (fn) fn();
     };
     if (!openModalFn) {
       showGlobalToast(t("submissionNotFound"), "error");
       return;
     }
+    const man = (database.manuscripts || []).find((m) => m.id === sub.manuscriptId);
+    const manTitle = man?.title || sub.title || t("untitledManuscript");
+    const journalName = typeof getSubmissionJournalName === "function" ? getSubmissionJournalName(sub) : sub.targetJournal || sub.journal || "";
     openModalFn(`
-    <div class="modal-header">
-      <h2>${t("timelineEvents")}</h2>
-      <button class="btn-secondary btn-icon" id="btn-close-modal" title="${escapeHTML(t("close"))}">✕</button>
+    <div class="modal-header event-manager-modal-header">
+      <div class="event-manager-title-block">
+        ${journalName ? `<span class="event-manager-journal-badge">${escapeHTML(journalName)}</span>` : ""}
+        <h2>${escapeHTML(t("timelineEvents"))}</h2>
+        <p class="event-manager-subtitle" title="${escapeHTML(manTitle)}">${escapeHTML(manTitle)}</p>
+      </div>
+      <div class="event-manager-header-actions">
+        <button type="button" class="btn-primary btn-sm" id="btn-modal-add-event">${escapeHTML(t("addTimelineEvent"))}</button>
+        <button type="button" class="btn-secondary btn-icon" id="btn-close-modal" title="${escapeHTML(t("close"))}">✕</button>
+      </div>
     </div>
-    ${buildTimelineEventManager(sub, { inModal: true }) || `<p class="empty-state">${t("noEventYet")}</p>`}
-    <div class="modal-footer">
+    <div class="event-manager-modal-body">
+      ${buildTimelineEventManager(sub, { inModal: true }) || `<p class="empty-state event-manager-empty">${escapeHTML(t("noEventYet"))}</p>`}
+    </div>
+    <div class="modal-footer event-manager-modal-footer">
       <button type="button" class="btn-secondary" id="btn-footer-close-events">${escapeHTML(t("close") || "关闭")}</button>
     </div>
   `);
+    const modalEl = document.getElementById("modal-body") || (typeof modalContent !== "undefined" ? modalContent : null);
+    modalEl?.classList?.add("event-manager-modal-card");
+    const regCleanup = g2.registerModalCleanup || (typeof registerModalCleanup === "function" ? registerModalCleanup : null);
+    if (regCleanup) regCleanup(() => modalEl?.classList?.remove("event-manager-modal-card"));
     document.getElementById("btn-footer-close-events")?.addEventListener("click", closeModalFn);
-    modalContent.querySelectorAll(".btn-event-edit").forEach((btn) => {
+    document.getElementById("btn-modal-add-event")?.addEventListener("click", () => {
+      closeModalFn();
+      const dashboardView = document.getElementById("view-dashboard");
+      const activateFn = g2.activateWorkspaceView || (typeof activateWorkspaceView === "function" ? activateWorkspaceView : null);
+      if (dashboardView && !dashboardView.classList.contains("active") && activateFn) {
+        activateFn("view-dashboard");
+      }
+      const findCard = () => document.querySelector(`.inline-stage-editor[data-sub-id="${sub.id}"]`)?.closest(".pipeline-card");
+      let card = findCard();
+      if (!card && g2.currentDashboardFilter && g2.currentDashboardFilter !== "all") {
+        g2.currentDashboardFilter = "all";
+        if (typeof renderDashboard === "function") renderDashboard();
+        else if (typeof g2.renderDashboard === "function") g2.renderDashboard();
+        card = findCard();
+      }
+      const toggleFn = g2.toggleInlineStageEditor || (typeof toggleInlineStageEditor === "function" ? toggleInlineStageEditor : null);
+      if (card && toggleFn) {
+        toggleFn(card, true);
+        const targetEl = card.querySelector(`.inline-stage-editor[data-sub-id="${sub.id}"]`) || card;
+        targetEl?.scrollIntoView?.({ behavior: "smooth", block: "nearest" });
+      }
+    });
+    modalEl?.querySelectorAll(".btn-event-edit").forEach((btn) => {
       btn.addEventListener("click", () => {
         closeModalFn();
-        openStageDrawer(btn.getAttribute("data-sub-id"), btn.getAttribute("data-node-id"));
+        const drawerFn = g2.openStageDrawer || (typeof openStageDrawer === "function" ? openStageDrawer : null);
+        if (drawerFn) drawerFn(btn.getAttribute("data-sub-id"), btn.getAttribute("data-node-id"));
       });
     });
-    modalContent.querySelectorAll(".btn-event-delete").forEach((btn) => {
+    modalEl?.querySelectorAll(".btn-event-delete").forEach((btn) => {
       btn.addEventListener("click", async () => {
-        const latestSub = db.submissions.find((s) => s.id === btn.getAttribute("data-sub-id"));
+        const latestDb = g2.db || (typeof db !== "undefined" ? db : null) || database;
+        const latestSub = (latestDb.submissions || []).find((s) => s.id === btn.getAttribute("data-sub-id"));
         const nodeId = btn.getAttribute("data-node-id");
         const node = latestSub?.timelineNodes?.find((n) => n.id === nodeId);
         if (!latestSub || !node) {
           showGlobalToast(t("eventNotFound"), "error");
-          closeModal();
+          closeModalFn();
           renderDashboard();
           return;
         }
         if (!confirm(tf("confirmDeleteEvent", { name: getTimelineNodeDisplayName(node) }))) return;
         deleteTimelineNode(latestSub, nodeId);
         syncManuscriptStatusFromSubmission(latestSub);
-        const w = window;
-        await w.storage.saveAll(db);
-        closeModal();
+        await g2.storage?.saveAll?.(latestDb);
+        closeModalFn();
         renderDashboard();
         renderKanban();
         renderSubmissions();
@@ -466,7 +518,7 @@
     </div>
   `;
   }
-  function toggleInlineStageEditor(card, shouldOpen = null) {
+  function toggleInlineStageEditor2(card, shouldOpen = null) {
     const editor = card?.querySelector(".inline-stage-editor");
     if (!editor) return;
     if (shouldOpen !== false && typeof setPipelineViewMode === "function") setPipelineViewMode(true);
@@ -747,26 +799,41 @@
     "src/modules/timeline-engine/node-helpers.ts"() {
       "use strict";
       defaultTimelineNameKeys2 = {
+        "Experiments Started": "defaultExperimentsStarted",
+        "实验开始": "defaultExperimentsStarted",
         "Research Started": "defaultResearchStarted",
         "研究启动": "defaultResearchStarted",
         "Experiments Completed": "defaultExperimentsCompleted",
         "实验完成": "defaultExperimentsCompleted",
+        "Data Organization": "defaultDataOrganization",
+        "数据整理": "defaultDataOrganization",
+        "Draft Completed": "defaultDraftCompleted",
         "First Draft Completed": "defaultFirstDraftCompleted",
-        "初稿完成": "defaultFirstDraftCompleted",
+        "初稿完成": "defaultDraftCompleted",
+        "Manuscript Submitted": "defaultManuscriptSubmitted",
+        "手稿已投稿": "defaultManuscriptSubmitted",
         "Submitted": "defaultSubmitted",
         "已投稿": "defaultSubmitted",
         "Review Comments R1": "defaultReviewCommentsR1",
+        "R1 审稿意见": "defaultReviewCommentsR1",
         "收到 R1 审稿意见": "defaultReviewCommentsR1",
         "R1 Revision Submitted": "defaultR1RevisionSubmitted",
+        "R1 修改稿已提交": "defaultR1RevisionSubmitted",
         "R1 修回已提交": "defaultR1RevisionSubmitted",
         "Review Comments R2": "defaultReviewCommentsR2",
+        "R2 审稿意见": "defaultReviewCommentsR2",
         "收到 R2 审稿意见": "defaultReviewCommentsR2",
         "R2 Revision Submitted": "defaultR2RevisionSubmitted",
+        "R2 修改稿已提交": "defaultR2RevisionSubmitted",
         "R2 修回已提交": "defaultR2RevisionSubmitted",
         "Accepted": "defaultAccepted",
         "已接收": "defaultAccepted",
         "Online Publication": "defaultOnlinePublication",
+        "网络见刊": "defaultOnlinePublication",
         "上线发表": "defaultOnlinePublication",
+        "Online": "defaultOnlinePublication",
+        "Rejected": "statusRejected",
+        "已拒稿": "statusRejected",
         "Proof": "defaultProof",
         "校样": "defaultProof"
       };
@@ -1475,7 +1542,7 @@
         getInlineEventPresets,
         getInlineEventPreset,
         buildInlineStageEditor,
-        toggleInlineStageEditor,
+        toggleInlineStageEditor: toggleInlineStageEditor2,
         syncInlineStagePreset,
         updateInlineStageDeadlineStatus,
         resetInlineStageEditor,

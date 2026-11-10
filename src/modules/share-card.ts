@@ -11,12 +11,16 @@ import {
   BRAND_SIZES,
   THEMES,
   VISIBLE_FIELDS,
+  getAppearances,
   buildSubmissionShareCardData
 } from './share-card/constants-and-data.js';
 
 import {
+  wrapText,
   wrapTextLines,
+  buildLayout,
   getShareCardLayout,
+  render,
   renderSubmissionShareCard
 } from './share-card/canvas-renderer.js';
 
@@ -30,9 +34,13 @@ export const RFShareCard = {
   BRAND_SIZES: Array.from(BRAND_SIZES),
   THEMES: Object.keys(THEMES),
   VISIBLE_FIELDS,
+  getAppearances,
   buildSubmissionShareCardData,
-  getShareCardLayout,
+  wrapText,
   wrapTextLines,
+  buildLayout,
+  getShareCardLayout,
+  render,
   renderSubmissionShareCard
 };
 

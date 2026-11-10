@@ -97,6 +97,16 @@ async function startup({ id, version, resourceURI, rootURI }, reason) {
   try {
     await waitForZotero();
     if (generation !== startupGeneration) return;
+    if (
+      typeof Services !== 'undefined' &&
+      Services?.obs?.notifyObservers &&
+      typeof ADDON_UPGRADE !== 'undefined' &&
+      (reason === ADDON_UPGRADE || reason === ADDON_INSTALL || reason === ADDON_DOWNGRADE)
+    ) {
+      try {
+        Services.obs.notifyObservers(null, 'startupcache-invalidate', null);
+      } catch (_) {}
+    }
 
     if (!rootURI) {
       rootURI = resourceURI.spec;
@@ -155,9 +165,9 @@ async function shutdown({ id, version, resourceURI, rootURI }, reason) {
     return;
   }
   try {
-    if (reason === ADDON_DISABLE) {
-      Services.obs.notifyObservers(null, 'startupcache-invalidate', null);
-    }
+    try {
+      Services?.obs?.notifyObservers?.(null, 'startupcache-invalidate', null);
+    } catch (_) {}
     if (typeof Zotero === 'undefined') {
       Zotero = Components.classes['@zotero.org/Zotero;1'].getService(
         Components.interfaces.nsISupports
