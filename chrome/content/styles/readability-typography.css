@@ -92,6 +92,22 @@
 
 .pipeline-card .project-info .pipeline-actions { gap: 8px !important; flex-wrap: wrap !important; display: flex !important; }
 .pipeline-card .project-info .pipeline-actions button { min-width: 0; height: 28px !important; min-height: 28px !important; font-size: 12px !important; padding: 0 10px !important; border-radius: 6px !important; }
+.btn-pipeline-share {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 5px !important;
+}
+.btn-pipeline-share svg {
+  width: 13px !important;
+  height: 13px !important;
+  fill: none !important;
+  stroke: currentColor !important;
+  stroke-width: 2 !important;
+  stroke-linecap: round !important;
+  stroke-linejoin: round !important;
+  flex: 0 0 13px !important;
+}
 .pipeline-cards-container:not(.expanded) .project-info .pipeline-actions { flex-wrap: wrap !important; }
 
 .kanban-card-title-row { display: block; margin-bottom: 8px; }
