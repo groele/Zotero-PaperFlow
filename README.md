@@ -1,4 +1,4 @@
-> **16.4.6 时间线事件管理器阶段色彩与科研节奏对齐版**：全面优化时间线事件弹窗卡片的模块化色彩映射，严格按科研生命周期工作流节奏（实验/研究-海蓝、写作初稿-紫罗兰、投稿送审-温暖橙、修改修回-深绯红、接收出版-学术绿）渲染卡片左侧指示条、柔和背景与边框，解除完成状态对模块色彩的覆盖，使已完成卡片依然保持清晰的阶段识别度。见[版本说明](docs/releases/v16.4.6.md)。
+> **16.4.7 时间线提醒修回倒计时激活版**：彻底激活看板「🔔 时间线提醒」模块的返修稿件告警逻辑，直接提取稿件级权威修回截止日期（`revisionDueDate`），智能计算精准倒计时并渲染分级动态徽标（🚨 已逾期 X 天 / 🚨 今天截止 / ⚠️ 仅剩 X 天 / 📅 剩 X 天），支持一键导出单篇与全部修回截止日历（.ics）。见[版本说明](docs/releases/v16.4.7.md)。
 
 # Zotero PaperFlow
 
@@ -11,7 +11,7 @@
 
 [简体中文](README.md) · [English](README.en.md)
 
-[![当前版本](https://img.shields.io/badge/version-16.4.6-245ac7?style=flat-square)](https://github.com/groele/Zotero-PaperFlow/releases/tag/v16.4.6) · [下载 XPI](https://github.com/groele/Zotero-PaperFlow/releases/download/v16.4.6/zotero-paperflow-16.4.6.xpi) · [问题反馈](https://github.com/groele/Zotero-PaperFlow/issues)
+[![当前版本](https://img.shields.io/badge/version-16.4.7-245ac7?style=flat-square)](https://github.com/groele/Zotero-PaperFlow/releases/tag/v16.4.7) · [下载 XPI](https://github.com/groele/Zotero-PaperFlow/releases/download/v16.4.7/zotero-paperflow-16.4.7.xpi) · [问题反馈](https://github.com/groele/Zotero-PaperFlow/issues)
 
 [产品定位](#overview) · [安装与更新](#installation) · [快速开始](#quick-start) · [核心功能](#features) · [设置与使用](#settings) · [数据、同步与外部服务](#data) · [兼容性与验证范围](#compatibility) · [常见问题](#troubleshooting) · [开发与详细文档](#development) · [系列产品](#series) · [项目来源与许可](#license)
 

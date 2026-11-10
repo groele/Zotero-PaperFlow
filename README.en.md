@@ -1,4 +1,4 @@
-> **16.4.6 Pipeline Rhythm & Module Color Alignment Release**: Comprehensive alignment of the Timeline Event Manager modal cards with the canonical research lifecycle rhythm (Research-Blue, Writing-Purple, Submission-Orange, Review-Amber, Revision-Red, Publication-Green). Status completed styling is cleanly scoped to the badge, preserving vibrant milestone stage differentiation. [Release notes](docs/releases/v16.4.6.md).
+> **16.4.7 Timeline Alerts Revision Countdown Release**: Activated authoritative revision deadline countdown alerts in Dashboard Timeline Alerts. Directly extracts submission-level `revisionDueDate`, calculates accurate remaining days, and renders tiered badges (🚨 Xd overdue / 🚨 Due today / ⚠️ Xd left / 📅 Xd left) with one-click .ics calendar export. [Release notes](docs/releases/v16.4.7.md).
 
 # Zotero PaperFlow
 
@@ -11,7 +11,7 @@ Manage manuscripts, submission rounds, and review responses.
 
 [简体中文](README.md) · [English](README.en.md)
 
-[![Release](https://img.shields.io/badge/version-16.4.6-245ac7?style=flat-square)](https://github.com/groele/Zotero-PaperFlow/releases/tag/v16.4.6) · [Download XPI](https://github.com/groele/Zotero-PaperFlow/releases/download/v16.4.6/zotero-paperflow-16.4.6.xpi) · [Report an issue](https://github.com/groele/Zotero-PaperFlow/issues)
+[![Release](https://img.shields.io/badge/version-16.4.7-245ac7?style=flat-square)](https://github.com/groele/Zotero-PaperFlow/releases/tag/v16.4.7) · [Download XPI](https://github.com/groele/Zotero-PaperFlow/releases/download/v16.4.7/zotero-paperflow-16.4.7.xpi) · [Report an issue](https://github.com/groele/Zotero-PaperFlow/issues)
 
 [Overview](#overview) · [Installation and updates](#installation) · [Quick start](#quick-start) · [Key features](#features) · [Settings](#settings) · [Data, sync, and services](#data) · [Compatibility and validation](#compatibility) · [Troubleshooting](#troubleshooting) · [Development and documentation](#development) · [The Flow series](#series) · [Origin and license](#license)
 

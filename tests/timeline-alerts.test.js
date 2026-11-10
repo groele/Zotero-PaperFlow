@@ -8,9 +8,45 @@ const root = path.resolve(__dirname, '..');
 const i18nSource = fs.readFileSync(path.join(root, 'chrome/content/scripts/modules/i18n.js'), 'utf8');
 const timelineSource = fs.readFileSync(path.join(root, 'chrome/content/scripts/modules/timeline-engine.js'), 'utf8');
 const academicSource = fs.readFileSync(path.join(root, 'chrome/content/scripts/modules/academic-sync.js'), 'utf8');
+const dashboardSource = fs.readFileSync(path.join(root, 'chrome/content/scripts/modules/dashboard-view.js'), 'utf8');
 const optionsSource = fs.readFileSync(path.join(root, 'chrome/content/scripts/options.js'), 'utf8');
 
 function setupTestEnvironment() {
+  const elements = new Map();
+  const createMockElement = (tag = 'div') => ({
+    tagName: tag.toUpperCase(),
+    children: [],
+    childNodes: [],
+    classList: {
+      _classes: new Set(),
+      add(c) { this._classes.add(c); },
+      remove(c) { this._classes.delete(c); },
+      contains(c) { return this._classes.has(c); },
+      toggle(c, v) { if (v === undefined) v = !this._classes.has(c); if (v) this._classes.add(c); else this._classes.delete(c); return v; }
+    },
+    className: '',
+    textContent: '',
+    title: '',
+    style: {},
+    dataset: {},
+    addEventListener() {},
+    removeEventListener() {},
+    setAttribute(k, v) { this[k] = v; },
+    getAttribute(k) { return this[k] || ''; },
+    appendChild(child) {
+      this.children.push(child);
+      this.childNodes.push(child);
+      return child;
+    },
+    querySelector() { return null; },
+    querySelectorAll() { return []; }
+  });
+
+  const getOrCreate = (id) => {
+    if (!elements.has(id)) elements.set(id, createMockElement());
+    return elements.get(id);
+  };
+
   const sandbox = {
     console,
     Date,
@@ -27,6 +63,11 @@ function setupTestEnvironment() {
     t: (key) => key,
     tf: (key, params) => JSON.stringify({ key, params }),
     RFUI: {
+      setHTML: (el, html) => {
+        el.innerHTML = html;
+        el.children = [];
+        el.childNodes = [];
+      },
       getTimelineEventDate: (node, key) => node?.completeDate || node?.dueDate || node?.planDate || ''
     },
     RFCore: {
@@ -37,59 +78,14 @@ function setupTestEnvironment() {
   };
   sandbox.window = sandbox;
 
-  const context = vm.createContext(sandbox);
-
-  // Extract helper functions and definitions from options.js
-  const neededFunctions = [
-    'function normalizeDateString',
-    'function dateInputToIso',
-    'function formatShortDate',
-    'function todayString',
-    'function getDaysDiff',
-    'function getNodeDate',
-    'function inferKey',
-    'function getTimelineNodeByKey',
-    'function setTimelineNodeDate',
-    'function createTimelineNode',
-    'function createCanonicalTimelineNode',
-    'function ensureTimelineNode',
-    'function getTimelineNodeDisplayName',
-    'function getSubmissionJournalName',
-    'function normalizeSubmissionStatus',
-    'function normalizeSyncedPublicationStatus',
-    'function hasPublicationStatus',
-    'function isAcceptedSubmission',
-    'function computeNodeStatus',
-    'function initializeSubmissionTimelineNodes',
-    'function syncSubmissionFieldsFromTimeline',
-    'function normalizeSubmissionTimeline',
-    'function analyzeSubmission'
-  ];
-
-  // We can evaluate the whole script or targeted functions
-  // Since options.js has DOM bindings in top-level code or inside functions,
-  // let's create mock DOM in sandbox so options.js functions can be evaluated safely.
-  const createMockElement = () => ({
+  const mockDoc = {
+    getElementById: (id) => getOrCreate(id),
+    querySelector: (sel) => sel.startsWith('#') ? getOrCreate(sel.slice(1)) : createMockElement(),
+    querySelectorAll: () => [],
+    createElement: (tag) => createMockElement(tag),
     addEventListener() {},
     removeEventListener() {},
-    setAttribute() {},
-    getAttribute() { return ''; },
-    classList: { add() {}, remove() {}, contains: () => false, toggle() {} },
-    appendChild() {},
-    querySelector() { return createMockElement(); },
-    querySelectorAll() { return []; },
-    style: {},
-    dataset: {}
-  });
-
-  const mockDoc = {
-    getElementById: () => createMockElement(),
-    querySelector: () => createMockElement(),
-    querySelectorAll: () => [],
-    addEventListener: () => {},
-    removeEventListener: () => {},
-    documentElement: { lang: '', dataset: {} },
-    createElement: () => createMockElement()
+    documentElement: { lang: '', dataset: {} }
   };
   sandbox.document = mockDoc;
   sandbox.location = { reload() {} };
@@ -97,11 +93,13 @@ function setupTestEnvironment() {
   sandbox.removeEventListener = () => {};
   sandbox.RFPlatform = { storage: { local: { get: async () => ({}), set: async () => {} } }, runtime: { onMessage: { addListener() {} } } };
 
-  // Evaluate modularized engine and options inside context
+  const context = vm.createContext(sandbox);
+
   vm.runInContext(i18nSource, context);
   vm.runInContext(timelineSource, context);
   vm.runInContext(academicSource, context);
   vm.runInContext(optionsSource, context);
+  vm.runInContext(dashboardSource, context);
   return context;
 }
 
@@ -214,62 +212,87 @@ test('accepted and published submissions never generate review/revision timeline
   // Run normalization
   ctx.db.submissions.forEach(s => ctx.normalizeSubmissionTimeline(s));
 
-  // Collect timelineAlerts with same logic as in renderDashboard
-  const timelineAlerts = [];
-  ctx.db.submissions
-    .filter(s => s.status !== 'rejected')
-    .forEach(sub => {
-      const man = ctx.db.manuscripts.find(m => m.id === sub.manuscriptId);
-      if (man) {
-        const currentSub = ctx.window.RFCore?.getCurrentSubmission(ctx.db, man.id);
-        if (currentSub && currentSub.id !== sub.id) return;
-      }
+  // Directly call the real renderTimelineAlerts
+  ctx.renderTimelineAlerts();
 
-      const isAcceptedOrPublished = ctx.hasPublicationStatus(sub) ||
-        ctx.isAcceptedSubmission(sub) ||
-        Boolean(man && (ctx.hasPublicationStatus(man) || man.status === 'accepted' || man.status === 'published'));
-      const isPublished = sub.status === 'published' || (man && man.status === 'published');
+  const milestones = ctx.document.getElementById('dashboard-pending-milestones');
+  assert.equal(milestones.children.length, 1, 'Only truly active urgent events should alert');
+  assert.match(milestones.children[0].children[0].textContent, /Nano Letters/);
 
-      if (isPublished) return;
+  // Assert accepted/published submissions generated zero alerts
+  const allTitles = milestones.children.map(c => c.children[0].textContent).join(' ');
+  assert.equal(allTitles.includes('Small'), false, 'Accepted submissions must not appear in timeline alerts');
+  assert.equal(allTitles.includes('Nature'), false, 'Published submissions must not appear in timeline alerts');
+});
 
-      (sub.timelineNodes || []).forEach(node => {
-        const computedStatus = ctx.computeNodeStatus(node);
-        const nodeKey = node.key || ctx.inferKey(node);
+test('active revision submission with revisionDueDate displays deadline countdown and calendar export', () => {
+  const ctx = setupTestEnvironment();
 
-        if (isAcceptedOrPublished) {
-          if (node.type !== 'publication' || nodeKey === 'accept') return;
-        }
+  // Create future deadline 18 days from now
+  const future = new Date();
+  future.setDate(future.getDate() + 18);
+  const futureStr = future.toISOString().slice(0, 10);
 
-        if (computedStatus === 'completed') return;
+  const sub = {
+    id: 'sub_active_rev',
+    manuscriptId: 'man_mos2',
+    journal: 'Nano Letters',
+    status: 'revision',
+    revisionDueDate: futureStr,
+    timelineNodes: [
+      { id: 'n1', key: 'submit', name: 'Manuscript Submitted', type: 'submission', status: 'completed', completeDate: '2026-09-08' },
+      { id: 'n2', key: 'r1_comments', name: 'Review Comments R1', type: 'review', status: 'completed', completeDate: '2026-10-20' },
+      { id: 'n3', key: 'r1_revised', name: 'R1 Revision Submitted', type: 'revision', status: 'pending' }
+    ]
+  };
 
-        const importantType = node.type === 'review' || node.type === 'revision' || node.type === 'publication';
-        const hasTimelineDate = Boolean(node.dueDate || node.planDate || node.completeDate);
-        const actionable = computedStatus === 'overdue' || computedStatus === 'due_soon' || computedStatus === 'blocked' || node.status === 'active';
+  ctx.db.submissions = [sub];
+  ctx.db.manuscripts = [{ id: 'man_mos2', title: 'Vacancy-Directed Molecular Reconstruction', status: 'revision' }];
 
-        if (!actionable && !hasTimelineDate) return;
-        if (!importantType && !actionable) return;
+  ctx.renderTimelineAlerts();
 
-        const alertDate = node.dueDate || node.planDate || (node.type === 'review' ? sub.revisionDueDate : '') || node.completeDate || '';
-        if (!alertDate && computedStatus !== 'blocked') return;
+  const milestones = ctx.document.getElementById('dashboard-pending-milestones');
+  assert.equal(milestones.children.length, 1, 'Active revision submission must generate an alert in timeline alerts');
 
-        timelineAlerts.push({
-          sub,
-          node,
-          computedStatus,
-          title: `${ctx.getSubmissionJournalName(sub)}: ${ctx.getTimelineNodeDisplayName(node)}`,
-          date: alertDate,
-          manTitle: man ? man.title : 'Untitled'
-        });
-      });
-    });
+  const alertItem = milestones.children[0];
+  const titleSpan = alertItem.children[0];
+  const badgeSpan = alertItem.children[1];
+  const dateSpan = alertItem.children[2];
+  const icsBtn = alertItem.children[3];
 
-  // Check results: only the overdue under_review submission should be alerted
-  assert.equal(timelineAlerts.length, 1, 'Only truly active urgent events should alert');
-  assert.equal(timelineAlerts[0].sub.id, 'sub_rev');
-  assert.equal(timelineAlerts[0].computedStatus, 'overdue');
+  assert.match(titleSpan.textContent, /Nano Letters/);
+  assert.match(titleSpan.textContent, /修回/);
+  assert.match(badgeSpan.textContent, /剩\s*18\s*天/);
+  assert.match(badgeSpan.className, /badge-info/);
+  assert.match(dateSpan.textContent, /截止/);
+  assert.ok(icsBtn, 'Calendar .ics export button must be attached');
+  assert.equal(icsBtn.textContent, '📅');
+});
 
-  const hasAcceptedAlert = timelineAlerts.some(a => a.sub.id === 'sub_acc');
-  const hasPublishedAlert = timelineAlerts.some(a => a.sub.id === 'sub_pub');
-  assert.equal(hasAcceptedAlert, false, 'Accepted submissions must not appear in timeline alerts for review comments');
-  assert.equal(hasPublishedAlert, false, 'Published submissions must not appear in timeline alerts');
+test('overdue revision displays danger badge with overdue days', () => {
+  const ctx = setupTestEnvironment();
+
+  const past = new Date();
+  past.setDate(past.getDate() - 3);
+  const pastStr = past.toISOString().slice(0, 10);
+
+  const sub = {
+    id: 'sub_overdue',
+    manuscriptId: 'man_overdue',
+    journal: 'Advanced Materials',
+    status: 'revision',
+    revisionDueDate: pastStr,
+    timelineNodes: []
+  };
+
+  ctx.db.submissions = [sub];
+  ctx.db.manuscripts = [{ id: 'man_overdue', title: 'Overdue Paper', status: 'revision' }];
+
+  ctx.renderTimelineAlerts();
+
+  const milestones = ctx.document.getElementById('dashboard-pending-milestones');
+  assert.equal(milestones.children.length, 1);
+  const badgeSpan = milestones.children[0].children[1];
+  assert.match(badgeSpan.textContent, /已逾期\s*3\s*天/);
+  assert.match(badgeSpan.className, /badge-danger/);
 });

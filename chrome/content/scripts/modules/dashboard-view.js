@@ -419,6 +419,46 @@
   });
 
   // src/modules/dashboard-view/timeline-alerts.ts
+  function computeCountdown(dateStr) {
+    if (!dateStr) return null;
+    const w = typeof window !== "undefined" ? window : globalThis;
+    if (w.RFCalendar?.getRevisionCountdownMeta) {
+      try {
+        const meta = w.RFCalendar.getRevisionCountdownMeta(dateStr);
+        if (meta) return meta;
+      } catch (_) {
+      }
+    }
+    if (typeof w.getRevisionCountdownMeta === "function") {
+      try {
+        const meta = w.getRevisionCountdownMeta(dateStr);
+        if (meta) return meta;
+      } catch (_) {
+      }
+    }
+    try {
+      const due = new Date(dateStr);
+      if (isNaN(due.getTime())) return null;
+      const now = /* @__PURE__ */ new Date();
+      const utcDue = Date.UTC(due.getFullYear(), due.getMonth(), due.getDate());
+      const utcNow = Date.UTC(now.getFullYear(), now.getMonth(), now.getDate());
+      const diffDays = Math.round((utcDue - utcNow) / 864e5);
+      const isZh = typeof currentLanguage !== "undefined" ? currentLanguage === "zh" : true;
+      if (diffDays < 0) {
+        const d = Math.abs(diffDays);
+        return { days: diffDays, level: "overdue", badgeClass: "badge-danger", icon: "🚨", text: isZh ? `已逾期 ${d} 天` : `${d}d overdue` };
+      }
+      if (diffDays === 0) {
+        return { days: 0, level: "due_today", badgeClass: "badge-danger", icon: "🚨", text: isZh ? "今天截止" : "Due today" };
+      }
+      if (diffDays <= 7) {
+        return { days: diffDays, level: "due_soon", badgeClass: "badge-warning", icon: "⚠️", text: isZh ? `仅剩 ${diffDays} 天` : `${diffDays}d left` };
+      }
+      return { days: diffDays, level: "upcoming", badgeClass: "badge-info", icon: "📅", text: isZh ? `剩 ${diffDays} 天` : `${diffDays}d left` };
+    } catch (_) {
+      return null;
+    }
+  }
   function renderTimelineAlerts() {
     const reviewMilestones = document.getElementById("dashboard-pending-milestones");
     if (!reviewMilestones) return;
@@ -460,6 +500,7 @@
       }
       return checkPub(entity);
     };
+    const isZh = typeof currentLanguage !== "undefined" ? currentLanguage === "zh" : true;
     const timelineAlerts = [];
     allSubmissions.filter((s) => s && s.status !== "rejected").forEach((sub) => {
       const man = allManuscripts.find((m) => m.id === sub.manuscriptId);
@@ -470,6 +511,48 @@
       const isAcceptedOrPublished = checkPub(sub) || checkAccepted(sub) || Boolean(man && (checkPub(man) || man.status === "accepted" || man.status === "published"));
       const isPublished = sub.status === "published" || man && man.status === "published";
       if (isPublished) return;
+      const journalName = getSubmissionJournalName(sub);
+      let hasRevisionAlert = false;
+      if (!isAcceptedOrPublished) {
+        const revDueDate = sub.revisionDueDate ? String(sub.revisionDueDate).trim() : "";
+        const isRevisionStatus = sub.status === "revision";
+        const revNode = (sub.timelineNodes || []).find((n) => {
+          const k = n.key || inferKey(n);
+          return k === "r1_revised" || k === "r2_revised" || n.type === "revision";
+        }) || (sub.timelineNodes || []).find((n) => {
+          const k = n.key || inferKey(n);
+          return k === "r1_comments";
+        });
+        if (revDueDate) {
+          const cd = computeCountdown(revDueDate);
+          const revLabel = t("revisionDueLabel") || (isZh ? "修回截止" : "Revision Deadline");
+          timelineAlerts.push({
+            sub,
+            node: revNode || sub.timelineNodes?.[0] || { id: "" },
+            computedStatus: cd?.level === "overdue" ? "overdue" : cd?.level === "due_today" ? "due_today" : cd?.level === "due_soon" ? "due_soon" : "upcoming",
+            title: `${journalName}: ${revLabel}`,
+            date: revDueDate,
+            displayDate: `${formatShortDate(revDueDate)}${isZh ? " 截止" : " due"}`,
+            countdown: cd,
+            manTitle: man ? man.title : t("untitledManuscript"),
+            isRevision: true
+          });
+          hasRevisionAlert = true;
+        } else if (isRevisionStatus) {
+          timelineAlerts.push({
+            sub,
+            node: revNode || sub.timelineNodes?.[0] || { id: "" },
+            computedStatus: "due_soon",
+            title: `${journalName}: ${t("revisionDueLabel") || (isZh ? "修回截止" : "Revision Deadline")}`,
+            date: "",
+            displayDate: isZh ? "待设截止日" : "No deadline",
+            countdown: { icon: "⚠️", text: isZh ? "待设截止日" : "No deadline", level: "due_soon", days: 1 },
+            manTitle: man ? man.title : t("untitledManuscript"),
+            isRevision: true
+          });
+          hasRevisionAlert = true;
+        }
+      }
       (sub.timelineNodes || []).forEach((node) => {
         const computedStatus = computeNodeStatus(node);
         const nodeKey = node.key || inferKey(node);
@@ -477,6 +560,7 @@
           if (node.type !== "publication" || nodeKey === "accept") return;
         }
         if (computedStatus === "completed") return;
+        if (hasRevisionAlert && (nodeKey === "r1_revised" || nodeKey === "r2_revised" || nodeKey === "r1_comments" || node.type === "revision" || node.type === "review")) return;
         const importantType = node.type === "review" || node.type === "revision" || node.type === "publication";
         const hasTimelineDate = Boolean(node.dueDate || node.planDate || node.completeDate);
         const actionable = computedStatus === "overdue" || computedStatus === "due_soon" || computedStatus === "blocked" || node.status === "active";
@@ -484,18 +568,30 @@
         if (!importantType && !actionable) return;
         const alertDate = node.dueDate || node.planDate || (node.type === "review" ? sub.revisionDueDate : "") || node.completeDate || "";
         if (!alertDate && computedStatus !== "blocked") return;
+        let cd = null;
+        if (alertDate && (computedStatus === "overdue" || computedStatus === "due_soon" || node.dueDate)) {
+          cd = computeCountdown(alertDate);
+        }
         timelineAlerts.push({
           sub,
           node,
-          computedStatus,
-          title: `${getSubmissionJournalName(sub)}: ${getTimelineNodeDisplayName(node)}`,
+          computedStatus: cd?.level === "overdue" ? "overdue" : cd?.level === "due_today" ? "due_today" : cd?.level === "due_soon" ? "due_soon" : computedStatus,
+          title: `${journalName}: ${getTimelineNodeDisplayName(node)}`,
           date: alertDate,
-          manTitle: man ? man.title : t("untitledManuscript")
+          displayDate: alertDate ? `${formatShortDate(alertDate)}${node.dueDate ? isZh ? " 截止" : "" : ""}` : t("noDate"),
+          countdown: cd,
+          manTitle: man ? man.title : t("untitledManuscript"),
+          isRevision: false
         });
       });
     });
-    const statusRank = { overdue: 0, blocked: 1, due_soon: 2, in_progress: 3, not_started: 4, upcoming: 5 };
+    const statusRank = { overdue: 0, due_today: 0, blocked: 1, due_soon: 2, in_progress: 3, not_started: 4, upcoming: 5 };
     timelineAlerts.sort((a, b) => {
+      const hasDaysA = a.countdown && typeof a.countdown.days === "number";
+      const hasDaysB = b.countdown && typeof b.countdown.days === "number";
+      if (hasDaysA && hasDaysB && a.countdown.days !== b.countdown.days) {
+        return a.countdown.days - b.countdown.days;
+      }
       const ra = statusRank[a.computedStatus] ?? 9;
       const rb = statusRank[b.computedStatus] ?? 9;
       if (ra !== rb) return ra - rb;
@@ -521,26 +617,39 @@
     if (timelineAlerts.length === 0) {
       window.RFUI?.setHTML?.(reviewMilestones, `<p class="empty-state">${t("noUrgentEvents")}</p>`);
     } else {
-      timelineAlerts.slice(0, 5).forEach((alert) => {
+      timelineAlerts.slice(0, 8).forEach((alert) => {
         const item = document.createElement("div");
         item.className = "recent-item";
         item.title = alert.manTitle;
         item.style.cursor = "pointer";
         item.addEventListener("click", () => {
           if (typeof openStageDrawer === "function") {
-            openStageDrawer(alert.sub.id, alert.node.id);
+            openStageDrawer(alert.sub.id, alert.node?.id || "");
           }
         });
         const title = document.createElement("span");
         title.className = "recent-item-title";
         title.textContent = alert.title;
         const badge = document.createElement("span");
-        const badgeClass = alert.computedStatus === "overdue" || alert.computedStatus === "blocked" ? "danger" : alert.computedStatus === "due_soon" ? "warning" : "info";
+        let badgeClass = "info";
+        let badgeText = getNodeStatusLabel(alert.computedStatus);
+        if (alert.countdown && alert.countdown.text) {
+          const lvl = alert.countdown.level;
+          badgeClass = lvl === "overdue" || lvl === "due_today" ? "danger" : lvl === "due_soon" ? "warning" : "info";
+          badgeText = `${alert.countdown.icon ? alert.countdown.icon + " " : ""}${alert.countdown.text}`;
+        } else if (alert.computedStatus === "overdue" || alert.computedStatus === "blocked") {
+          badgeClass = "danger";
+        } else if (alert.computedStatus === "due_soon") {
+          badgeClass = "warning";
+        }
         badge.className = `badge badge-${badgeClass}`;
-        badge.textContent = getNodeStatusLabel(alert.computedStatus);
+        badge.textContent = badgeText;
+        if (alert.countdown?.title) {
+          badge.title = alert.countdown.title;
+        }
         const date = document.createElement("span");
         date.className = "recent-item-date";
-        date.textContent = alert.date ? formatShortDate(alert.date) : t("noDate");
+        date.textContent = alert.displayDate || (alert.date ? formatShortDate(alert.date) : t("noDate"));
         item.appendChild(title);
         item.appendChild(badge);
         item.appendChild(date);
