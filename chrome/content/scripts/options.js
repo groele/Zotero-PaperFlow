@@ -6,7 +6,7 @@
  * Target runtime: Gecko 153+ / Firefox 140+ (minify: false for Error Console audit)
  * ----------------------------------------------------------------------------------
  */
-const RF_OPTIONS_RENDER_VERSION = '16.4.0';
+const RF_OPTIONS_RENDER_VERSION = '16.4.1';
 "use strict";
 (() => {
   var __getOwnPropNames = Object.getOwnPropertyNames;
@@ -251,7 +251,7 @@ const RF_OPTIONS_RENDER_VERSION = '16.4.0';
     const particles = document.createElement("div");
     particles.className = "acceptance-confetti-field";
     particles.setAttribute("aria-hidden", "true");
-    const reducedMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches === true;
+    const reducedMotion = window.RFUI?.prefersReducedMotion?.() !== false;
     if (!reducedMotion) {
       const colors = ["#059669", "#10b981", "#06b6d4", "#f59e0b", "#fbbf24", "#f97316"];
       const fragment = document.createDocumentFragment();
@@ -304,7 +304,7 @@ const RF_OPTIONS_RENDER_VERSION = '16.4.0';
   var init_navigation_and_modal = __esm({
     "src/modules/options/navigation-and-modal.ts"() {
       "use strict";
-      RF_OPTIONS_RENDER_VERSION = "16.4.0";
+      RF_OPTIONS_RENDER_VERSION = "16.4.1";
       UI_THEME_OPTIONS = /* @__PURE__ */ new Set(["system", "light", "dark"]);
       g = typeof globalThis !== "undefined" ? globalThis : window;
       if (!("db" in g)) g.db = null;

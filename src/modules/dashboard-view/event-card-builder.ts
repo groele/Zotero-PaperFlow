@@ -32,7 +32,8 @@ export function buildPipelineEventCard(
   sub: any,
   man: any,
   index: number,
-  displayIndex: number
+  displayIndex: number,
+  analysis?: any
 ): HTMLElement {
   const w = window as any;
   const manTitle = man ? man.title : (sub.title || t('untitledManuscript'));
@@ -40,7 +41,7 @@ export function buildPipelineEventCard(
   const firstAuthor = getSubmissionFirstAuthor(sub, man);
 
   // Analyze submission via the unified helper
-  const a = analyzeSubmission(sub);
+  const a = analysis || analyzeSubmission(sub);
 
   // Determine visual stage category borders
   let stageClass = 'stage-active';

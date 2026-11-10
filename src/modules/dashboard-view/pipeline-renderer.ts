@@ -9,6 +9,7 @@ import {
 } from './transfer-and-status.js';
 import { renderTimelineAlerts } from './timeline-alerts.js';
 import { buildPipelineEventCard } from './event-card-builder.js';
+import { reconcilePipelineCards } from './card-cache.js';
 
 export { renderTimelineAlerts };
 
@@ -137,13 +138,17 @@ export function renderDashboard(): void {
     }
   });
 
-  const analyses = manuscriptPipelines.map((p: any) => analyzeSubmission(p.submission));
+  const analysisById = new Map<string, any>();
+  const analyzeCached = (sub: any) => {
+    if (!analysisById.has(sub.id)) analysisById.set(sub.id, analyzeSubmission(sub));
+    return analysisById.get(sub.id);
+  };
+  const analyses = manuscriptPipelines.map((p: any) => analyzeCached(p.submission));
   const expSubmit = analyses.map((a: any) => a.expToSubmit).filter((v: any) => v !== null && !isNaN(v) && v >= 0);
   const submitNow = analyses.filter((a: any) => !a.accepted).map((a: any) => a.submitToNow).filter((v: any) => v !== null && !isNaN(v) && v >= 0);
   const r1Now = analyses.filter((a: any) => !a.accepted).map((a: any) => a.r1ToNow).filter((v: any) => v !== null && !isNaN(v) && v >= 0);
   const submitAccept = analyses.filter((a: any) => a.accepted).map((a: any) => a.submitToAccept).filter((v: any) => v !== null && !isNaN(v) && v >= 0);
 
-  if (typeof applyLanguage === 'function') applyLanguage();
   const avgText = (arr: number[]) => arr.length ? `${Math.round(arr.reduce((s: number, n: number) => s + n, 0) / arr.length)}${t('dayUnitShort')}` : '—';
 
   const elExpSubmit = document.getElementById('mExpSubmit');
@@ -180,7 +185,6 @@ export function renderDashboard(): void {
   if (!ganttBox) return;
   updatePipelineViewToggle();
   bindDashboardControls();
-  w.RFUI.setHTML(ganttBox, '');
 
   let submissionsList = visibleSubmissions;
   if (currentDashboardFilter === 'accepted') {
@@ -191,14 +195,19 @@ export function renderDashboard(): void {
   submissionsList = sortDashboardSubmissions(submissionsList);
 
   if (submissionsList.length === 0) {
+    reconcilePipelineCards(ganttBox, []);
     w.RFUI.setHTML(ganttBox, `<p class="empty-state">${t('noPipelines')}</p>`);
   } else {
-    submissionsList.forEach((sub: any, index: number) => {
+    const day = new Date().toDateString();
+    reconcilePipelineCards(ganttBox, submissionsList.map((sub: any, index: number) => {
       const displayIndex = submissionsList.length - index;
       const man = manuscriptsById.get(sub.manuscriptId) as any;
-      const card = buildPipelineEventCard(sub, man, index, displayIndex);
-      ganttBox.appendChild(card);
-    });
+      return {
+        key: sub.id,
+        signature: JSON.stringify([sub, man, currentLanguage, day, index, displayIndex]),
+        create: () => buildPipelineEventCard(sub, man, index, displayIndex, analyzeCached(sub)),
+      };
+    }));
   }
 
   // 3. Timeline alerts and review milestones

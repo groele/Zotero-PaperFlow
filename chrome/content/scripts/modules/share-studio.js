@@ -187,12 +187,14 @@
     return `zotero-paperflow-${journal}-${(/* @__PURE__ */ new Date()).toISOString().split("T")[0]}.png`;
   }
   async function savePngBlobWithPath(blob, filename) {
-    const hostSave = window.parent?.Zotero?.ResearchFlow?.saveSharePngWithPicker;
-    if (typeof hostSave === "function") {
-      const buffer = await blob.arrayBuffer();
-      const result = await hostSave(new Uint8Array(buffer), filename);
+    const host = (window.Zotero || window.parent?.Zotero)?.ResearchFlow;
+    const bridge = window.ZoteroBridge;
+    if (typeof host?.saveShareImageFile === "function" || bridge?.isZotero && bridge.saveShareImage) {
+      const language = typeof currentLanguage === "string" ? currentLanguage : "en";
+      const result = typeof host?.saveShareImageFile === "function" ? await host.saveShareImageFile(new Uint8Array(await blob.arrayBuffer()), filename, language) : await bridge.saveShareImage(blob, filename, language);
       if (result?.cancelled) return { cancelled: true, path: "" };
-      return { cancelled: false, path: result?.path || filename };
+      if (!result?.success || !result.filePath) throw new Error(result?.error || "PNG save was not confirmed.");
+      return { cancelled: false, path: result.filePath };
     }
     const url = URL.createObjectURL(blob);
     try {
@@ -235,33 +237,8 @@
     }
   });
 
-  // src/modules/share-studio/modal-controller.ts
-  function clearActiveSharePreview() {
-    if (activeSharePreviewUrl) {
-      URL.revokeObjectURL(activeSharePreviewUrl);
-      activeSharePreviewUrl = null;
-    }
-    if (typeof activeSharePreviewCleanup === "function") {
-      const cleanup = activeSharePreviewCleanup;
-      activeSharePreviewCleanup = null;
-      cleanup();
-    }
-  }
-  async function openSubmissionShareModal(subId) {
-    const g2 = typeof window !== "undefined" ? window : globalThis;
-    const database = g2.db || (typeof db !== "undefined" ? db : null) || {};
-    const sub = (database.submissions || []).find((item) => item.id === subId);
-    if (!sub) {
-      showGlobalToast(t("submissionNotFound"), "error");
-      renderDashboard();
-      return;
-    }
-    if (!window.RFShareCard?.renderSubmissionShareCard) {
-      showGlobalToast(t("shareJourneyFailed"), "error");
-      return;
-    }
-    clearActiveSharePreview();
-    let prefs = getSharePreferences();
+  // src/modules/share-studio/modal-template.ts
+  function buildShareModal(prefs) {
     const themeChoices = getShareThemes().map((theme) => `
     <button type="button" class="share-theme-pill ${prefs.theme === theme.id ? "active" : ""}" data-share-theme="${escapeHTML(theme.id)}" aria-pressed="${prefs.theme === theme.id ? "true" : "false"}">
       <span class="share-theme-swatch share-theme-${escapeHTML(theme.id)}" aria-hidden="true"></span>
@@ -274,12 +251,7 @@
       <span>${escapeHTML(t(field.labelKey))}</span>
     </label>
   `).join("");
-    const openModalFn = window.openModal || (typeof openModal === "function" ? openModal : null);
-    if (!openModalFn) {
-      showGlobalToast(t("shareJourneyFailed"), "error");
-      return;
-    }
-    openModalFn(`
+    return `
     <div class="modal-header">
       <div>
         <h2>${escapeHTML(t("shareJourneyTitle"))}</h2>
@@ -361,7 +333,50 @@
       <button type="button" class="btn-secondary" id="btn-copy-share-image">${escapeHTML(t("shareJourneyCopy"))}</button>
       <button type="button" class="btn-primary" id="btn-download-share-image">${escapeHTML(t("shareJourneyDownload"))}</button>
     </div>
-  `);
+  `;
+  }
+  var init_modal_template = __esm({
+    "src/modules/share-studio/modal-template.ts"() {
+      "use strict";
+      init_preferences_and_data();
+    }
+  });
+
+  // src/modules/share-studio/modal-controller.ts
+  function clearActiveSharePreview() {
+    if (activeSharePreviewUrl) {
+      URL.revokeObjectURL(activeSharePreviewUrl);
+      activeSharePreviewUrl = null;
+    }
+    if (typeof activeSharePreviewCleanup === "function") {
+      const cleanup = activeSharePreviewCleanup;
+      activeSharePreviewCleanup = null;
+      cleanup();
+    }
+  }
+  async function openSubmissionShareModal(subId) {
+    const g2 = typeof window !== "undefined" ? window : globalThis;
+    const database = g2.db || (typeof db !== "undefined" ? db : null) || {};
+    const sub = (database.submissions || []).find((item) => item.id === subId);
+    if (!sub) {
+      showGlobalToast(t("submissionNotFound"), "error");
+      renderDashboard();
+      return;
+    }
+    if (!window.RFShareCard?.renderSubmissionShareCard) {
+      showGlobalToast(t("shareJourneyFailed"), "error");
+      return;
+    }
+    clearActiveSharePreview();
+    let prefs = getSharePreferences();
+    const openModalFn = window.openModal || (typeof openModal === "function" ? openModal : null);
+    if (!openModalFn) {
+      showGlobalToast(t("shareJourneyFailed"), "error");
+      return;
+    }
+    openModalFn(buildShareModal(prefs));
+    modalContent.classList.add("share-preview-card");
+    registerModalCleanup(() => modalContent.classList.remove("share-preview-card"));
     const preview = document.getElementById("share-journey-preview");
     const previewWrap = document.getElementById("share-journey-preview-wrap");
     const dimensionsEl = document.getElementById("share-preview-dimensions");
@@ -374,8 +389,14 @@
     let currentBlob = null;
     let renderSeq = 0;
     let closed = false;
+    let prefsTimer = null;
     activeSharePreviewCleanup = () => {
       closed = true;
+      if (prefsTimer !== null) {
+        clearTimeout(prefsTimer);
+        prefsTimer = null;
+        void persistSharePreferences(prefs);
+      }
     };
     registerModalCleanup(clearActiveSharePreview);
     const setSaveStatus = (message, state = "neutral") => {
@@ -410,8 +431,8 @@
         if (downloadBtn) downloadBtn.disabled = true;
         if (copyBtn) copyBtn.disabled = true;
         const canvas = document.createElement("canvas");
-        const cardData = buildSubmissionShareJourneyData(sub, prefs);
-        const rendered = window.RFShareCard.renderSubmissionShareCard(canvas, cardData);
+        const cardData = buildSubmissionShareJourneyData(sub, { ...prefs, resolution: "standard" });
+        window.RFShareCard.renderSubmissionShareCard(canvas, cardData);
         const blob = await canvasToPngBlob(canvas);
         if (closed || seq !== renderSeq) return;
         if (activeSharePreviewUrl) URL.revokeObjectURL(activeSharePreviewUrl);
@@ -419,8 +440,11 @@
         currentBlob = blob;
         if (preview) preview.src = activeSharePreviewUrl;
         if (dimensionsEl) {
-          const pixelInfo = `${rendered.pixelWidth || rendered.width} × ${rendered.pixelHeight || rendered.height} px`;
-          dimensionsEl.textContent = rendered.resolutionLimited ? `${pixelInfo} · ${t("shareResolutionLimited")}` : pixelInfo;
+          const layout = window.RFShareCard.getShareCardLayout(
+            { ...cardData, resolution: prefs.resolution },
+            canvas.getContext("2d")
+          );
+          dimensionsEl.textContent = `${layout.pixelWidth} × ${layout.pixelHeight} px`;
         }
         setSaveStatus(t("shareJourneySaveHelp"), "neutral");
       } catch (error) {
@@ -438,15 +462,40 @@
         }
       }
     };
-    const updatePrefs = async (patch) => {
+    const updatePrefs = (patch) => {
+      renderSeq += 1;
       prefs = normalizeSharePreferences({
         ...prefs,
         ...patch,
         visible: { ...prefs.visible, ...patch.visible || {} }
       });
       syncControlSelection();
-      await renderPreview();
-      await persistSharePreferences(prefs);
+      if (prefsTimer !== null) clearTimeout(prefsTimer);
+      if (downloadBtn) downloadBtn.disabled = true;
+      if (copyBtn) copyBtn.disabled = true;
+      prefsTimer = setTimeout(async () => {
+        prefsTimer = null;
+        if (closed) return;
+        await renderPreview();
+        await persistSharePreferences(prefs);
+      }, 140);
+    };
+    let exportCache = null;
+    let exportPending = null;
+    const getExportBlob = async () => {
+      const key = JSON.stringify(prefs);
+      if (exportCache?.key === key) return exportCache.blob;
+      if (exportPending?.key === key) return exportPending.promise;
+      const canvas = document.createElement("canvas");
+      window.RFShareCard.renderSubmissionShareCard(canvas, buildSubmissionShareJourneyData(sub, prefs));
+      const promise = canvasToPngBlob(canvas).then((blob) => {
+        if (!closed && JSON.stringify(prefs) === key) exportCache = { key, blob };
+        return blob;
+      }).finally(() => {
+        if (exportPending?.promise === promise) exportPending = null;
+      });
+      exportPending = { key, promise };
+      return promise;
     };
     modalContent.querySelectorAll("[data-share-theme]").forEach((btn) => {
       btn.addEventListener("click", () => updatePrefs({ theme: btn.getAttribute("data-share-theme") }));
@@ -491,7 +540,9 @@
       downloadBtn.disabled = true;
       try {
         setSaveStatus(t("shareJourneySaving"), "pending");
-        const result = await savePngBlobWithPath(currentBlob, filename);
+        const blob = await getExportBlob();
+        if (closed) return;
+        const result = await savePngBlobWithPath(blob, filename);
         if (result.cancelled) {
           setSaveStatus(t("shareJourneySaveCancelled"), "warning");
           return;
@@ -511,7 +562,9 @@
       if (!currentBlob) return;
       copyBtn.disabled = true;
       try {
-        const copied = await copyPngBlobToClipboard(currentBlob);
+        const blob = await getExportBlob();
+        if (closed) return;
+        const copied = await copyPngBlobToClipboard(blob);
         if (!copied) throw new Error("Clipboard image unsupported");
         setSaveStatus(t("shareJourneyCopied"), "success");
         showGlobalToast(t("shareJourneyCopied"), "success");
@@ -527,6 +580,7 @@
   var init_modal_controller = __esm({
     "src/modules/share-studio/modal-controller.ts"() {
       "use strict";
+      init_modal_template();
       init_preferences_and_data();
     }
   });

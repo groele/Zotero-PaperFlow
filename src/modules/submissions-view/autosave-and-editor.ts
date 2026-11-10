@@ -30,13 +30,12 @@ export function focusSubmissionEditCenter(): void {
   const editorRect = editCenter.getBoundingClientRect();
   const targetTop = Math.max(detailPanel.scrollTop + editorRect.top - panelRect.top - 12, 0);
   if (typeof detailPanel.scrollTo === 'function') {
-    detailPanel.scrollTo({ top: targetTop, behavior: 'smooth' });
+    detailPanel.scrollTo({ top: targetTop, behavior: 'auto' });
   } else {
     detailPanel.scrollTop = targetTop;
   }
 
   editCenter.classList.remove('submission-edit-center-focused');
-  void editCenter.offsetWidth;
   editCenter.classList.add('submission-edit-center-focused');
   window.setTimeout(() => editCenter.classList.remove('submission-edit-center-focused'), 2400);
 

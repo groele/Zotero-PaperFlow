@@ -28,8 +28,9 @@ function getSafeDomDocument(target?: any): Document | null {
 }
 
 function sanitizeDomTree(root: any): void {
-  const blockedTags = new Set(['script', 'iframe', 'object', 'embed', 'meta', 'base']);
-  const urlAttrs = new Set(['href', 'src', 'xlink:href', 'formaction']);
+  const blockedTags = new Set(['script', 'iframe', 'object', 'embed', 'meta', 'base',
+    'link', 'style', 'template', 'foreignobject', 'animate', 'animatetransform', 'set']);
+  const urlAttrs = new Set(['href', 'src', 'xlink:href', 'formaction', 'action', 'poster']);
   const walk = (node: any) => {
     for (const child of Array.from(node.childNodes || []) as any[]) {
       if (child.nodeType !== 1) continue;
@@ -41,9 +42,11 @@ function sanitizeDomTree(root: any): void {
       for (const attr of Array.from(child.attributes || []) as any[]) {
         const name = String(attr.name || '').toLowerCase();
         const value = String(attr.value || '').trim();
-        if (name.startsWith('on') || name === 'srcdoc') {
+        const compactValue = value.replace(/[\u0000-\u0020\u007f]/g, '');
+        if (name.startsWith('on') || name === 'srcdoc' || name === 'srcset'
+          || (name === 'style' && /url\s*\(|expression\s*\(|-moz-binding|@import/i.test(value))) {
           child.removeAttribute(attr.name);
-        } else if (urlAttrs.has(name) && /^(javascript|vbscript|data:text\/html):/i.test(value)) {
+        } else if (urlAttrs.has(name) && /^(?:javascript:|vbscript:|data:(?!image\/(?:png|jpeg|gif|webp);))/i.test(compactValue)) {
           child.removeAttribute(attr.name);
         }
       }
@@ -55,6 +58,18 @@ function sanitizeDomTree(root: any): void {
 
 export function createFragment(doc: any, html: any): DocumentFragment {
   const ownerDocument = doc?.createRange ? doc : getSafeDomDocument(doc);
+  const Parser = ownerDocument?.defaultView?.DOMParser
+    || (typeof DOMParser !== 'undefined' ? DOMParser : null);
+  if (Parser && ownerDocument?.createDocumentFragment && ownerDocument?.importNode) {
+    // DOMParser uses an inert document. Chrome Range parsing drops form controls.
+    const parsed = new Parser().parseFromString(String(html ?? ''), 'text/html');
+    sanitizeDomTree(parsed.body);
+    const fragment = ownerDocument.createDocumentFragment();
+    for (const child of Array.from(parsed.body.childNodes)) {
+      fragment.appendChild(ownerDocument.importNode(child, true));
+    }
+    return fragment;
+  }
   if (!ownerDocument?.createRange) {
     throw new Error('Document range parser unavailable');
   }
@@ -109,6 +124,8 @@ export function isViewDeferred(viewId: string): boolean {
 }
 
 export function prefersReducedMotion(): boolean {
+  // Workspace motion is intentionally restrained, independently of OS settings.
+  if (typeof document !== 'undefined' && document.documentElement?.dataset?.motion !== 'full') return true;
   try {
     return Boolean(typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches);
   } catch (_) {

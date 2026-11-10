@@ -208,12 +208,16 @@ export function shareCardFileName(sub: any): string {
 }
 
 export async function savePngBlobWithPath(blob: Blob, filename: string): Promise<any> {
-  const hostSave = window.parent?.Zotero?.ResearchFlow?.saveSharePngWithPicker;
-  if (typeof hostSave === 'function') {
-    const buffer = await blob.arrayBuffer();
-    const result = await hostSave(new Uint8Array(buffer), filename);
+  const host = (window.Zotero || window.parent?.Zotero)?.ResearchFlow;
+  const bridge = (window as any).ZoteroBridge;
+  if (typeof host?.saveShareImageFile === 'function' || (bridge?.isZotero && bridge.saveShareImage)) {
+    const language = typeof currentLanguage === 'string' ? currentLanguage : 'en';
+    const result = typeof host?.saveShareImageFile === 'function'
+      ? await host.saveShareImageFile(new Uint8Array(await blob.arrayBuffer()), filename, language)
+      : await bridge.saveShareImage(blob, filename, language);
     if (result?.cancelled) return { cancelled: true, path: '' };
-    return { cancelled: false, path: result?.path || filename };
+    if (!result?.success || !result.filePath) throw new Error(result?.error || 'PNG save was not confirmed.');
+    return { cancelled: false, path: result.filePath };
   }
 
   const url = URL.createObjectURL(blob);

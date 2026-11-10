@@ -812,12 +812,12 @@
   });
 
   // src/modules/dashboard-view/event-card-builder.ts
-  function buildPipelineEventCard(sub, man, index, displayIndex) {
+  function buildPipelineEventCard(sub, man, index, displayIndex, analysis) {
     const w = window;
     const manTitle = man ? man.title : sub.title || t("untitledManuscript");
     const journalName = getSubmissionJournalName(sub);
     const firstAuthor = getSubmissionFirstAuthor(sub, man);
-    const a = analyzeSubmission(sub);
+    const a = analysis || analyzeSubmission(sub);
     let stageClass = "stage-active";
     if (a.accepted || sub.status === "accepted" || sub.status === "published") {
       stageClass = "stage-accepted";
@@ -949,6 +949,30 @@
     }
   });
 
+  // src/modules/dashboard-view/card-cache.ts
+  function reconcilePipelineCards(container, records) {
+    const previous = caches.get(container);
+    const next = /* @__PURE__ */ new Map();
+    const cards = records.map((record) => {
+      const cached = previous?.get(record.key);
+      const entry = cached?.signature === record.signature ? cached : { signature: record.signature, card: record.create() };
+      next.set(record.key, entry);
+      return entry.card;
+    });
+    const existing = Array.from(container.children);
+    if (existing.length !== cards.length || existing.some((card, index) => card !== cards[index])) {
+      container.replaceChildren(...cards);
+    }
+    caches.set(container, next);
+  }
+  var caches;
+  var init_card_cache = __esm({
+    "src/modules/dashboard-view/card-cache.ts"() {
+      "use strict";
+      caches = /* @__PURE__ */ new WeakMap();
+    }
+  });
+
   // src/modules/dashboard-view/pipeline-renderer.ts
   function bindDashboardControls() {
     const toggleBtn = document.getElementById("btn-pipeline-view-toggle");
@@ -1063,12 +1087,16 @@
         }
       }
     });
-    const analyses = manuscriptPipelines.map((p) => analyzeSubmission(p.submission));
+    const analysisById = /* @__PURE__ */ new Map();
+    const analyzeCached = (sub) => {
+      if (!analysisById.has(sub.id)) analysisById.set(sub.id, analyzeSubmission(sub));
+      return analysisById.get(sub.id);
+    };
+    const analyses = manuscriptPipelines.map((p) => analyzeCached(p.submission));
     const expSubmit = analyses.map((a) => a.expToSubmit).filter((v) => v !== null && !isNaN(v) && v >= 0);
     const submitNow = analyses.filter((a) => !a.accepted).map((a) => a.submitToNow).filter((v) => v !== null && !isNaN(v) && v >= 0);
     const r1Now = analyses.filter((a) => !a.accepted).map((a) => a.r1ToNow).filter((v) => v !== null && !isNaN(v) && v >= 0);
     const submitAccept = analyses.filter((a) => a.accepted).map((a) => a.submitToAccept).filter((v) => v !== null && !isNaN(v) && v >= 0);
-    if (typeof applyLanguage === "function") applyLanguage();
     const avgText = (arr) => arr.length ? `${Math.round(arr.reduce((s, n) => s + n, 0) / arr.length)}${t("dayUnitShort")}` : "—";
     const elExpSubmit = document.getElementById("mExpSubmit");
     if (elExpSubmit) {
@@ -1094,7 +1122,6 @@
     if (!ganttBox) return;
     updatePipelineViewToggle();
     bindDashboardControls();
-    w.RFUI.setHTML(ganttBox, "");
     let submissionsList = visibleSubmissions;
     if (currentDashboardFilter === "accepted") {
       submissionsList = submissionsList.filter(checkAccepted);
@@ -1103,14 +1130,19 @@
     }
     submissionsList = sortDashboardSubmissions(submissionsList);
     if (submissionsList.length === 0) {
+      reconcilePipelineCards(ganttBox, []);
       w.RFUI.setHTML(ganttBox, `<p class="empty-state">${t("noPipelines")}</p>`);
     } else {
-      submissionsList.forEach((sub, index) => {
+      const day = (/* @__PURE__ */ new Date()).toDateString();
+      reconcilePipelineCards(ganttBox, submissionsList.map((sub, index) => {
         const displayIndex = submissionsList.length - index;
         const man = manuscriptsById.get(sub.manuscriptId);
-        const card = buildPipelineEventCard(sub, man, index, displayIndex);
-        ganttBox.appendChild(card);
-      });
+        return {
+          key: sub.id,
+          signature: JSON.stringify([sub, man, currentLanguage, day, index, displayIndex]),
+          create: () => buildPipelineEventCard(sub, man, index, displayIndex, analyzeCached(sub))
+        };
+      }));
     }
     renderTimelineAlerts();
   }
@@ -1121,6 +1153,7 @@
       init_transfer_and_status();
       init_timeline_alerts();
       init_event_card_builder();
+      init_card_cache();
     }
   });
 

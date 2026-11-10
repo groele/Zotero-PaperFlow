@@ -221,8 +221,22 @@
     return null;
   }
   function sanitizeDomTree(root) {
-    const blockedTags = /* @__PURE__ */ new Set(["script", "iframe", "object", "embed", "meta", "base"]);
-    const urlAttrs = /* @__PURE__ */ new Set(["href", "src", "xlink:href", "formaction"]);
+    const blockedTags = /* @__PURE__ */ new Set([
+      "script",
+      "iframe",
+      "object",
+      "embed",
+      "meta",
+      "base",
+      "link",
+      "style",
+      "template",
+      "foreignobject",
+      "animate",
+      "animatetransform",
+      "set"
+    ]);
+    const urlAttrs = /* @__PURE__ */ new Set(["href", "src", "xlink:href", "formaction", "action", "poster"]);
     const walk = (node) => {
       for (const child of Array.from(node.childNodes || [])) {
         if (child.nodeType !== 1) continue;
@@ -234,9 +248,10 @@
         for (const attr of Array.from(child.attributes || [])) {
           const name = String(attr.name || "").toLowerCase();
           const value = String(attr.value || "").trim();
-          if (name.startsWith("on") || name === "srcdoc") {
+          const compactValue = value.replace(/[\u0000-\u0020\u007f]/g, "");
+          if (name.startsWith("on") || name === "srcdoc" || name === "srcset" || name === "style" && /url\s*\(|expression\s*\(|-moz-binding|@import/i.test(value)) {
             child.removeAttribute(attr.name);
-          } else if (urlAttrs.has(name) && /^(javascript|vbscript|data:text\/html):/i.test(value)) {
+          } else if (urlAttrs.has(name) && /^(?:javascript:|vbscript:|data:(?!image\/(?:png|jpeg|gif|webp);))/i.test(compactValue)) {
             child.removeAttribute(attr.name);
           }
         }
@@ -247,6 +262,16 @@
   }
   function createFragment(doc, html) {
     const ownerDocument = doc?.createRange ? doc : getSafeDomDocument(doc);
+    const Parser = ownerDocument?.defaultView?.DOMParser || (typeof DOMParser !== "undefined" ? DOMParser : null);
+    if (Parser && ownerDocument?.createDocumentFragment && ownerDocument?.importNode) {
+      const parsed = new Parser().parseFromString(String(html ?? ""), "text/html");
+      sanitizeDomTree(parsed.body);
+      const fragment2 = ownerDocument.createDocumentFragment();
+      for (const child of Array.from(parsed.body.childNodes)) {
+        fragment2.appendChild(ownerDocument.importNode(child, true));
+      }
+      return fragment2;
+    }
     if (!ownerDocument?.createRange) {
       throw new Error("Document range parser unavailable");
     }
@@ -292,6 +317,7 @@
     return true;
   }
   function prefersReducedMotion() {
+    if (typeof document !== "undefined" && document.documentElement?.dataset?.motion !== "full") return true;
     try {
       return Boolean(typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches);
     } catch (_) {

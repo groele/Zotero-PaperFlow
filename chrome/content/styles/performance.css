@@ -1,0 +1,17 @@
+/* Keep status feedback without perpetual animation or layout movement. */
+body *, body *::before, body *::after,
+body :is(.dashboard-wrapper, #modal-overlay) *,
+body :is(.dashboard-wrapper, #modal-overlay) *::before,
+body :is(.dashboard-wrapper, #modal-overlay) *::after {
+  animation: none !important;
+  transition-property: color, background-color, border-color !important;
+  transition-duration: 80ms !important;
+  scroll-behavior: auto !important;
+}
+.pipeline-card:hover, .kanban-card:hover, .stat-box:hover,
+.pipeline-actions button:hover, .nav-item:hover { transform: none !important; }
+.modal-backdrop, .glass-panel, .latest-window, .modal-card {
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+body :is(.dashboard-wrapper, #modal-overlay) .spinner { animation: spin 1s linear infinite !important; }

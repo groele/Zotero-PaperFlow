@@ -1,7 +1,7 @@
 /**
  * Zotero PaperFlow - Workspace Navigation, Modal Lifecycle & Toast Celebrations
  */
-export const RF_OPTIONS_RENDER_VERSION = '16.4.0';
+export const RF_OPTIONS_RENDER_VERSION = '16.4.1';
 export const UI_THEME_OPTIONS = new Set(['system', 'light', 'dark']);
 
 const g: any = typeof globalThis !== 'undefined' ? globalThis : window;
@@ -268,7 +268,7 @@ export function showAcceptanceCelebration(submission: any = {}): void {
   particles.className = 'acceptance-confetti-field';
   particles.setAttribute('aria-hidden', 'true');
 
-  const reducedMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches === true;
+  const reducedMotion = window.RFUI?.prefersReducedMotion?.() !== false;
   if (!reducedMotion) {
     const colors = ['#059669', '#10b981', '#06b6d4', '#f59e0b', '#fbbf24', '#f97316'];
     const fragment = document.createDocumentFragment();

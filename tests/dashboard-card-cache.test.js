@@ -1,0 +1,31 @@
+const { test } = require('node:test');
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
+const vm = require('node:vm');
+const { transformSync } = require('esbuild');
+
+test('dashboard preserves unchanged cards and live drafts, replacing only changed records', () => {
+  const source = fs.readFileSync(path.join(__dirname, '../src/modules/dashboard-view/card-cache.ts'), 'utf8');
+  const context = { module: { exports: {} }, exports: {} };
+  vm.runInNewContext(transformSync(source, { loader: 'ts', format: 'cjs' }).code, context);
+  const reconcile = context.module.exports.reconcilePipelineCards;
+  const container = { children: [], writes: 0, replaceChildren(...children) { this.children = children; this.writes++; } };
+  let builds = 0;
+  const record = (key, signature) => ({ key, signature, create: () => ({ id: key, build: ++builds }) });
+  reconcile(container, [record('a', '1'), record('b', '1')]);
+  const [first, second] = container.children;
+  first.draft = 'unsaved event';
+  reconcile(container, [record('a', '1'), record('b', '1')]);
+  assert.equal(builds, 2);
+  assert.equal(container.writes, 1);
+  assert.equal(container.children[0], first);
+  assert.equal(container.children[0].draft, 'unsaved event');
+  reconcile(container, [record('a', '1'), record('b', '2')]);
+  assert.equal(builds, 3);
+  assert.equal(container.children[0], first);
+  assert.notEqual(container.children[1], second);
+  reconcile(container, []);
+  reconcile(container, [record('a', '1')]);
+  assert.equal(builds, 4, 'removed records do not remain cached');
+});

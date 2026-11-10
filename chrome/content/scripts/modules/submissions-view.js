@@ -308,12 +308,11 @@
     const editorRect = editCenter.getBoundingClientRect();
     const targetTop = Math.max(detailPanel.scrollTop + editorRect.top - panelRect.top - 12, 0);
     if (typeof detailPanel.scrollTo === "function") {
-      detailPanel.scrollTo({ top: targetTop, behavior: "smooth" });
+      detailPanel.scrollTo({ top: targetTop, behavior: "auto" });
     } else {
       detailPanel.scrollTop = targetTop;
     }
     editCenter.classList.remove("submission-edit-center-focused");
-    void editCenter.offsetWidth;
     editCenter.classList.add("submission-edit-center-focused");
     window.setTimeout(() => editCenter.classList.remove("submission-edit-center-focused"), 2400);
     if (titleInput) {
@@ -1444,7 +1443,7 @@
       <div class="submission-review-preview" id="submission-review-preview"></div>
     </div>
   `);
-    detailPanel.dataset.rfRenderVersion = typeof RF_OPTIONS_RENDER_VERSION !== "undefined" ? RF_OPTIONS_RENDER_VERSION : "16.4.0";
+    detailPanel.dataset.rfRenderVersion = typeof RF_OPTIONS_RENDER_VERSION !== "undefined" ? RF_OPTIONS_RENDER_VERSION : "16.4.1";
     detailPanel.dataset.rfEditorMounted = "true";
     detailPanel.dataset.currentSubmissionId = sub.id;
     detailPanel.scrollTop = 0;
