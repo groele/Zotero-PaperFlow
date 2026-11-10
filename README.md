@@ -1,4 +1,4 @@
-> **16.4.7 时间线提醒修回倒计时激活版**：彻底激活看板「🔔 时间线提醒」模块的返修稿件告警逻辑，直接提取稿件级权威修回截止日期（`revisionDueDate`），智能计算精准倒计时并渲染分级动态徽标（🚨 已逾期 X 天 / 🚨 今天截止 / ⚠️ 仅剩 X 天 / 📅 剩 X 天），支持一键导出单篇与全部修回截止日历（.ics）。见[版本说明](docs/releases/v16.4.7.md)。
+> **16.4.8 稿件卡片标题与期刊胶囊学术极简美学重构版**：全新重塑管线卡片序号徽标（`.submission-index`）与期刊名胶囊（`.journal`），序号徽标采用中性雅致 Slate 7px 细圆角框体（28px × 28px），期刊名胶囊采用晶莹纯白卡片圆角药丸（高度 28px，边框 `#cbd5e1`，前置 6px 宝石蓝活跃呼吸指示点 `#2563eb`），彻底消除高饱和撞色刺眼感，与底部灰白操作按钮形成高级统一的学术刊物装帧美学，完美支持暗黑模式。见[版本说明](docs/releases/v16.4.8.md)。
 
 # Zotero PaperFlow
 
@@ -11,7 +11,7 @@
 
 [简体中文](README.md) · [English](README.en.md)
 
-[![当前版本](https://img.shields.io/badge/version-16.4.7-245ac7?style=flat-square)](https://github.com/groele/Zotero-PaperFlow/releases/tag/v16.4.7) · [下载 XPI](https://github.com/groele/Zotero-PaperFlow/releases/download/v16.4.7/zotero-paperflow-16.4.7.xpi) · [问题反馈](https://github.com/groele/Zotero-PaperFlow/issues)
+[![当前版本](https://img.shields.io/badge/version-16.4.8-245ac7?style=flat-square)](https://github.com/groele/Zotero-PaperFlow/releases/tag/v16.4.8) · [下载 XPI](https://github.com/groele/Zotero-PaperFlow/releases/download/v16.4.8/zotero-paperflow-16.4.8.xpi) · [问题反馈](https://github.com/groele/Zotero-PaperFlow/issues)
 
 [产品定位](#overview) · [安装与更新](#installation) · [快速开始](#quick-start) · [核心功能](#features) · [设置与使用](#settings) · [数据、同步与外部服务](#data) · [兼容性与验证范围](#compatibility) · [常见问题](#troubleshooting) · [开发与详细文档](#development) · [系列产品](#series) · [项目来源与许可](#license)
 
