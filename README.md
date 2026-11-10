@@ -1,4 +1,4 @@
-> **16.3.3 全代码文件 360 行硬约束与多维模块化拆分发布版**：完成全仓样式表（CSS）、测试套件（Tests）、构建打包脚本（Scripts）以及 TypeScript 源码的 100% 全面模块化去单体化治理，全仓所有可维护文件严格遵守 $\le 360$ 行物理硬约束（0 债务）；扩展 16 项自动化架构守卫（architecture-guard）进行全天候拦截，全面加固 Zotero 10 ~ 12 现代架构兼容性。[版本说明](docs/releases/v16.3.3.md)。
+> **16.4.0 操作按钮修复版**：通过原生 DOM 创建投稿卡片的四个操作按钮，恢复折叠视图下的完整文字，并修复事件管理、分享历程弹窗的 ID 连接。验证范围见[版本说明](docs/releases/v16.4.0.md)。
 
 # Zotero PaperFlow
 
@@ -11,7 +11,7 @@
 
 [简体中文](README.md) · [English](README.en.md)
 
-[![当前版本](https://img.shields.io/badge/version-16.3.3-245ac7?style=flat-square)](https://github.com/groele/Zotero-PaperFlow/releases/tag/v16.3.3) · [下载 XPI](https://github.com/groele/Zotero-PaperFlow/releases/download/v16.3.3/zotero-paperflow-16.3.3.xpi) · [问题反馈](https://github.com/groele/Zotero-PaperFlow/issues)
+[![当前版本](https://img.shields.io/badge/version-16.4.0-245ac7?style=flat-square)](https://github.com/groele/Zotero-PaperFlow/releases/tag/v16.4.0) · [下载 XPI](https://github.com/groele/Zotero-PaperFlow/releases/download/v16.4.0/zotero-paperflow-16.4.0.xpi) · [问题反馈](https://github.com/groele/Zotero-PaperFlow/issues)
 
 [产品定位](#overview) · [安装与更新](#installation) · [快速开始](#quick-start) · [核心功能](#features) · [设置与使用](#settings) · [数据、同步与外部服务](#data) · [兼容性与验证范围](#compatibility) · [常见问题](#troubleshooting) · [开发与详细文档](#development) · [系列产品](#series) · [项目来源与许可](#license)
 
@@ -27,7 +27,7 @@
 
 ## 安装与更新
 
-1. 下载 [zotero-paperflow-16.3.3.xpi](https://github.com/groele/Zotero-PaperFlow/releases/download/v16.3.3/zotero-paperflow-16.3.3.xpi)（插件版本 **16.3.3**），不要安装 Source code ZIP。
+1. 下载 [zotero-paperflow-16.4.0.xpi](https://github.com/groele/Zotero-PaperFlow/releases/download/v16.4.0/zotero-paperflow-16.4.0.xpi)（插件版本 **16.4.0**），不要安装 Source code ZIP。
 2. 在 Zotero 打开 **工具 → 插件／附加组件**，从齿轮菜单选择 **从文件安装插件**。
 3. 选择 XPI，完成安装；按提示重启 Zotero。
 
@@ -82,11 +82,11 @@ Zotero 偏好页配置窗口和数据维护；工作台中的业务设置按实�
 
 | 项目 | 范围 |
 |---|---|
-| 当前插件版本 | 16.3.3 |
+| 当前插件版本 | 16.4.0 |
 | 清单声明的 Zotero 范围 | `10.0` 至 `12.*`（面向 Zotero 10+ 现代 Web Components 架构） |
-| 当前说明 | 16.3.3 完成全仓样式表（45个CSS文件）、测试套件（20个测试文件）、构建打包脚本（5个Script文件）及全部 112 个 TypeScript 源码文件的物理级 360 行硬约束解耦治理，全仓 0 债务。139 项自动化单元测试、5 项打包测试及 16 项架构守卫全部 100% 绿色通过。 |
+| 当前说明 | 16.4.0 恢复投稿卡片四个操作入口，修复弹窗 ID 与交互状态；141 项单元测试、16 项架构守卫及打包自检通过，12 组 Chromium 页面可见性验证和四项点击流程通过。 |
 
-插件版本与 Zotero 版本分别管理。清单允许安装，不代表所有版本、操作系统和外部服务均已验证。本版通过全套自动化回归测试、打包校验测试、标签语法自检及隔离 Windows Zotero 10 环境验证。
+插件版本与 Zotero 版本分别管理。清单允许安装，不代表所有版本、操作系统和外部服务均已验证。本版已完成自动化与 Chromium 页面验证；Zotero 主配置安装及原生视觉验收尚未完成。
 
 <a id="troubleshooting"></a>
 

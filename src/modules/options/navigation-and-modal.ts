@@ -1,7 +1,7 @@
 /**
  * Zotero PaperFlow - Workspace Navigation, Modal Lifecycle & Toast Celebrations
  */
-export const RF_OPTIONS_RENDER_VERSION = '16.3.3';
+export const RF_OPTIONS_RENDER_VERSION = '16.4.0';
 export const UI_THEME_OPTIONS = new Set(['system', 'light', 'dark']);
 
 const g: any = typeof globalThis !== 'undefined' ? globalThis : window;
@@ -128,6 +128,7 @@ export function openModal(htmlContent: string): void {
   }
   previousModalFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
   window.RFUI.setHTML(modalContent, htmlContent);
+  modal.inert = false;
   modal.classList.add('active');
   modal.setAttribute('aria-hidden', 'false');
   document.getElementById('btn-close-modal')?.addEventListener('click', closeModal);
@@ -155,6 +156,7 @@ export function closeModal(): void {
     cleanup();
   }
   modal.classList.remove('active');
+  modal.inert = true;
   modal.setAttribute('aria-hidden', 'true');
   window.RFUI.setHTML(modalContent, '');
   if (previousModalFocus && typeof previousModalFocus.focus === 'function' && previousModalFocus.isConnected) {

@@ -182,16 +182,6 @@
   cursor: wait;
 }
 
-.pipeline-cards-container:not(.expanded) .btn-pipeline-share {
-  width: 34px;
-  min-width: 34px;
-  padding-inline: 8px;
-}
-
-.pipeline-cards-container:not(.expanded) .btn-pipeline-share span {
-  display: none;
-}
-
 .modal-card.share-preview-card {
   width: min(1040px, calc(100vw - 48px));
   max-width: calc(100vw - 48px);

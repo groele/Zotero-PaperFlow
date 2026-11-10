@@ -783,6 +783,34 @@
     }
   });
 
+  // src/modules/dashboard-view/card-actions.ts
+  function mountPipelineActions(card, submissionId, title) {
+    const actions = card.querySelector(".pipeline-actions");
+    if (!actions) return;
+    const doc = card.ownerDocument;
+    const buttons = [
+      ["open", "openSubmissionDetails"],
+      ["add", "addEvent"],
+      ["manage", "manageEvents"],
+      ["share", "shareJourney"]
+    ].map(([action, labelKey]) => {
+      const button = doc.createElement("button");
+      button.type = "button";
+      button.className = `btn-secondary btn-sm btn-pipeline-${action}`;
+      button.dataset.subId = submissionId;
+      button.textContent = t(labelKey);
+      button.setAttribute("aria-label", `${t(labelKey)}: ${title}`);
+      if (action === "share") button.title = t(labelKey);
+      return button;
+    });
+    actions.replaceChildren(...buttons);
+  }
+  var init_card_actions = __esm({
+    "src/modules/dashboard-view/card-actions.ts"() {
+      "use strict";
+    }
+  });
+
   // src/modules/dashboard-view/event-card-builder.ts
   function buildPipelineEventCard(sub, man, index, displayIndex) {
     const w = window;
@@ -874,15 +902,7 @@
           ${man.pdfUri ? `<span class="zotero-pdf-badge" data-item-key="${escapeHTML(man.zoteroItemKey)}" data-library-id="${escapeHTML(man.zoteroLibraryID || "")}" title="${escapeHTML((w.currentLanguage || "zh") === "zh" ? "在 Zotero 阅读器中打开 PDF" : "Open PDF in Zotero reader")}">📖 PDF</span>` : ""}
         ` : ""}
       </div>
-      <div class="pipeline-actions" style="margin-top: 12px; display: flex; gap: 8px; flex-wrap: wrap;">
-        <button type="button" class="btn-secondary btn-sm btn-pipeline-open" data-sub-id="${escapeHTML(sub.id)}" aria-label="${escapeHTML(t("openSubmissionDetails"))}: ${escapeHTML(manTitle)}">${escapeHTML(t("openSubmissionDetails"))}</button>
-        <button type="button" class="btn-secondary btn-sm btn-pipeline-add" data-sub-id="${escapeHTML(sub.id)}">${t("addEvent")}</button>
-        <button type="button" class="btn-secondary btn-sm btn-pipeline-manage" data-sub-id="${escapeHTML(sub.id)}">${t("manageEvents")}</button>
-        <button type="button" class="btn-secondary btn-sm btn-pipeline-share" data-sub-id="${escapeHTML(sub.id)}" title="${escapeHTML(t("shareJourney"))}" aria-label="${escapeHTML(t("shareJourney"))}: ${escapeHTML(manTitle)}">
-          <svg viewBox="0 0 24 24" aria-hidden="true" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="m8.6 10.5 6.8-4M8.6 13.5l6.8 4"/></svg>
-          <span>${escapeHTML(t("shareJourney"))}</span>
-        </button>
-      </div>
+      <div class="pipeline-actions"></div>
     </div>
 
     <!-- Col 2: Middle Core Panel -->
@@ -916,6 +936,7 @@
     </div>
     ${buildInlineStageEditor(sub.id)}
   `);
+    mountPipelineActions(card, sub.id, manTitle);
     bindPipelineCardInteractions(card, sub);
     return card;
   }
@@ -924,6 +945,7 @@
       "use strict";
       init_field_helpers();
       init_card_interactions();
+      init_card_actions();
     }
   });
 

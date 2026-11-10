@@ -18,6 +18,9 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
+      - run: npm ci
       - run: python scripts/test-release-package.py
-      - run: node --test tests/*.test.js
-      - run: python tools/build-xpi.py --output /tmp/candidate.xpi --report /tmp/package-verification.json
+      - run: npm run build
+      - run: npm test
+      - run: node scripts/package-xpi.mjs --verify-only
+      - run: git diff --exit-code -- update.json SHA256SUMS.txt

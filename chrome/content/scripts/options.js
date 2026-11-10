@@ -6,7 +6,7 @@
  * Target runtime: Gecko 153+ / Firefox 140+ (minify: false for Error Console audit)
  * ----------------------------------------------------------------------------------
  */
-const RF_OPTIONS_RENDER_VERSION = '16.3.3';
+const RF_OPTIONS_RENDER_VERSION = '16.4.0';
 "use strict";
 (() => {
   var __getOwnPropNames = Object.getOwnPropertyNames;
@@ -116,6 +116,7 @@ const RF_OPTIONS_RENDER_VERSION = '16.3.3';
     }
     previousModalFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     window.RFUI.setHTML(modalContent, htmlContent);
+    modal.inert = false;
     modal.classList.add("active");
     modal.setAttribute("aria-hidden", "false");
     document.getElementById("btn-close-modal")?.addEventListener("click", closeModal);
@@ -147,6 +148,7 @@ const RF_OPTIONS_RENDER_VERSION = '16.3.3';
       cleanup();
     }
     modal.classList.remove("active");
+    modal.inert = true;
     modal.setAttribute("aria-hidden", "true");
     window.RFUI.setHTML(modalContent, "");
     if (previousModalFocus && typeof previousModalFocus.focus === "function" && previousModalFocus.isConnected) {
@@ -302,7 +304,7 @@ const RF_OPTIONS_RENDER_VERSION = '16.3.3';
   var init_navigation_and_modal = __esm({
     "src/modules/options/navigation-and-modal.ts"() {
       "use strict";
-      RF_OPTIONS_RENDER_VERSION = "16.3.3";
+      RF_OPTIONS_RENDER_VERSION = "16.4.0";
       UI_THEME_OPTIONS = /* @__PURE__ */ new Set(["system", "light", "dark"]);
       g = typeof globalThis !== "undefined" ? globalThis : window;
       if (!("db" in g)) g.db = null;
