@@ -90,9 +90,9 @@
 .btn-pipeline-open:hover,
 .btn-pipeline-open:focus-visible { border-color: hsl(var(--workspace-accent)); }
 
-.pipeline-card .project-info .pipeline-actions { gap: 6px !important; }
-.pipeline-card .project-info .pipeline-actions button { min-width: 0; min-height: 32px; font-size: 12px; }
-.pipeline-cards-container:not(.expanded) .project-info .pipeline-actions { flex-wrap: nowrap; }
+.pipeline-card .project-info .pipeline-actions { gap: 8px !important; flex-wrap: wrap !important; display: flex !important; }
+.pipeline-card .project-info .pipeline-actions button { min-width: 0; height: 28px !important; min-height: 28px !important; font-size: 12px !important; padding: 0 10px !important; border-radius: 6px !important; }
+.pipeline-cards-container:not(.expanded) .project-info .pipeline-actions { flex-wrap: wrap !important; }
 
 .kanban-card-title-row { display: block; margin-bottom: 8px; }
 .kanban-view-options {

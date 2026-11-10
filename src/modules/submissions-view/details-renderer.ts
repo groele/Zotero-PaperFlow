@@ -11,10 +11,9 @@ import {
 import { openLinkSubmissionModal, renderSubmissions } from './list-and-portals';
 import { openAcademicRebuttalExportModal } from './rebuttal-export-modal';
 import { openTransferSubmissionModal } from './modals-and-creation';
+import { setSelectedSubmissionId, clearSubmissionAutoSave } from './submission-state';
 
 declare var db: any;
-declare var selectedSubmissionId: any;
-declare var submissionAutoSaveCleanup: any;
 declare const currentLanguage: string;
 declare const RF_OPTIONS_RENDER_VERSION: string;
 declare const ZoteroBridge: any;
@@ -41,7 +40,7 @@ declare function showGlobalToast(message: string, type?: string, duration?: numb
 
 export function renderSubmissionDetails(sub: any): void {
   const w = window as any;
-  submissionAutoSaveCleanup?.();
+  clearSubmissionAutoSave();
   sub.status = normalizeSubmissionStatus(sub.status);
   normalizeSubmissionTimeline(sub);
   const detailPanel = document.getElementById('submission-detail-panel');
@@ -124,7 +123,7 @@ export function renderSubmissionDetails(sub: any): void {
     </div>
   `);
 
-  detailPanel.dataset.rfRenderVersion = (typeof RF_OPTIONS_RENDER_VERSION !== 'undefined') ? RF_OPTIONS_RENDER_VERSION : '16.3.2';
+  detailPanel.dataset.rfRenderVersion = (typeof RF_OPTIONS_RENDER_VERSION !== 'undefined') ? RF_OPTIONS_RENDER_VERSION : '16.3.3';
   detailPanel.dataset.rfEditorMounted = 'true';
   detailPanel.dataset.currentSubmissionId = sub.id;
   detailPanel.scrollTop = 0;
@@ -293,7 +292,7 @@ function bindSubmissionDetailListeners(sub: any, man: any): void {
     if (confirm(t('confirmDeleteSubmission'))) {
       w.storage.recordEntityDeletion(db, 'submissions', sub.id);
       syncManuscriptStatusesFromSubmissions(db);
-      selectedSubmissionId = null;
+      setSelectedSubmissionId(null);
       await w.storage.saveAll(db);
       renderDashboard();
       renderKanban();

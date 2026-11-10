@@ -1,4 +1,4 @@
-> **16.3.2 Strict 360-Line Ceiling & Multi-Dimensional Code Deconstruction**: Completed comprehensive deconstruction across all CSS stylesheets, unit test suites, build/packaging scripts, and TypeScript modules. Every single maintainable file strictly respects the §5.9 360-line ceiling (0 technical debt declared). Extended 16-point automated architecture guard; preserving full Zotero 10 ~ 12 modern Gecko compatibility. [Release notes](docs/releases/v16.3.2.md).
+> **16.3.3 Strict 360-Line Ceiling & Multi-Dimensional Code Deconstruction**: Completed comprehensive deconstruction across all CSS stylesheets, unit test suites, build/packaging scripts, and TypeScript modules. Every single maintainable file strictly respects the §5.9 360-line ceiling (0 technical debt declared). Extended 16-point automated architecture guard; preserving full Zotero 10 ~ 12 modern Gecko compatibility. [Release notes](docs/releases/v16.3.3.md).
 
 # Zotero PaperFlow
 
@@ -11,7 +11,7 @@ Manage manuscripts, submission rounds, and review responses.
 
 [简体中文](README.md) · [English](README.en.md)
 
-[![Release](https://img.shields.io/badge/version-16.3.2-245ac7?style=flat-square)](https://github.com/groele/Zotero-PaperFlow/releases/tag/v16.3.2) · [Download XPI](https://github.com/groele/Zotero-PaperFlow/releases/download/v16.3.2/zotero-paperflow-16.3.2.xpi) · [Report an issue](https://github.com/groele/Zotero-PaperFlow/issues)
+[![Release](https://img.shields.io/badge/version-16.3.3-245ac7?style=flat-square)](https://github.com/groele/Zotero-PaperFlow/releases/tag/v16.3.3) · [Download XPI](https://github.com/groele/Zotero-PaperFlow/releases/download/v16.3.3/zotero-paperflow-16.3.3.xpi) · [Report an issue](https://github.com/groele/Zotero-PaperFlow/issues)
 
 [Overview](#overview) · [Installation and updates](#installation) · [Quick start](#quick-start) · [Key features](#features) · [Settings](#settings) · [Data, sync, and services](#data) · [Compatibility and validation](#compatibility) · [Troubleshooting](#troubleshooting) · [Development and documentation](#development) · [The Flow series](#series) · [Origin and license](#license)
 
@@ -27,7 +27,7 @@ Install this add-on independently and combine it with other Flow products as nee
 
 ## Installation and updates
 
-1. Download [zotero-paperflow-16.3.2.xpi](https://github.com/groele/Zotero-PaperFlow/releases/download/v16.3.2/zotero-paperflow-16.3.2.xpi) (add-on version **16.3.2**), not the Source code ZIP.
+1. Download [zotero-paperflow-16.3.3.xpi](https://github.com/groele/Zotero-PaperFlow/releases/download/v16.3.3/zotero-paperflow-16.3.3.xpi) (add-on version **16.3.3**), not the Source code ZIP.
 2. In Zotero, open **Tools → Plugins/Add-ons**, then choose **Install Add-on From File** from the gear menu.
 3. Select the XPI, complete installation, and restart if requested.
 
@@ -82,9 +82,9 @@ Zotero preferences configure window behavior and data maintenance; use workspace
 
 | Item | Scope |
 |---|---|
-| Current add-on version | 16.3.2 |
+| Current add-on version | 16.3.3 |
 | Declared Zotero range | `10.0` through `12.*` (for modern Zotero 10+ Web Components architecture) |
-| Evidence boundary | Version 16.3.2 enforces strict physical 360-line ceiling across all CSS stylesheets (45 files), unit test suites (20 files), build/packaging scripts (5 files) and all 112 TypeScript modules in src/. Official architecture baseline declared debtCleared: true (0 debt); 139 automated unit tests, 5 packaging tests, and 16 architecture guard rules pass 100%. |
+| Evidence boundary | Version 16.3.3 enforces strict physical 360-line ceiling across all CSS stylesheets (45 files), unit test suites (20 files), build/packaging scripts (5 files) and all 112 TypeScript modules in src/. Official architecture baseline declared debtCleared: true (0 debt); 139 automated unit tests, 5 packaging tests, and 16 architecture guard rules pass 100%. |
 
 Add-on and Zotero versions are separate. Manifest compatibility does not establish testing on every host, operating system, or service. This release passed the full Node regression test suite, installer packaging verification, tag self-tests, and isolated Windows Zotero 10 environment checks.
 

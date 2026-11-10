@@ -274,7 +274,12 @@
       <span>${escapeHTML(t(field.labelKey))}</span>
     </label>
   `).join("");
-    openModal(`
+    const openModalFn = window.openModal || (typeof openModal === "function" ? openModal : null);
+    if (!openModalFn) {
+      showGlobalToast(t("shareJourneyFailed"), "error");
+      return;
+    }
+    openModalFn(`
     <div class="modal-header">
       <div>
         <h2>${escapeHTML(t("shareJourneyTitle"))}</h2>

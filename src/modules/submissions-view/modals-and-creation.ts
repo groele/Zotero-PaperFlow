@@ -1,8 +1,8 @@
 import { renderSubmissions } from './list-and-portals';
 import { renderSubmissionDetails } from './details-renderer';
+import { setSelectedSubmissionId } from './submission-state';
 
 declare var db: any;
-declare var selectedSubmissionId: any;
 declare const currentLanguage: string;
 declare const ZoteroBridge: any;
 declare function escapeHTML(str: any): string;
@@ -87,7 +87,7 @@ export function openTransferSubmissionModal(sourceSub: any): void {
     const newSub = createTransferredSubmission(sourceSub, targetJournal, submissionDate, journalUrl);
     db.submissions.push(newSub);
     syncManuscriptStatusFromSubmission(newSub);
-    selectedSubmissionId = newSub.id;
+    setSelectedSubmissionId(newSub.id);
 
     await w.storage.saveAll(db);
     closeModal();
@@ -297,7 +297,7 @@ function setupSubmitSubmissionListener(manuscriptSelect: HTMLSelectElement | nul
     normalizeSubmissionTimeline(newSub);
     db.submissions.push(newSub);
     syncManuscriptStatusFromSubmission(newSub);
-    selectedSubmissionId = newSub.id;
+    setSelectedSubmissionId(newSub.id);
     await w.storage.saveAll(db);
 
     closeModal();

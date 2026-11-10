@@ -1,6 +1,6 @@
 {
   "name": "zotero-paperflow",
-  "version": "16.3.2",
+  "version": "16.3.3",
   "description": "Manage manuscripts, submission rounds, and review responses. Part of Zotero Flow.",
   "scripts": {
     "typecheck": "tsc --noEmit",

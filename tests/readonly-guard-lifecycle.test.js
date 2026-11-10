@@ -91,7 +91,7 @@ function createHostContext(initialDb = { manuscripts: [{ id: 'm1', title: 'Test 
 }
 
 
-test('authoritative versions across package.json, manifest, product.json, preferences, READMEs, and workspace are unified at 16.3.2', () => {
+test('authoritative versions across package.json, manifest, product.json, preferences, READMEs, and workspace are unified at 16.3.3', () => {
   const pkg = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8'));
   const manifest = JSON.parse(fs.readFileSync(path.join(root, 'manifest.json'), 'utf8'));
   const product = JSON.parse(fs.readFileSync(path.join(root, 'docs/brand/product.json'), 'utf8'));
@@ -103,7 +103,7 @@ test('authoritative versions across package.json, manifest, product.json, prefer
   const readmeEn = fs.readFileSync(path.join(root, 'README.en.md'), 'utf8');
   const updateJson = JSON.parse(fs.readFileSync(path.join(root, 'update.json'), 'utf8'));
 
-  const expectedVersion = '16.3.2';
+  const expectedVersion = '16.3.3';
   assert.equal(pkg.version, expectedVersion);
   assert.equal(manifest.version, expectedVersion);
   assert.equal(product.version, expectedVersion);

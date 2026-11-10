@@ -66,7 +66,18 @@ export function openTimelineEventManager(subId: string): void {
     return;
   }
 
-  openModal(`
+  const openModalFn = (window as any).openModal || (typeof openModal === 'function' ? openModal : null);
+  const closeModalFn = () => {
+    const fn = (window as any).closeModal || (typeof closeModal === 'function' ? closeModal : null);
+    if (fn) fn();
+  };
+
+  if (!openModalFn) {
+    showGlobalToast(t('submissionNotFound'), 'error');
+    return;
+  }
+
+  openModalFn(`
     <div class="modal-header">
       <h2>${t('timelineEvents')}</h2>
       <button class="btn-secondary btn-icon" id="btn-close-modal" title="${escapeHTML(t('close'))}">✕</button>
@@ -77,11 +88,11 @@ export function openTimelineEventManager(subId: string): void {
     </div>
   `);
 
-  document.getElementById('btn-footer-close-events')?.addEventListener('click', closeModal);
+  document.getElementById('btn-footer-close-events')?.addEventListener('click', closeModalFn);
 
   modalContent.querySelectorAll('.btn-event-edit').forEach((btn: any) => {
     btn.addEventListener('click', () => {
-      closeModal();
+      closeModalFn();
       openStageDrawer(btn.getAttribute('data-sub-id'), btn.getAttribute('data-node-id'));
     });
   });

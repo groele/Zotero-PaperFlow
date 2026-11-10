@@ -25,6 +25,49 @@
     }
   };
 
+  // src/modules/submissions-view/submission-state.ts
+  function setSelectedSubmissionId(id) {
+    selectedSubmissionId = id;
+    if (typeof window !== "undefined") window.selectedSubmissionId = id;
+    if (typeof globalThis !== "undefined") globalThis.selectedSubmissionId = id;
+  }
+  function setSubmissionAutoSaveCleanup(fn) {
+    submissionAutoSaveCleanup = fn;
+    if (typeof window !== "undefined") window.submissionAutoSaveCleanup = fn;
+    if (typeof globalThis !== "undefined") globalThis.submissionAutoSaveCleanup = fn;
+  }
+  function clearSubmissionAutoSave() {
+    const win = typeof window !== "undefined" ? window : globalThis;
+    try {
+      if (typeof win.submissionAutoSaveCleanup === "function") win.submissionAutoSaveCleanup();
+      else if (typeof submissionAutoSaveCleanup === "function") submissionAutoSaveCleanup();
+    } catch (_) {
+    }
+    setSubmissionAutoSaveCleanup(null);
+  }
+  function incrementPendingSubmissionSaves() {
+    pendingSubmissionSaves += 1;
+    const win = typeof window !== "undefined" ? window : globalThis;
+    win.pendingSubmissionSaves = pendingSubmissionSaves;
+    return pendingSubmissionSaves;
+  }
+  function decrementPendingSubmissionSaves() {
+    pendingSubmissionSaves = Math.max(0, pendingSubmissionSaves - 1);
+    const win = typeof window !== "undefined" ? window : globalThis;
+    win.pendingSubmissionSaves = pendingSubmissionSaves;
+    return pendingSubmissionSaves;
+  }
+  var g, selectedSubmissionId, submissionAutoSaveCleanup, pendingSubmissionSaves;
+  var init_submission_state = __esm({
+    "src/modules/submissions-view/submission-state.ts"() {
+      "use strict";
+      g = typeof window !== "undefined" ? window : globalThis;
+      selectedSubmissionId = g.selectedSubmissionId || null;
+      submissionAutoSaveCleanup = g.submissionAutoSaveCleanup || null;
+      pendingSubmissionSaves = g.pendingSubmissionSaves || 0;
+    }
+  });
+
   // src/modules/submissions-view/checklist-and-matrix.ts
   function getDefaultSubmissionChecklistKeys() {
     return [
@@ -251,6 +294,7 @@
   var init_editor_sync = __esm({
     "src/modules/submissions-view/editor-sync.ts"() {
       "use strict";
+      init_submission_state();
     }
   });
 
@@ -296,8 +340,8 @@
   }
   function openSubmissionForEditing(sub, options = {}) {
     if (!canLeaveSubmissionEditor()) return;
-    submissionAutoSaveCleanup?.();
-    selectedSubmissionId = sub.id;
+    clearSubmissionAutoSave();
+    setSelectedSubmissionId(sub.id);
     const w = window;
     w.renderSubmissions?.();
     w.renderSubmissionDetails?.(sub);
@@ -306,8 +350,8 @@
     }
   }
   function navigateToSubmissionDetails(submissionId) {
-    const g = typeof window !== "undefined" ? window : globalThis;
-    const database = g?.db || (typeof db !== "undefined" ? db : null);
+    const g2 = typeof window !== "undefined" ? window : globalThis;
+    const database = g2?.db || (typeof db !== "undefined" ? db : null);
     const submission = (database?.submissions || []).find((item) => item.id === submissionId);
     if (!submission) {
       showGlobalToast(t("submissionNotFound"), "error");
@@ -368,7 +412,7 @@
       const requestedRevision = revision;
       const values = getSubmissionEditValues("sub-edit");
       const currentSnapshot = JSON.stringify(values);
-      pendingSubmissionSaves += 1;
+      incrementPendingSubmissionSaves();
       setStatus("saving", t("autoSaveSaving"));
       saveChain = saveChain.catch(() => {
       }).then(async () => {
@@ -402,7 +446,7 @@
         setStatus("error", t("autoSaveFailed"), String(error?.message || error || ""));
         showGlobalToast(t("autoSaveFailed"), "error");
       }).finally(() => {
-        pendingSubmissionSaves -= 1;
+        decrementPendingSubmissionSaves();
       });
     };
     const requestSave = ({ immediate = false } = {}) => {
@@ -434,18 +478,20 @@
     };
     window.addEventListener("pagehide", flushPendingSave);
     document.addEventListener("visibilitychange", flushWhenHidden);
-    submissionAutoSaveCleanup = () => {
+    const cleanupFn = () => {
       flushPendingSave();
       window.removeEventListener("pagehide", flushPendingSave);
       document.removeEventListener("visibilitychange", flushWhenHidden);
-      submissionAutoSaveCleanup = null;
+      setSubmissionAutoSaveCleanup(null);
     };
+    setSubmissionAutoSaveCleanup(cleanupFn);
   }
   var init_autosave_and_editor = __esm({
     "src/modules/submissions-view/autosave-and-editor.ts"() {
       "use strict";
       init_checklist_and_matrix();
       init_editor_sync();
+      init_submission_state();
     }
   });
 
@@ -656,19 +702,20 @@
     w.RFUI.setHTML(container, "");
     if (db.submissions.length === 0) {
       w.RFUI.setHTML(container, `<p class="empty-state">${escapeHTML(t("noSubmissionsTracked"))}</p>`);
-      selectedSubmissionId = null;
+      setSelectedSubmissionId(null);
     } else {
       const sortedSubmissions = sortDashboardSubmissions(db.submissions);
       const manuscriptsById = new Map(db.manuscripts.map((manuscript) => [manuscript.id, manuscript]));
       const cards = document.createDocumentFragment();
       if (!sortedSubmissions.some((sub) => sub.id === selectedSubmissionId)) {
-        selectedSubmissionId = sortedSubmissions[0].id;
+        setSelectedSubmissionId(sortedSubmissions[0].id);
       }
-      const selectedSubmission = sortedSubmissions.find((sub) => sub.id === selectedSubmissionId) || sortedSubmissions[0];
+      const currentSelectedId = window.selectedSubmissionId || selectedSubmissionId;
+      const selectedSubmission = sortedSubmissions.find((sub) => sub.id === currentSelectedId) || sortedSubmissions[0];
       sortedSubmissions.forEach((sub, index) => {
         const displayIndex = sortedSubmissions.length - index;
         const card = document.createElement("div");
-        card.className = `glass-card submission-card-item ${sub.id === selectedSubmissionId ? "selected" : ""}`;
+        card.className = `glass-card submission-card-item ${sub.id === currentSelectedId ? "selected" : ""}`;
         const man = manuscriptsById.get(sub.manuscriptId);
         const manTitle = man ? man.title : sub.title || t("untitledManuscript");
         const journalName = getSubmissionJournalName(sub);
@@ -836,6 +883,7 @@
       "use strict";
       init_autosave_and_editor();
       init_journal_portals();
+      init_submission_state();
     }
   });
 
@@ -1072,7 +1120,7 @@
       const newSub = createTransferredSubmission(sourceSub, targetJournal, submissionDate, journalUrl);
       db.submissions.push(newSub);
       syncManuscriptStatusFromSubmission(newSub);
-      selectedSubmissionId = newSub.id;
+      setSelectedSubmissionId(newSub.id);
       await w.storage.saveAll(db);
       closeModal();
       renderDashboard();
@@ -1297,7 +1345,7 @@
       normalizeSubmissionTimeline(newSub);
       db.submissions.push(newSub);
       syncManuscriptStatusFromSubmission(newSub);
-      selectedSubmissionId = newSub.id;
+      setSelectedSubmissionId(newSub.id);
       await w.storage.saveAll(db);
       closeModal();
       renderDashboard();
@@ -1311,13 +1359,14 @@
       "use strict";
       init_list_and_portals();
       init_details_renderer();
+      init_submission_state();
     }
   });
 
   // src/modules/submissions-view/details-renderer.ts
   function renderSubmissionDetails(sub) {
     const w = window;
-    submissionAutoSaveCleanup?.();
+    clearSubmissionAutoSave();
     sub.status = normalizeSubmissionStatus(sub.status);
     normalizeSubmissionTimeline(sub);
     const detailPanel = document.getElementById("submission-detail-panel");
@@ -1395,7 +1444,7 @@
       <div class="submission-review-preview" id="submission-review-preview"></div>
     </div>
   `);
-    detailPanel.dataset.rfRenderVersion = typeof RF_OPTIONS_RENDER_VERSION !== "undefined" ? RF_OPTIONS_RENDER_VERSION : "16.3.2";
+    detailPanel.dataset.rfRenderVersion = typeof RF_OPTIONS_RENDER_VERSION !== "undefined" ? RF_OPTIONS_RENDER_VERSION : "16.3.3";
     detailPanel.dataset.rfEditorMounted = "true";
     detailPanel.dataset.currentSubmissionId = sub.id;
     detailPanel.scrollTop = 0;
@@ -1557,7 +1606,7 @@
       if (confirm(t("confirmDeleteSubmission"))) {
         w.storage.recordEntityDeletion(db, "submissions", sub.id);
         syncManuscriptStatusesFromSubmissions(db);
-        selectedSubmissionId = null;
+        setSelectedSubmissionId(null);
         await w.storage.saveAll(db);
         renderDashboard();
         renderKanban();
@@ -1615,12 +1664,14 @@
       init_list_and_portals();
       init_rebuttal_export_modal();
       init_modals_and_creation();
+      init_submission_state();
     }
   });
 
   // src/modules/submissions-view.ts
   var require_submissions_view = __commonJS({
     "src/modules/submissions-view.ts"(exports, module) {
+      init_submission_state();
       init_autosave_and_editor();
       init_editor_sync();
       init_checklist_and_matrix();
@@ -1632,6 +1683,10 @@
       bindTrackSubmissionButton();
       setupSubmissionSearch();
       var exportedApi = {
+        selectedSubmissionId,
+        submissionAutoSaveCleanup,
+        setSelectedSubmissionId,
+        clearSubmissionAutoSave,
         focusSubmissionEditCenter,
         canLeaveSubmissionEditor,
         openSubmissionForEditing,
@@ -1672,8 +1727,8 @@
         openTransferSubmissionModal,
         openTrackSubmissionModal
       };
-      var g = typeof globalThis !== "undefined" ? globalThis : window;
-      Object.assign(g, exportedApi);
+      var g2 = typeof globalThis !== "undefined" ? globalThis : window;
+      Object.assign(g2, exportedApi);
       if (typeof window !== "undefined") {
         Object.assign(window, exportedApi);
         window.RFAcademicExport = window.RFAcademicExport || {

@@ -10,9 +10,9 @@ export {
   openJournalPortalEditor,
   setupJournalPortalListeners,
 };
+import { selectedSubmissionId, setSelectedSubmissionId } from './submission-state';
 
 declare var db: any;
-declare var selectedSubmissionId: any;
 declare const currentLanguage: string;
 declare const modal: HTMLElement | null;
 declare const ZoteroBridge: any;
@@ -95,20 +95,21 @@ export function renderSubmissions({ refreshDetails = true } = {}): void {
 
   if (db.submissions.length === 0) {
     w.RFUI.setHTML(container, `<p class="empty-state">${escapeHTML(t('noSubmissionsTracked'))}</p>`);
-    selectedSubmissionId = null;
+    setSelectedSubmissionId(null);
   } else {
     const sortedSubmissions = sortDashboardSubmissions(db.submissions);
     const manuscriptsById = new Map<string, any>(db.manuscripts.map((manuscript: any) => [manuscript.id, manuscript]));
     const cards = document.createDocumentFragment();
     if (!sortedSubmissions.some((sub) => sub.id === selectedSubmissionId)) {
-      selectedSubmissionId = sortedSubmissions[0].id;
+      setSelectedSubmissionId(sortedSubmissions[0].id);
     }
-    const selectedSubmission = sortedSubmissions.find((sub) => sub.id === selectedSubmissionId) || sortedSubmissions[0];
+    const currentSelectedId = (window as any).selectedSubmissionId || selectedSubmissionId;
+    const selectedSubmission = sortedSubmissions.find((sub) => sub.id === currentSelectedId) || sortedSubmissions[0];
 
     sortedSubmissions.forEach((sub, index) => {
       const displayIndex = sortedSubmissions.length - index;
       const card = document.createElement('div');
-      card.className = `glass-card submission-card-item ${sub.id === selectedSubmissionId ? 'selected' : ''}`;
+      card.className = `glass-card submission-card-item ${sub.id === currentSelectedId ? 'selected' : ''}`;
 
       const man = manuscriptsById.get(sub.manuscriptId);
       const manTitle = man ? man.title : (sub.title || t('untitledManuscript'));

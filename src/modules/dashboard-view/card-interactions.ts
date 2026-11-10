@@ -47,10 +47,14 @@ export function bindPipelineCardInteractions(card: HTMLElement, sub: any): void 
   card.querySelectorAll('.btn-pipeline-open').forEach((btn: any) => {
     btn.addEventListener('click', (e: Event) => {
       e.stopPropagation();
-      const g = typeof window !== 'undefined' ? (window as any) : (globalThis as any);
-      const navFn = g.navigateToSubmissionDetails || (typeof navigateToSubmissionDetails === 'function' ? navigateToSubmissionDetails : null);
-      if (typeof navFn === 'function') {
-        navFn(sub.id);
+      try {
+        const g = typeof window !== 'undefined' ? (window as any) : (globalThis as any);
+        const navFn = g.navigateToSubmissionDetails || (typeof navigateToSubmissionDetails === 'function' ? navigateToSubmissionDetails : null);
+        if (typeof navFn === 'function') {
+          navFn(sub.id);
+        }
+      } catch (err) {
+        console.error('[PaperFlow] Failed to navigate to submission details:', err);
       }
     });
   });
@@ -58,11 +62,15 @@ export function bindPipelineCardInteractions(card: HTMLElement, sub: any): void 
   card.querySelectorAll('.btn-pipeline-add, .btn-quick-add-event').forEach((btn: any) => {
     btn.addEventListener('click', (e: Event) => {
       e.stopPropagation();
-      const g = typeof window !== 'undefined' ? (window as any) : (globalThis as any);
-      if (typeof g.toggleInlineStageEditor === 'function') {
-        g.toggleInlineStageEditor(card, true);
-      } else if (typeof toggleInlineStageEditor === 'function') {
-        toggleInlineStageEditor(card, true);
+      try {
+        const g = typeof window !== 'undefined' ? (window as any) : (globalThis as any);
+        if (typeof g.toggleInlineStageEditor === 'function') {
+          g.toggleInlineStageEditor(card, true);
+        } else if (typeof toggleInlineStageEditor === 'function') {
+          toggleInlineStageEditor(card, true);
+        }
+      } catch (err) {
+        console.error('[PaperFlow] Failed to toggle inline stage editor:', err);
       }
     });
   });
@@ -70,10 +78,14 @@ export function bindPipelineCardInteractions(card: HTMLElement, sub: any): void 
   card.querySelectorAll('.btn-pipeline-manage').forEach((btn: any) => {
     btn.addEventListener('click', (e: Event) => {
       e.stopPropagation();
-      const g = typeof window !== 'undefined' ? (window as any) : (globalThis as any);
-      const manageFn = g.openTimelineEventManager || (typeof openTimelineEventManager === 'function' ? openTimelineEventManager : null);
-      if (typeof manageFn === 'function') {
-        manageFn(sub.id);
+      try {
+        const g = typeof window !== 'undefined' ? (window as any) : (globalThis as any);
+        const manageFn = g.openTimelineEventManager || (typeof openTimelineEventManager === 'function' ? openTimelineEventManager : null);
+        if (typeof manageFn === 'function') {
+          manageFn(sub.id);
+        }
+      } catch (err) {
+        console.error('[PaperFlow] Failed to open timeline event manager:', err);
       }
     });
   });
@@ -81,10 +93,14 @@ export function bindPipelineCardInteractions(card: HTMLElement, sub: any): void 
   card.querySelectorAll('.btn-pipeline-share, .btn-quick-share').forEach((btn: any) => {
     btn.addEventListener('click', (e: Event) => {
       e.stopPropagation();
-      const g = typeof window !== 'undefined' ? (window as any) : (globalThis as any);
-      const shareFn = g.openSubmissionSharePreview || g.openSubmissionShareModal || (typeof openSubmissionSharePreview === 'function' ? openSubmissionSharePreview : openSubmissionShareModal);
-      if (typeof shareFn === 'function') {
-        shareFn(sub.id, e.currentTarget);
+      try {
+        const g = typeof window !== 'undefined' ? (window as any) : (globalThis as any);
+        const shareFn = g.openSubmissionSharePreview || g.openSubmissionShareModal || (typeof openSubmissionSharePreview === 'function' ? openSubmissionSharePreview : openSubmissionShareModal);
+        if (typeof shareFn === 'function') {
+          shareFn(sub.id, e.currentTarget);
+        }
+      } catch (err) {
+        console.error('[PaperFlow] Failed to open submission share modal:', err);
       }
     });
   });

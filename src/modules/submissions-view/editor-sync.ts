@@ -2,9 +2,9 @@ import {
   getSubmissionChecklistKeys,
   renderSubmissionReviewPreview,
 } from './checklist-and-matrix';
+import { selectedSubmissionId } from './submission-state';
 
 declare var db: any;
-declare var selectedSubmissionId: any;
 declare const ZoteroBridge: any;
 declare function t(key: string): string;
 declare function tf(key: string, vars?: Record<string, any>): string;

@@ -11,7 +11,7 @@ import {
 
 declare var db: any;
 declare var currentDashboardFilter: string;
-declare var isPipelineExpanded: boolean;
+export let isPipelineExpanded: boolean = false;
 declare var ZoteroBridge: any;
 declare var RFPlatform: any;
 declare function t(key: string): string;

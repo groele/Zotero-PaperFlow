@@ -6,11 +6,17 @@ import {
   getSubmissionChecklistKeys,
 } from './checklist-and-matrix';
 import { saveSubmissionEditFromValues } from './editor-sync';
+import {
+  selectedSubmissionId,
+  submissionAutoSaveCleanup,
+  setSelectedSubmissionId,
+  setSubmissionAutoSaveCleanup,
+  clearSubmissionAutoSave,
+  incrementPendingSubmissionSaves,
+  decrementPendingSubmissionSaves,
+} from './submission-state';
 
 declare var db: any;
-declare var selectedSubmissionId: any;
-declare var submissionAutoSaveCleanup: any;
-declare var pendingSubmissionSaves: number;
 declare function t(key: string): string;
 declare function showGlobalToast(message: string, type?: string, duration?: number): void;
 
@@ -57,8 +63,8 @@ export function canLeaveSubmissionEditor(): boolean {
 
 export function openSubmissionForEditing(sub: any, options: { focusEditCenter?: boolean } = {}): void {
   if (!canLeaveSubmissionEditor()) return;
-  submissionAutoSaveCleanup?.();
-  selectedSubmissionId = sub.id;
+  clearSubmissionAutoSave();
+  setSelectedSubmissionId(sub.id);
   const w = window as any;
   w.renderSubmissions?.();
   w.renderSubmissionDetails?.(sub);
@@ -132,7 +138,7 @@ export function setupSubmissionAutoSave(sub: any): void {
     const requestedRevision = revision;
     const values = getSubmissionEditValues('sub-edit');
     const currentSnapshot = JSON.stringify(values);
-    pendingSubmissionSaves += 1;
+    incrementPendingSubmissionSaves();
     setStatus('saving', t('autoSaveSaving'));
 
     saveChain = saveChain.catch(() => {}).then(async () => {
@@ -159,7 +165,7 @@ export function setupSubmissionAutoSave(sub: any): void {
       console.error('Submission auto-save failed:', error);
       setStatus('error', t('autoSaveFailed'), String(error?.message || error || ''));
       showGlobalToast(t('autoSaveFailed'), 'error');
-    }).finally(() => { pendingSubmissionSaves -= 1; });
+    }).finally(() => { decrementPendingSubmissionSaves(); });
   };
 
   const requestSave = ({ immediate = false } = {}) => {
@@ -191,10 +197,11 @@ export function setupSubmissionAutoSave(sub: any): void {
   const flushWhenHidden = () => { if (document.visibilityState === 'hidden') flushPendingSave(); };
   window.addEventListener('pagehide', flushPendingSave);
   document.addEventListener('visibilitychange', flushWhenHidden);
-  submissionAutoSaveCleanup = () => {
+  const cleanupFn = () => {
     flushPendingSave();
     window.removeEventListener('pagehide', flushPendingSave);
     document.removeEventListener('visibilitychange', flushWhenHidden);
-    submissionAutoSaveCleanup = null;
+    setSubmissionAutoSaveCleanup(null);
   };
+  setSubmissionAutoSaveCleanup(cleanupFn);
 }

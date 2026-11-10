@@ -1,4 +1,11 @@
 import {
+  selectedSubmissionId,
+  submissionAutoSaveCleanup,
+  setSelectedSubmissionId,
+  clearSubmissionAutoSave,
+} from './submissions-view/submission-state';
+
+import {
   focusSubmissionEditCenter,
   canLeaveSubmissionEditor,
   openSubmissionForEditing,
@@ -60,6 +67,10 @@ bindTrackSubmissionButton();
 setupSubmissionSearch();
 
 const exportedApi = {
+  selectedSubmissionId,
+  submissionAutoSaveCleanup,
+  setSelectedSubmissionId,
+  clearSubmissionAutoSave,
   focusSubmissionEditCenter,
   canLeaveSubmissionEditor,
   openSubmissionForEditing,

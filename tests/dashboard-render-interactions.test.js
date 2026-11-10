@@ -285,7 +285,7 @@ test("activateWorkspaceView switches views safely without ReferenceError on subm
   });
 });
 
-test("pipeline event cards render add-event and share buttons in header row and action bar", () => {
+test("pipeline event cards render all 4 action buttons in action bar (open, add event, manage, share)", () => {
   const { context, elements } = setupEnvironment();
   const mockData = {
     manuscripts: [{ id: "man_1", title: "Quantum Spin Order", status: "accepted" }],
@@ -296,6 +296,11 @@ test("pipeline event cards render add-event and share buttons in header row and 
   context.renderDashboard();
   const gantt = elements.get("dashboard-gantt");
   assert.ok(gantt.children.length > 0, "Gantt should have rendered at least 1 card");
+  const card = gantt.children[0];
+  assert.ok(card.innerHTML.includes('btn-pipeline-open'), 'Must render details button');
+  assert.ok(card.innerHTML.includes('btn-pipeline-add'), 'Must render add event button');
+  assert.ok(card.innerHTML.includes('btn-pipeline-manage'), 'Must render manage events button');
+  assert.ok(card.innerHTML.includes('btn-pipeline-share'), 'Must render share journey button');
 });
 
 test("openSubmissionShareModal provides 13 preset style themes", () => {

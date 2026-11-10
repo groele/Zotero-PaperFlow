@@ -34,7 +34,8 @@ import {
   initializePipelineViewMode,
   setDashboardFilter,
   updateDashboardFilterUI,
-  getDashboardFilterLabel
+  getDashboardFilterLabel,
+  isPipelineExpanded
 } from './dashboard-view/transfer-and-status.js';
 
 import {
@@ -54,6 +55,7 @@ setupSaveErrorListener();
 setupDashboardFilterListeners();
 
 const dashboardExports = {
+  isPipelineExpanded,
   firstAuthorFromList,
   normalizeWorkflowFields,
   getSubmissionFirstAuthor,
