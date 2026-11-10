@@ -39,15 +39,18 @@
 .share-visibility-heading small { color: hsl(var(--text-muted)); font-size: 12px; line-height: 1.55; }
 #modal-body.share-preview-card label.share-size-control {
   display: grid; gap: 6px; margin: 14px 0 0; color: hsl(var(--text-muted));
-  font-size: 12px; font-weight: 600; letter-spacing: normal; text-transform: none;
+  font-size: 12.5px; font-weight: 600; letter-spacing: normal; text-transform: none;
 }
 #modal-body.share-preview-card .share-size-control select {
-  width: 100%; min-height: 38px; padding: 6px 32px 6px 10px;
+  width: 100%; min-height: 40px; padding: 8px 34px 8px 12px;
   color: hsl(var(--text-primary)); background-color: var(--input-bg);
   background-repeat: no-repeat; background-position: right 10px center; background-size: 12px;
-  border: 1px solid hsl(var(--card-border)); border-radius: 8px;
-  font: inherit; font-size: 12.5px; font-weight: 400; letter-spacing: normal; text-transform: none;
+  border: 1.5px solid hsl(var(--card-border)); border-radius: 9px;
+  font: inherit; font-size: 13px; font-weight: 400; letter-spacing: normal; text-transform: none;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
+#modal-body.share-preview-card .share-size-control select:hover { border-color: #94a3b8; }
+#modal-body.share-preview-card .share-size-control select:focus-visible { outline: 2px solid #2563eb; outline-offset: 1px; border-color: #2563eb; }
 .share-size-control select:disabled { opacity: 0.5; cursor: not-allowed; }
 .share-style-browser { margin: 10px 0 14px; }
 .share-style-browser summary { cursor: pointer; color: hsl(var(--text-muted)); font-size: 12px; font-weight: 500; padding: 4px 0; user-select: none; }
@@ -68,36 +71,85 @@
 .share-style-sample i { display: block; width: 12px; height: 2px; background: var(--sample-accent); font-style: normal; }
 .share-style-sample b { display: block; font: 22px/1 Georgia, serif; }
 .share-style-sample em { display: block; width: 75%; height: 2px; background: var(--sample-accent); opacity: 0.5; }
-.share-visibility-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 7px; margin-top: 12px; }
+.share-visibility-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin-top: 14px; }
 #modal-body.share-preview-card label.share-visibility-chip {
-  display: flex; align-items: center; justify-content: flex-start; gap: 7px; min-width: 0; min-height: 38px; margin-bottom: 0; padding: 7px 9px;
-  font-family: var(--font-body); font-size: 12px; font-weight: 500; line-height: 1.3; letter-spacing: normal; text-transform: none;
-  color: hsl(var(--text-muted)); background-color: hsl(var(--card-bg)); border: 1px solid hsl(var(--card-border)); border-radius: 7px; cursor: pointer;
+  display: flex; align-items: center; justify-content: flex-start; gap: 10px; min-width: 0; min-height: 42px; margin-bottom: 0; padding: 8px 12px;
+  font-family: var(--font-body); font-size: 13px; font-weight: 500; line-height: 1.35; letter-spacing: normal; text-transform: none;
+  color: hsl(var(--text-muted)); background-color: hsl(var(--card-bg)); border: 1.5px solid hsl(var(--card-border)); border-radius: 9px; cursor: pointer;
+  transition: all 0.16s cubic-bezier(0.4, 0, 0.2, 1); user-select: none;
 }
-#modal-body.share-preview-card label.share-visibility-chip:hover { border-color: hsl(var(--workspace-accent, var(--accent-rose)) / 0.42); color: hsl(var(--text-primary)); }
+#modal-body.share-preview-card label.share-visibility-chip:hover { border-color: #94a3b8; background-color: #f8fafc; color: hsl(var(--text-primary)); }
 #modal-body.share-preview-card label.share-visibility-chip:has(input:checked) {
-  background-color: hsl(var(--workspace-accent, var(--accent-rose)) / 0.08);
-  border-color: hsl(var(--workspace-accent, var(--accent-rose)) / 0.42);
-  color: hsl(var(--text-primary)); font-weight: 600;
+  background-color: #eff6ff;
+  border-color: #3b82f6;
+  color: #1d4ed8; font-weight: 600;
+  box-shadow: 0 1px 4px rgba(37, 99, 235, 0.1);
 }
 .share-visibility-chip.share-visibility-chip-wide { grid-column: 1 / -1; }
-.share-visibility-chip input { width: 14px; height: 14px; flex: 0 0 14px; margin: 0; accent-color: hsl(var(--workspace-accent, var(--accent-rose))); }
+#modal-body.share-preview-card .share-visibility-chip input[type="checkbox"] {
+  appearance: none; -webkit-appearance: none; width: 18px; height: 18px; flex: 0 0 18px; margin: 0;
+  border: 1.5px solid #cbd5e1; border-radius: 5px; background-color: hsl(var(--card-bg));
+  display: grid; place-content: center; cursor: pointer; transition: all 0.15s ease;
+}
+#modal-body.share-preview-card .share-visibility-chip input[type="checkbox"]::before {
+  content: ""; width: 9px; height: 5px; border-left: 2px solid #ffffff; border-bottom: 2px solid #ffffff;
+  transform: rotate(-45deg) translate(1px, -1px); opacity: 0; transition: opacity 0.15s ease;
+}
+#modal-body.share-preview-card .share-visibility-chip input[type="checkbox"]:checked {
+  background-color: #2563eb; border-color: #2563eb; box-shadow: 0 1px 3px rgba(37, 99, 235, 0.25);
+}
+#modal-body.share-preview-card .share-visibility-chip input[type="checkbox"]:checked::before { opacity: 1; }
+#modal-body.share-preview-card .share-visibility-chip input[type="checkbox"]:focus-visible { outline: 2px solid #2563eb; outline-offset: 2px; }
 .share-visibility-chip > span:last-child { min-width: 0; overflow-wrap: anywhere; }
 #modal-body.share-preview-card .share-timeline-start-control {
-  display: grid; gap: 6px; margin: 14px 0 0; padding-top: 14px; border-top: 1px solid hsl(var(--card-border));
-  color: hsl(var(--text-muted)); font-size: 12px; font-weight: 600; letter-spacing: normal; text-transform: none;
+  display: grid; gap: 8px; margin: 16px 0 0; padding-top: 14px; border-top: 1px solid hsl(var(--card-border));
+  color: hsl(var(--text-muted)); font-size: 12.5px; font-weight: 600; letter-spacing: normal; text-transform: none;
 }
-.share-timeline-start-options { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
+.share-timeline-start-options { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
 #modal-body.share-preview-card .share-timeline-start-options label {
-  display: flex; align-items: center; gap: 7px; min-width: 0; min-height: 36px; margin-bottom: 0; padding: 6px 8px;
-  border: 1px solid hsl(var(--card-border)); border-radius: 7px; color: hsl(var(--text-muted)); background-color: hsl(var(--card-bg));
-  font-size: 11.5px; font-weight: 500; letter-spacing: normal; text-transform: none; cursor: pointer;
+  display: flex; align-items: center; justify-content: center; gap: 9px; min-width: 0; min-height: 40px; margin-bottom: 0; padding: 8px 12px;
+  border: 1.5px solid hsl(var(--card-border)); border-radius: 9px; color: hsl(var(--text-muted)); background-color: hsl(var(--card-bg));
+  font-size: 13px; font-weight: 500; letter-spacing: normal; text-transform: none; cursor: pointer;
+  transition: all 0.16s cubic-bezier(0.4, 0, 0.2, 1); user-select: none;
+}
+#modal-body.share-preview-card .share-timeline-start-options label:hover {
+  border-color: #94a3b8; background-color: #f8fafc; color: hsl(var(--text-primary));
 }
 #modal-body.share-preview-card .share-timeline-start-options label:has(input:checked) {
-  color: hsl(var(--text-primary)); background-color: hsl(var(--workspace-accent, var(--accent-rose)) / 0.08);
-  border-color: hsl(var(--workspace-accent, var(--accent-rose)) / 0.42); font-weight: 600;
+  background-color: #eff6ff; border-color: #3b82f6; color: #1d4ed8; font-weight: 600;
+  box-shadow: 0 1px 4px rgba(37, 99, 235, 0.1);
 }
-.share-timeline-start-options input { width: 14px; height: 14px; flex: 0 0 14px; margin: 0; accent-color: hsl(var(--workspace-accent, var(--accent-rose))); }
+#modal-body.share-preview-card .share-timeline-start-options input[type="radio"] {
+  appearance: none; -webkit-appearance: none; width: 16px; height: 16px; flex: 0 0 16px; margin: 0;
+  border: 1.5px solid #cbd5e1; border-radius: 50%; background-color: hsl(var(--card-bg));
+  display: grid; place-content: center; cursor: pointer; transition: all 0.15s ease;
+}
+#modal-body.share-preview-card .share-timeline-start-options input[type="radio"]::before {
+  content: ""; width: 8px; height: 8px; border-radius: 50%; background-color: #2563eb; transform: scale(0);
+  transition: transform 0.16s cubic-bezier(0.4, 0, 0.2, 1);
+}
+#modal-body.share-preview-card .share-timeline-start-options input[type="radio"]:checked { border-color: #2563eb; }
+#modal-body.share-preview-card .share-timeline-start-options input[type="radio"]:checked::before { transform: scale(1); }
+#modal-body.share-preview-card .share-timeline-start-options input[type="radio"]:focus-visible { outline: 2px solid #2563eb; outline-offset: 2px; }
+:root[data-theme="dark"] #modal-body.share-preview-card label.share-visibility-chip:hover,
+:root[data-theme="dark"] #modal-body.share-preview-card .share-timeline-start-options label:hover {
+  background-color: rgba(255, 255, 255, 0.05); border-color: #64748b;
+}
+:root[data-theme="dark"] #modal-body.share-preview-card label.share-visibility-chip:has(input:checked),
+:root[data-theme="dark"] #modal-body.share-preview-card .share-timeline-start-options label:has(input:checked) {
+  background-color: rgba(37, 99, 235, 0.16); border-color: rgba(96, 165, 250, 0.5); color: #93c5fd;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.25);
+}
+:root[data-theme="dark"] #modal-body.share-preview-card .share-visibility-chip input[type="checkbox"],
+:root[data-theme="dark"] #modal-body.share-preview-card .share-timeline-start-options input[type="radio"] {
+  border-color: #475569; background-color: #1e293b;
+}
+:root[data-theme="dark"] #modal-body.share-preview-card .share-visibility-chip input[type="checkbox"]:checked,
+:root[data-theme="dark"] #modal-body.share-preview-card .share-timeline-start-options input[type="radio"]:checked {
+  border-color: #3b82f6;
+}
+:root[data-theme="dark"] #modal-body.share-preview-card .share-visibility-chip input[type="checkbox"]:checked { background-color: #2563eb; }
+:root[data-theme="dark"] #modal-body.share-preview-card .share-timeline-start-options input[type="radio"]:checked::before { background-color: #60a5fa; }
 #modal-body.share-preview-card .share-design-reset {
   width: 100%; margin: 14px 0 6px; min-height: 36px;
   color: hsl(var(--text-primary)); background-color: hsl(var(--card-bg)); border: 1px solid hsl(var(--card-border));

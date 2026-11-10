@@ -1,4 +1,4 @@
-> **16.4.4 Spacious Timeline Event Manager & Semantic Color Tints Release**: Comprehensive visual upgrade to the Timeline Events modal dialog, introducing generous 72px dual-column cards, 14px bold typography, and semantic milestone color tinting (research, writing, submission, review, revision, publication) while maintaining full alignment with v15.1 card actions and Share Studio. [Release notes](docs/releases/v16.4.4.md).
+> **16.4.5 Share Studio Selection UI & Checkbox Redesign**: Comprehensive visual overhaul of the Share Studio visibility checkboxes and timeline start options, eliminating harsh unstyled selection tints in favor of modern retina-crisp check boxes, royal blue active states, smooth hover dynamics, and balanced typography. [Release notes](docs/releases/v16.4.5.md).
 
 # Zotero PaperFlow
 
@@ -11,7 +11,7 @@ Manage manuscripts, submission rounds, and review responses.
 
 [简体中文](README.md) · [English](README.en.md)
 
-[![Release](https://img.shields.io/badge/version-16.4.4-245ac7?style=flat-square)](https://github.com/groele/Zotero-PaperFlow/releases/tag/v16.4.4) · [Download XPI](https://github.com/groele/Zotero-PaperFlow/releases/download/v16.4.4/zotero-paperflow-16.4.4.xpi) · [Report an issue](https://github.com/groele/Zotero-PaperFlow/issues)
+[![Release](https://img.shields.io/badge/version-16.4.5-245ac7?style=flat-square)](https://github.com/groele/Zotero-PaperFlow/releases/tag/v16.4.5) · [Download XPI](https://github.com/groele/Zotero-PaperFlow/releases/download/v16.4.5/zotero-paperflow-16.4.5.xpi) · [Report an issue](https://github.com/groele/Zotero-PaperFlow/issues)
 
 [Overview](#overview) · [Installation and updates](#installation) · [Quick start](#quick-start) · [Key features](#features) · [Settings](#settings) · [Data, sync, and services](#data) · [Compatibility and validation](#compatibility) · [Troubleshooting](#troubleshooting) · [Development and documentation](#development) · [The Flow series](#series) · [Origin and license](#license)
 
@@ -27,7 +27,7 @@ Install this add-on independently and combine it with other Flow products as nee
 
 ## Installation and updates
 
-1. Download [zotero-paperflow-16.4.4.xpi](https://github.com/groele/Zotero-PaperFlow/releases/download/v16.4.4/zotero-paperflow-16.4.4.xpi) (add-on version **16.4.4**), not the Source code ZIP.
+1. Download [zotero-paperflow-16.4.5.xpi](https://github.com/groele/Zotero-PaperFlow/releases/download/v16.4.5/zotero-paperflow-16.4.5.xpi) (add-on version **16.4.5**), not the Source code ZIP.
 2. In Zotero, open **Tools → Plugins/Add-ons**, then choose **Install Add-on From File** from the gear menu.
 3. Select the XPI, complete installation, and restart if requested.
 
@@ -82,7 +82,7 @@ Zotero preferences configure window behavior and data maintenance; use workspace
 
 | Item | Scope |
 |---|---|
-| Current add-on version | 16.4.4 |
+| Current add-on version | 16.4.5 |
 | Declared Zotero range | `10.0` through `12.*` (for modern Zotero 10+ Web Components architecture) |
 | Evidence boundary | Strict TypeScript checks, 16 architecture guards, 149 unit tests, and packaging/tag self-tests. Headless Edge browser checks verify Light/Dark themes and 1440×900, 1024×523, and 640×800 viewports for Share Studio and Timeline Event Manager. Native Zotero runtime UI inspection remains pending user reinstall and restart. |
 
