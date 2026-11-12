@@ -1,11 +1,8 @@
-/* Keep status feedback without perpetual animation or layout movement. */
+/* Reduce heavy blur and hover transform overhead while preserving timeline/status animations. */
 body *, body *::before, body *::after,
 body :is(.dashboard-wrapper, #modal-overlay) *,
 body :is(.dashboard-wrapper, #modal-overlay) *::before,
 body :is(.dashboard-wrapper, #modal-overlay) *::after {
-  animation: none !important;
-  transition-property: color, background-color, border-color !important;
-  transition-duration: 80ms !important;
   scroll-behavior: auto !important;
 }
 .pipeline-card:hover, .kanban-card:hover, .stat-box:hover,
@@ -14,4 +11,14 @@ body :is(.dashboard-wrapper, #modal-overlay) *::after {
   backdrop-filter: none !important;
   -webkit-backdrop-filter: none !important;
 }
-body :is(.dashboard-wrapper, #modal-overlay) .spinner { animation: spin 1s linear infinite !important; }
+@media (prefers-reduced-motion: reduce) {
+  body *, body *::before, body *::after,
+  body :is(.dashboard-wrapper, #modal-overlay) *,
+  body :is(.dashboard-wrapper, #modal-overlay) *::before,
+  body :is(.dashboard-wrapper, #modal-overlay) *::after {
+    animation: none !important;
+    transition-property: color, background-color, border-color !important;
+    transition-duration: 80ms !important;
+  }
+  body :is(.dashboard-wrapper, #modal-overlay) .spinner { animation: spin 1s linear infinite !important; }
+}

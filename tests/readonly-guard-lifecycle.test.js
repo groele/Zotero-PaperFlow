@@ -91,7 +91,7 @@ function createHostContext(initialDb = { manuscripts: [{ id: 'm1', title: 'Test 
 }
 
 
-test('authoritative versions across package.json, manifest, product.json, preferences, READMEs, and workspace are unified at 16.5.1', () => {
+test('authoritative versions across package.json, manifest, product.json, preferences, READMEs, and workspace are unified at 16.5.2', () => {
   const pkg = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8'));
   const manifest = JSON.parse(fs.readFileSync(path.join(root, 'manifest.json'), 'utf8'));
   const product = JSON.parse(fs.readFileSync(path.join(root, 'docs/brand/product.json'), 'utf8'));
@@ -103,7 +103,7 @@ test('authoritative versions across package.json, manifest, product.json, prefer
   const readmeEn = fs.readFileSync(path.join(root, 'README.en.md'), 'utf8');
   const updateJson = JSON.parse(fs.readFileSync(path.join(root, 'update.json'), 'utf8'));
 
-  const expectedVersion = '16.5.1';
+  const expectedVersion = '16.5.2';
   assert.equal(pkg.version, expectedVersion);
   assert.equal(manifest.version, expectedVersion);
   assert.equal(product.version, expectedVersion);
@@ -288,5 +288,20 @@ test('syncStatusTagToItem respects syncStatusTags preference and writes PaperFlo
   assert.deepEqual(removedTags, ['ResearchFlow/01-选题大纲']);
   assert.deepEqual(addedTags, [{ tag: 'PaperFlow/02-图表初稿', type: 0 }]);
   assert.equal(saved, true);
+});
+
+test('toolbar tooltip Fluent message is attribute-only and performance.css preserves active timeline animations', () => {
+  for (const locale of ['zh-CN', 'en-US']) {
+    const ftl = fs.readFileSync(path.join(root, `locale/${locale}/researchflow.ftl`), 'utf8');
+    assert.match(ftl, /^researchflow-toolbar-tooltip\s*=\s*\r?\n\s+\.tooltiptext\s*=/m);
+    assert.doesNotMatch(ftl, /^researchflow-toolbar-tooltip[ \t]*=[ \t]*\S+/m);
+  }
+  const windowUi = fs.readFileSync(path.join(root, 'src/host/window-ui.ts'), 'utf8');
+  assert.ok(windowUi.includes("btn.setAttribute('data-l10n-attrs', 'tooltiptext,aria-label')"));
+
+  const perfCss = fs.readFileSync(path.join(root, 'chrome/content/styles/performance.css'), 'utf8');
+  const outsideReducedMotion = perfCss.split('@media (prefers-reduced-motion: reduce)')[0] || '';
+  assert.doesNotMatch(outsideReducedMotion, /animation\s*:\s*none/i);
+  assert.match(perfCss, /@media\s*\(prefers-reduced-motion:\s*reduce\)/i);
 });
 

@@ -1,7 +1,8 @@
 researchflow-menu-open = Zotero PaperFlow 科研工作台
 researchflow-menu-preferences = Zotero PaperFlow 偏好设置...
-researchflow-toolbar-tooltip = 打开 Zotero PaperFlow 工作台 (Ctrl+Alt+R)
+researchflow-toolbar-tooltip =
     .tooltiptext = 打开 Zotero PaperFlow 工作台 (Ctrl+Alt+R)
+    .aria-label = Zotero PaperFlow
 researchflow-item-menu-create = 新建论文稿件管线
 researchflow-item-menu-link = 关联到现有论文稿件
 researchflow-collection-menu-create = 为此分类创建论文稿件管线

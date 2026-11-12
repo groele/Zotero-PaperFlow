@@ -1,1 +1,1 @@
-9ae73c947885f9e674cb391da67a3c0524ce6524cab060c900268f22fe130bee  zotero-paperflow-16.5.1.xpi
+be3d07e1ead60a92905ed5079c7f22dbeb80f55f23f0a6161d9ba710df022a5e  zotero-paperflow-16.5.2.xpi

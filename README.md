@@ -1,4 +1,4 @@
-> **16.5.1 稳定性与数据一致性修复版**：修复看板状态持久化缺失、模态框多轮次状态串改、本地日历与审稿周期时区偏差、未绑定条目误写回与插件停用竞态等问题，并完善设置页观察器与多语言状态同步。见[版本说明](docs/releases/v16.5.1.md)。
+> **16.5.2 工具栏图标与时间线动效修复版**：修复主工具栏按钮 Fluent 词条带顶级值导致图标被文本覆盖的问题，并修复 `performance.css` 全局禁用动画导致活跃投稿时间线流动与「今天」呼吸脉冲动效失效的问题。见[版本说明](docs/releases/v16.5.2.md)。
 
 # Zotero PaperFlow
 
@@ -11,7 +11,7 @@
 
 [简体中文](README.md) · [English](README.en.md)
 
-[![当前版本](https://img.shields.io/badge/version-16.5.1-245ac7?style=flat-square)](https://github.com/groele/Zotero-PaperFlow/releases/tag/v16.5.1) · [下载 XPI](https://github.com/groele/Zotero-PaperFlow/releases/download/v16.5.1/zotero-paperflow-16.5.1.xpi) · [问题反馈](https://github.com/groele/Zotero-PaperFlow/issues)
+[![当前版本](https://img.shields.io/badge/version-16.5.2-245ac7?style=flat-square)](https://github.com/groele/Zotero-PaperFlow/releases/tag/v16.5.2) · [下载 XPI](https://github.com/groele/Zotero-PaperFlow/releases/download/v16.5.2/zotero-paperflow-16.5.2.xpi) · [问题反馈](https://github.com/groele/Zotero-PaperFlow/issues)
 
 [产品定位](#overview) · [安装与更新](#installation) · [快速开始](#quick-start) · [核心功能](#features) · [设置与使用](#settings) · [数据、同步与外部服务](#data) · [兼容性与验证范围](#compatibility) · [常见问题](#troubleshooting) · [开发与详细文档](#development) · [系列产品](#series) · [项目来源与许可](#license)
 

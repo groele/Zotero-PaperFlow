@@ -1,4 +1,4 @@
-> **16.5.1 Reliability & Data Consistency Fix Release**: Fixed missing kanban persistence handler, multi-round status overwrites, UTC vs. local calendar date/countdown drifts, unbound item note write-backs, and shutdown save races, alongside preference observer and l10n alignment. [Release notes](docs/releases/v16.5.1.md).
+> **16.5.2 Toolbar Icon & Timeline Motion Fix Release**: Removed the top-level Fluent value from `researchflow-toolbar-tooltip` so Zotero preserves the toolbar SVG icon, and scoped `performance.css` `animation: none` to `prefers-reduced-motion: reduce` so active event-rail flow and pulse animations work properly. [Release notes](docs/releases/v16.5.2.md).
 
 # Zotero PaperFlow
 
@@ -11,7 +11,7 @@ Manage manuscripts, submission rounds, and review responses.
 
 [简体中文](README.md) · [English](README.en.md)
 
-[![Release](https://img.shields.io/badge/version-16.5.1-245ac7?style=flat-square)](https://github.com/groele/Zotero-PaperFlow/releases/tag/v16.5.1) · [Download XPI](https://github.com/groele/Zotero-PaperFlow/releases/download/v16.5.1/zotero-paperflow-16.5.1.xpi) · [Report an issue](https://github.com/groele/Zotero-PaperFlow/issues)
+[![Release](https://img.shields.io/badge/version-16.5.2-245ac7?style=flat-square)](https://github.com/groele/Zotero-PaperFlow/releases/tag/v16.5.2) · [Download XPI](https://github.com/groele/Zotero-PaperFlow/releases/download/v16.5.2/zotero-paperflow-16.5.2.xpi) · [Report an issue](https://github.com/groele/Zotero-PaperFlow/issues)
 
 [Overview](#overview) · [Installation and updates](#installation) · [Quick start](#quick-start) · [Key features](#features) · [Settings](#settings) · [Data, sync, and services](#data) · [Compatibility and validation](#compatibility) · [Troubleshooting](#troubleshooting) · [Development and documentation](#development) · [The Flow series](#series) · [Origin and license](#license)
 
