@@ -78,29 +78,50 @@
     const doi = getSubmissionDoi(sub);
     return doi ? `https://doi.org/${doi}` : "";
   }
+  function formatCalendarParts(year, month, day) {
+    return `${String(year).padStart(4, "0")}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+  }
+  function parseCalendarParts(dateStr) {
+    if (!dateStr) return null;
+    if (typeof dateStr === "string") {
+      const trimmed = dateStr.trim();
+      const match = trimmed.match(/^(\d{4})-(\d{2})-(\d{2})(?:$|T00:00:00(?:\.000)?Z$)/);
+      if (match) {
+        const year = Number(match[1]);
+        const month = Number(match[2]);
+        const day = Number(match[3]);
+        const probe = new Date(Date.UTC(year, month - 1, day));
+        if (probe.getUTCFullYear() === year && probe.getUTCMonth() === month - 1 && probe.getUTCDate() === day) {
+          return { year, month, day };
+        }
+        return null;
+      }
+    }
+    try {
+      const d = dateStr instanceof Date ? dateStr : new Date(dateStr);
+      if (isNaN(d.getTime())) return null;
+      return { year: d.getFullYear(), month: d.getMonth() + 1, day: d.getDate() };
+    } catch (_) {
+      return null;
+    }
+  }
   function todayString() {
-    return (/* @__PURE__ */ new Date()).toISOString().split("T")[0];
+    const now = /* @__PURE__ */ new Date();
+    return formatCalendarParts(now.getFullYear(), now.getMonth() + 1, now.getDate());
   }
   function normalizeDateString(dateStr) {
-    if (!dateStr) return "";
-    if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) return dateStr;
-    try {
-      const d = new Date(dateStr);
-      if (isNaN(d.getTime())) return "";
-      return d.toISOString().split("T")[0];
-    } catch (_) {
-      return "";
-    }
+    const parts = parseCalendarParts(dateStr);
+    return parts ? formatCalendarParts(parts.year, parts.month, parts.day) : "";
   }
   function addDays(dateStr, days) {
     const base = normalizeDateString(dateStr) || todayString();
-    const d = /* @__PURE__ */ new Date(base + "T00:00:00");
-    d.setDate(d.getDate() + days);
-    return d.toISOString().split("T")[0];
+    const parts = parseCalendarParts(base);
+    const shifted = new Date(Date.UTC(parts.year, parts.month - 1, parts.day + days));
+    return formatCalendarParts(shifted.getUTCFullYear(), shifted.getUTCMonth() + 1, shifted.getUTCDate());
   }
   function dateInputToIso(dateStr) {
     const normalized = normalizeDateString(dateStr);
-    return normalized ? (/* @__PURE__ */ new Date(normalized + "T12:00:00")).toISOString() : null;
+    return normalized ? `${normalized}T12:00:00.000Z` : null;
   }
   function getNodeDate(node) {
     if (!node) return "";
@@ -111,24 +132,23 @@
     return dated.length ? dated[dated.length - 1].node : nodes[nodes.length - 1] || null;
   }
   function getRelativeDayLabel(dateStr) {
-    const normalized = normalizeDateString(dateStr);
-    if (!normalized) return "";
-    const target = (/* @__PURE__ */ new Date(normalized + "T00:00:00")).getTime();
-    const now = /* @__PURE__ */ new Date();
-    now.setHours(0, 0, 0, 0);
-    const diffDays = Math.round((target - now.getTime()) / (1e3 * 60 * 60 * 24));
+    const target = parseCalendarParts(dateStr);
+    const now = parseCalendarParts(todayString());
+    if (!target || !now) return "";
+    const diffDays = Math.round(
+      (Date.UTC(target.year, target.month - 1, target.day) - Date.UTC(now.year, now.month - 1, now.day)) / 864e5
+    );
     if (diffDays === 0) return t("relativeToday");
     if (diffDays < 0) return tf("relativeDaysAgo", { count: Math.abs(diffDays) });
     return tf("relativeInDays", { count: diffDays });
   }
   function getDaysDiff(startDateStr, endDateStr) {
-    const start = normalizeDateString(startDateStr);
-    const end = normalizeDateString(endDateStr);
+    const start = parseCalendarParts(startDateStr);
+    const end = parseCalendarParts(endDateStr);
     if (!start || !end) return null;
-    const s = (/* @__PURE__ */ new Date(start + "T00:00:00")).getTime();
-    const e = (/* @__PURE__ */ new Date(end + "T00:00:00")).getTime();
-    if (isNaN(s) || isNaN(e)) return null;
-    return Math.max(0, Math.round((e - s) / (1e3 * 60 * 60 * 24)));
+    const s = Date.UTC(start.year, start.month - 1, start.day);
+    const e = Date.UTC(end.year, end.month - 1, end.day);
+    return Math.max(0, Math.round((e - s) / 864e5));
   }
   function average(values) {
     const valid = values.filter((v) => typeof v === "number" && !isNaN(v));
@@ -309,7 +329,7 @@
       firstDecisionDate: null,
       previousSubmissionId: sourceSub?.id || null,
       previousJournal: sourceSub ? getSubmissionJournalName(sourceSub) : null,
-      round: (sourceSub?.round || 1) + 1,
+      round: (Number(sourceSub?.round ?? sourceSub?.roundIndex) || 1) + 1,
       complianceChecklist: {},
       reviewMatrix: [],
       timelineNodes: [],
@@ -436,28 +456,7 @@
       } catch (_) {
       }
     }
-    try {
-      const due = new Date(dateStr);
-      if (isNaN(due.getTime())) return null;
-      const now = /* @__PURE__ */ new Date();
-      const utcDue = Date.UTC(due.getFullYear(), due.getMonth(), due.getDate());
-      const utcNow = Date.UTC(now.getFullYear(), now.getMonth(), now.getDate());
-      const diffDays = Math.round((utcDue - utcNow) / 864e5);
-      const isZh = typeof currentLanguage !== "undefined" ? currentLanguage === "zh" : true;
-      if (diffDays < 0) {
-        const d = Math.abs(diffDays);
-        return { days: diffDays, level: "overdue", badgeClass: "badge-danger", icon: "🚨", text: isZh ? `已逾期 ${d} 天` : `${d}d overdue` };
-      }
-      if (diffDays === 0) {
-        return { days: 0, level: "due_today", badgeClass: "badge-danger", icon: "🚨", text: isZh ? "今天截止" : "Due today" };
-      }
-      if (diffDays <= 7) {
-        return { days: diffDays, level: "due_soon", badgeClass: "badge-warning", icon: "⚠️", text: isZh ? `仅剩 ${diffDays} 天` : `${diffDays}d left` };
-      }
-      return { days: diffDays, level: "upcoming", badgeClass: "badge-info", icon: "📅", text: isZh ? `剩 ${diffDays} 天` : `${diffDays}d left` };
-    } catch (_) {
-      return null;
-    }
+    return null;
   }
   function renderTimelineAlerts() {
     const reviewMilestones = document.getElementById("dashboard-pending-milestones");
@@ -546,7 +545,7 @@
             title: `${journalName}: ${t("revisionDueLabel") || (isZh ? "修回截止" : "Revision Deadline")}`,
             date: "",
             displayDate: isZh ? "待设截止日" : "No deadline",
-            countdown: { icon: "⚠️", text: isZh ? "待设截止日" : "No deadline", level: "due_soon", days: 1 },
+            countdown: { icon: "⚠️", text: isZh ? "待设截止日" : "No deadline", level: "due_soon", days: null },
             manTitle: man ? man.title : t("untitledManuscript"),
             isRevision: true
           });

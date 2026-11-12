@@ -7,6 +7,7 @@ declare var Zotero: any;
 
 export const hostShutdownMethods = {
   async shutdown(this: any) {
+    this._disposed = true;
     for (const win of this._standaloneWindows || []) {
       try { win.close(); } catch (_) {}
     }
@@ -27,6 +28,15 @@ export const hostShutdownMethods = {
       });
     }
     injectedElements.clear();
+
+    const pendingQueues = [this._saveQueue, this._uiStateQueue].filter(Boolean);
+    if (pendingQueues.length) {
+      try {
+        await Promise.allSettled(pendingQueues);
+      } catch (_) {}
+    }
+    this._saveQueue = null;
+    this._uiStateQueue = null;
 
     if (this._prefPaneID && Zotero.PreferencePanes?.unregister) {
       try {

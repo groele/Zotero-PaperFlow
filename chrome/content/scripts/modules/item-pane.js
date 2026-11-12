@@ -79,11 +79,12 @@
           const db = host._cachedData || await host.loadDatabase();
           const targetKey = target.key;
           const targetDoi = (typeof target.getField === "function" ? target.getField("DOI") : "") || "";
-          const manuscripts = (db.manuscripts || []).filter((m) => {
-            if (m.zoteroItemKey && m.zoteroItemKey === targetKey) return true;
-            if (targetDoi && m.doi && m.doi.toLowerCase() === targetDoi.toLowerCase()) return true;
-            return false;
-          });
+          const allManuscripts = db.manuscripts || [];
+          const keyMatched = allManuscripts.filter((m) => m.zoteroItemKey && m.zoteroItemKey === targetKey);
+          const doiMatched = !keyMatched.length && targetDoi ? allManuscripts.filter(
+            (m) => m.zoteroItemKey === void 0 && !m.zoteroUnbound && m.doi && m.doi.toLowerCase() === targetDoi.toLowerCase()
+          ) : [];
+          const manuscripts = keyMatched.length ? keyMatched : doiMatched;
           const count = manuscripts.length;
           setSectionSummary?.(count ? `${count} 个稿件管线` : "");
           const wrap = document.createElement("div");

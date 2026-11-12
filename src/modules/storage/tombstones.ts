@@ -5,6 +5,7 @@ import { SYNC_CREDENTIALS_KEY, SYNC_SECRET_KEYS } from './types.js';
 import { StoragePersistence } from './persistence.js';
 
 declare var RFPlatform: any;
+declare var ZoteroBridge: any;
 
 export class StorageTombstones extends StoragePersistence {
   recordEntityDeletion(database: any, collectionName: string, entityId: any): boolean {
@@ -95,6 +96,9 @@ export class StorageTombstones extends StoragePersistence {
   }
 
   async shouldRunCloudSync(database: any = this.cache): Promise<boolean> {
+    if (database?.settings?.autoSync === false) return false;
+    const bridge = typeof ZoteroBridge !== 'undefined' ? ZoteroBridge : (typeof window !== 'undefined' ? (window as any).ZoteroBridge : null);
+    if (bridge?.getPref && bridge.getPref('autoSync', true) === false) return false;
     const metadata = database?.settings?.syncProviders?.metadata;
     if (metadata?.autoSync === false) return false;
     const metadataProvider = await this.getEffectiveMetadataProvider(database);

@@ -13,6 +13,10 @@ export const escapeHtml = (value: any): string => String(value ?? '')
   .replace(/"/g, '&quot;')
   .replace(/'/g, '&#39;');
 
+export function isHostDisposed(): boolean {
+  return typeof Zotero !== 'undefined' && Boolean((Zotero as any).ResearchFlow?._disposed);
+}
+
 export function isItemEditableAndActive(item: any): boolean {
   if (!item) return false;
   if (item.deleted) return false;
@@ -21,6 +25,7 @@ export function isItemEditableAndActive(item: any): boolean {
 }
 
 export async function syncStatusTagToItem(host: any, item: any, status: string): Promise<boolean> {
+  if (host?._disposed || isHostDisposed()) return false;
   if (!host?.getPref?.('syncStatusTags', false)) {
     return true;
   }
@@ -62,6 +67,7 @@ export async function syncStatusTagToItem(host: any, item: any, status: string):
     if (newTag) {
       target.addTag(newTag, 0);
     }
+    if (host?._disposed || isHostDisposed()) return false;
     await target.saveTx();
     return true;
   } catch (e) {
@@ -114,6 +120,7 @@ export async function addItemToPipelineCollection(host: any, item: any): Promise
 }
 
 export async function syncManuscriptToChildNote(host: any, item: any, manuscript: any = null): Promise<any> {
+  if (host?._disposed || isHostDisposed()) return null;
   const target = host?.getLiteratureItem ? host.getLiteratureItem(item) : (item?.topLevelItem || item);
   if (!target) return null;
   if (!isItemEditableAndActive(target)) {
@@ -125,13 +132,22 @@ export async function syncManuscriptToChildNote(host: any, item: any, manuscript
 
   try {
     const db = await host.loadDatabase();
+    if (host?._disposed || isHostDisposed()) return null;
     let targetMan = manuscript;
     if (!targetMan) {
-      targetMan = (db.manuscripts || []).find((m: any) => {
-        if (m.zoteroItemKey && m.zoteroItemKey === target.key) return true;
-        if (m.doi && target.getField && m.doi.toLowerCase() === (target.getField('DOI') || '').toLowerCase()) return true;
-        return false;
-      });
+      const manuscripts = db.manuscripts || [];
+      targetMan = manuscripts.find((m: any) => m.zoteroItemKey && m.zoteroItemKey === target.key);
+      if (!targetMan) {
+        const targetDoi = (target.getField?.('DOI') || '').trim().toLowerCase();
+        if (targetDoi) {
+          targetMan = manuscripts.find((m: any) =>
+            m.zoteroItemKey === undefined &&
+            !m.zoteroUnbound &&
+            m.doi &&
+            String(m.doi).trim().toLowerCase() === targetDoi
+          );
+        }
+      }
     }
     if (!targetMan) return null;
 
@@ -154,11 +170,12 @@ export async function syncManuscriptToChildNote(host: any, item: any, manuscript
     const statusText = statusMap[targetMan.status] || targetMan.status || '撰写中';
 
     const linkedSubmissions = (db.submissions || []).filter((s: any) => s.manuscriptId === targetMan.id);
-    const predecessorIds = new Set(linkedSubmissions.map((s: any) => s.previousSubmissionId).filter(Boolean));
+    const predecessorIds = new Set(linkedSubmissions.map((s: any) => s.previousSubmissionId || s.transferredFromId).filter(Boolean));
     const activeCandidates = linkedSubmissions.filter((s: any) => !predecessorIds.has(s.id));
     const parseSubTime = (v: any) => Date.parse(v || '') || 0;
+    const roundOf = (s: any) => Number(s?.round ?? s?.roundIndex) || 1;
     const sub = [...(activeCandidates.length ? activeCandidates : linkedSubmissions)].sort((a, b) =>
-      (Number(b.roundIndex) || 1) - (Number(a.roundIndex) || 1)
+      roundOf(b) - roundOf(a)
       || parseSubTime(b.submissionDate || b.submittedAt || b.createdAt) - parseSubTime(a.submissionDate || a.submittedAt || a.createdAt)
       || parseSubTime(b.createdAt) - parseSubTime(a.createdAt)
       || String(a.id || '').localeCompare(String(b.id || ''))
@@ -246,6 +263,8 @@ export async function syncManuscriptToChildNote(host: any, item: any, manuscript
         }
       }
     }
+
+    if (host?._disposed || isHostDisposed()) return null;
 
     if (targetNote) {
       targetNote.setNote(noteHtml);

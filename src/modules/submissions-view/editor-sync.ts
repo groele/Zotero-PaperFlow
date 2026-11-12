@@ -102,9 +102,15 @@ export function refreshSubmissionStatusPresentation(sub: any): void {
     const icon = cycleCard.querySelector('.submission-cycle-icon');
     if (label) label.textContent = t(cycle.isCompleted ? 'cycleTimeCompleted' : 'submissionCycleTracking');
     if (text) {
-      text.textContent = cycle.isCompleted
-        ? tf('cycleTimeCompletedText', { start: cycle.startDateStr, end: cycle.endDateStr, days: cycle.days })
-        : tf('submissionCycleText', { start: cycle.startDateStr, days: cycle.days });
+      if (cycle.days === null || !cycle.hasStartDate) {
+        text.textContent = (typeof (window as any).currentLanguage !== 'undefined' && (window as any).currentLanguage === 'zh')
+          ? '暂无有效投稿日期，暂无法计算在审天数。'
+          : 'No valid submission date recorded yet.';
+      } else {
+        text.textContent = cycle.isCompleted
+          ? tf('cycleTimeCompletedText', { start: cycle.startDateStr, end: cycle.endDateStr, days: cycle.days })
+          : tf('submissionCycleText', { start: cycle.startDateStr, days: cycle.days });
+      }
     }
     if (icon) {
       w.RFUI.setHTML(icon, cycle.isCompleted

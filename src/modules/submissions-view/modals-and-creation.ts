@@ -151,7 +151,7 @@ export function openTrackSubmissionModal(): void {
       </div>
       <div class="form-group">
         <label for="sub-date">${t('initialSubmissionDate')}</label>
-        <input type="date" id="sub-date" value="${new Date().toISOString().split('T')[0]}">
+        <input type="date" id="sub-date" value="${todayString()}">
       </div>
     </div>
     <div class="modal-footer">
@@ -282,6 +282,14 @@ function setupSubmitSubmissionListener(manuscriptSelect: HTMLSelectElement | nul
       linkedManuscript.updatedAt = new Date().toISOString();
     }
 
+    const existingForMan = (db.submissions || []).filter((s: any) => s.manuscriptId === manuscriptId);
+    const prevRoundSub = existingForMan.length
+      ? (w.RFCore?.getCurrentSubmission?.(db, manuscriptId) || existingForMan[existingForMan.length - 1])
+      : null;
+    const nextRound = existingForMan.length
+      ? existingForMan.reduce((max: number, s: any) => Math.max(max, Number(s?.round ?? s?.roundIndex) || 1), 0) + 1
+      : 1;
+
     const newSub = {
       id: 'sub_' + Math.random().toString(36).substring(2, 9),
       userId: 'user', manuscriptId,
@@ -289,6 +297,8 @@ function setupSubmitSubmissionListener(manuscriptSelect: HTMLSelectElement | nul
       targetJournal: createMode.targetJournal, journalUrl: journalUrl || null,
       doi: null, articleUrl: null, status: 'submitted', submissionDate: dateInputToIso(subDate),
       decisionDate: null, revisionDueDate: null, firstDecisionDate: null,
+      round: nextRound,
+      previousSubmissionId: prevRoundSub?.id || null,
       complianceChecklist: {}, reviewMatrix: [], timelineNodes: [], externalManuscriptId: null,
       firstAuthor: firstAuthor || null, captureProvenance: null,
       createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(),

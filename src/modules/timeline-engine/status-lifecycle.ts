@@ -2,10 +2,15 @@
  * Zotero PaperFlow - Publication Links, Node Status, Revision Countdown & Lifecycle
  */
 import { inferKey, analyzeSubmission, hasPublicationStatus } from './normalizer-and-analyzer.js';
+import {
+  diffCalendarDays,
+  normalizeDateString,
+  parseCalendarDateParts,
+  todayString
+} from './node-helpers.js';
 
 declare var currentLanguage: string;
 declare function t(key: string): string;
-declare function normalizeDateString(dateStr: any): string;
 
 export function isAcceptedSubmission(sub: any): boolean {
   return Boolean(sub && analyzeSubmission(sub).accepted);
@@ -58,35 +63,53 @@ export function clearUnacceptedPublicationLinks(database: any): boolean {
   return changed;
 }
 
-export function getSubmissionCycleTime(sub: any): { days: number; isCompleted: boolean; startDateStr: string; endDateStr: string } {
-  const start = sub.submissionDate ? new Date(sub.submissionDate) : (sub.createdAt ? new Date(sub.createdAt) : new Date());
-  const isCompleted = sub.status === 'accepted' || sub.status === 'published';
-  let end = new Date();
+function formatCalendarLocaleDate(dateStr: any): string {
+  const parts = parseCalendarDateParts(dateStr);
+  if (!parts) return '';
+  return new Date(parts.year, parts.month - 1, parts.day).toLocaleDateString();
+}
 
+export function getSubmissionCycleTime(sub: any): { days: number | null; hasStartDate: boolean; isCompleted: boolean; startDateStr: string; endDateStr: string } {
+  const submitNode = (sub?.timelineNodes || []).find((n: any) => inferKey(n) === 'submit');
+  const startRaw = normalizeDateString(sub?.submissionDate) || normalizeDateString(submitNode?.completeDate);
+  const isCompleted = sub?.status === 'accepted' || sub?.status === 'published';
+
+  if (!startRaw) {
+    return {
+      days: null,
+      hasStartDate: false,
+      isCompleted,
+      startDateStr: '',
+      endDateStr: ''
+    };
+  }
+
+  let endRaw = todayString();
   if (isCompleted) {
-    if (sub.decisionDate) {
-      end = new Date(sub.decisionDate);
+    const explicitEnd = normalizeDateString(sub.decisionDate || sub.acceptedAt);
+    if (explicitEnd) {
+      endRaw = explicitEnd;
     } else {
-      const completionNode = sub.timelineNodes?.find((n: any) => {
+      const completionNode = (sub.timelineNodes || []).find((n: any) => {
         if (!n.name || !n.completeDate) return false;
         const nodeName = n.name.toLowerCase();
         return n.name.includes('接收') || nodeName.includes('accept') || nodeName.includes('online');
       });
-      if (completionNode) {
-        end = new Date(completionNode.completeDate);
+      if (completionNode?.completeDate) {
+        endRaw = normalizeDateString(completionNode.completeDate) || endRaw;
       } else if (sub.updatedAt) {
-        end = new Date(sub.updatedAt);
+        endRaw = normalizeDateString(sub.updatedAt) || endRaw;
       }
     }
   }
 
-  const diffTime = Math.abs(end.getTime() - start.getTime());
-  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+  const diffDays = diffCalendarDays(startRaw, endRaw);
   return {
-    days: diffDays,
+    days: diffDays !== null && diffDays >= 0 ? diffDays : null,
+    hasStartDate: true,
     isCompleted,
-    startDateStr: start.toLocaleDateString(),
-    endDateStr: end.toLocaleDateString()
+    startDateStr: formatCalendarLocaleDate(startRaw) || startRaw,
+    endDateStr: formatCalendarLocaleDate(endRaw) || endRaw
   };
 }
 
@@ -95,12 +118,11 @@ export function computeNodeStatus(node: any): string {
   if (node.status === 'danger' || node.status === 'blocked') return 'blocked';
 
   if (node.dueDate) {
-    const dueTime = new Date(node.dueDate).getTime();
-    const now = new Date();
-    now.setHours(0, 0, 0, 0);
-    const diffDays = Math.ceil((dueTime - now.getTime()) / (1000 * 60 * 60 * 24));
-    if (diffDays < 0) return 'overdue';
-    if (diffDays <= 7) return 'due_soon';
+    const diffDays = diffCalendarDays(todayString(), node.dueDate);
+    if (diffDays !== null) {
+      if (diffDays < 0) return 'overdue';
+      if (diffDays <= 7) return 'due_soon';
+    }
   }
 
   if (node.status === 'active') return 'in_progress';
@@ -145,10 +167,10 @@ export function getCapsuleIcon(status: string, _type?: string): string {
 }
 
 export function formatShortDate(dateStr: any): string {
-  if (!dateStr) return '';
+  const parts = parseCalendarDateParts(dateStr);
+  if (!parts) return '';
   try {
-    const d = new Date(dateStr);
-    if (isNaN(d.getTime())) return '';
+    const d = new Date(parts.year, parts.month - 1, parts.day);
     const locale = currentLanguage === 'zh' ? 'zh-CN' : 'en-US';
     return d.toLocaleDateString(locale, currentLanguage === 'zh'
       ? { month: 'numeric', day: 'numeric' }
@@ -159,13 +181,8 @@ export function formatShortDate(dateStr: any): string {
 }
 
 export function getRevisionCountdownMeta(dueDate: any): any | null {
-  if (!dueDate) return null;
-  const due = new Date(dueDate);
-  if (isNaN(due.getTime())) return null;
-  const now = new Date();
-  const utcDue = Date.UTC(due.getFullYear(), due.getMonth(), due.getDate());
-  const utcNow = Date.UTC(now.getFullYear(), now.getMonth(), now.getDate());
-  const diffDays = Math.round((utcDue - utcNow) / 86400000);
+  const diffDays = diffCalendarDays(todayString(), dueDate);
+  if (diffDays === null) return null;
   const isZh = typeof currentLanguage !== 'undefined' ? currentLanguage === 'zh' : true;
 
   if (diffDays < 0) {

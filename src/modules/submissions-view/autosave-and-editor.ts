@@ -124,8 +124,17 @@ export function setupSubmissionAutoSave(sub: any): void {
   let lastSavedSnapshot = JSON.stringify(getSubmissionEditValues('sub-edit'));
   const debounceMs = 650;
 
+  const isHostDisposed = (): boolean => {
+    const w = window as any;
+    return Boolean(
+      w.Zotero?.ResearchFlow?._disposed
+      || w.opener?.Zotero?.ResearchFlow?._disposed
+      || w.top?.Zotero?.ResearchFlow?._disposed
+    );
+  };
+
   const setStatus = (state: string, message: string, detail = '') => {
-    if (!editCenter.isConnected) return;
+    if (!editCenter.isConnected || isHostDisposed()) return;
     status.dataset.state = state;
     status.title = detail || '';
     const label = status.querySelector('[data-submission-autosave-label]');
@@ -134,6 +143,7 @@ export function setupSubmissionAutoSave(sub: any): void {
 
   const persist = () => {
     if (debounceTimer) { clearTimeout(debounceTimer); debounceTimer = null; }
+    if (!editCenter.isConnected || isHostDisposed()) return;
     const requestedRevision = revision;
     const values = getSubmissionEditValues('sub-edit');
     const currentSnapshot = JSON.stringify(values);
@@ -141,6 +151,7 @@ export function setupSubmissionAutoSave(sub: any): void {
     setStatus('saving', t('autoSaveSaving'));
 
     saveChain = saveChain.catch(() => {}).then(async () => {
+      if (!editCenter.isConnected || isHostDisposed()) return;
       if (currentSnapshot === lastSavedSnapshot) {
         if (requestedRevision === revision) setStatus('saved', t('autoSaveSaved'));
         return;
@@ -150,7 +161,7 @@ export function setupSubmissionAutoSave(sub: any): void {
         values, alertOnError: false, renderDetails: false, notify: false, mergeOnConflict: true,
         onValidationError: (error: string) => { validationError = error; },
       }, getSubmissionEditValues);
-      if (!editCenter.isConnected) return;
+      if (!editCenter.isConnected || isHostDisposed()) return;
       if (!saved) {
         setStatus('invalid', t('autoSaveInvalid'), validationError);
         return;

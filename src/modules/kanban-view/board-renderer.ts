@@ -1,4 +1,4 @@
-import { updateKanbanEmptyColumns } from './status-helpers.js';
+import { persistManuscriptStatusChange, updateKanbanEmptyColumns } from './status-helpers.js';
 import { buildKanbanCard } from './card-builder.js';
 
 declare const db: any;
@@ -9,7 +9,6 @@ declare function setText(target: any, value: any): any;
 declare function t(key: string): string;
 declare function tf(key: string, vars?: Record<string, any>): string;
 declare function getManuscriptStatusLabel(status: string): string;
-declare function persistManuscriptStatusChange(manuscript: any, nextStatus: string): Promise<any>;
 declare function renderDashboard(): void;
 declare function renderSubmissions(): void;
 declare function showGlobalToast(message: string, type?: string, duration?: number): void;

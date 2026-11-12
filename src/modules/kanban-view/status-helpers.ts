@@ -1,10 +1,74 @@
-declare const db: any;
+declare var db: any;
 declare const currentLanguage: string;
 declare var selectedSubmissionId: any;
 declare function escapeHTML(str: any): string;
 declare function t(key: string): string;
 declare function tf(key: string, vars?: Record<string, any>): string;
 declare function showGlobalToast(message: string, type?: string, duration?: number): void;
+declare function validateLinkedManuscriptStatus(manuscript: any, status: any): void;
+declare function setManuscriptStatus(manuscript: any, status: any, options?: any): boolean;
+
+export async function persistManuscriptStatusChange(manuscript: any, nextStatus: string): Promise<any> {
+  if (!manuscript) throw new Error('Manuscript not found');
+  const win = (typeof window !== 'undefined' ? window : globalThis) as any;
+  const liveDb = (typeof db !== 'undefined' && db) ? db : win.db;
+  const manuscriptsList = liveDb?.manuscripts || [];
+  const liveManuscript = manuscriptsList.find((m: any) => m.id === manuscript.id) || manuscript;
+
+  const validateFn = typeof validateLinkedManuscriptStatus === 'function'
+    ? validateLinkedManuscriptStatus
+    : win.RFAcademicSync?.validateLinkedManuscriptStatus;
+  if (typeof validateFn === 'function') {
+    validateFn(liveManuscript, nextStatus);
+  }
+
+  const previousStatus = liveManuscript.status;
+  const cloneDb = (source: any) => (typeof structuredClone === 'function' ? structuredClone(source) : JSON.parse(JSON.stringify(source)));
+  const applyStatus = (targetMan: any, targetDb: any) => {
+    const setStatusFn = typeof setManuscriptStatus === 'function'
+      ? setManuscriptStatus
+      : win.RFAcademicSync?.setManuscriptStatus;
+    if (typeof setStatusFn === 'function') {
+      return setStatusFn(targetMan, nextStatus, { database: targetDb });
+    }
+    const prev = targetMan.status;
+    targetMan.status = nextStatus;
+    targetMan.updatedAt = new Date().toISOString();
+    return prev !== nextStatus;
+  };
+
+  let changed = false;
+  if (liveDb && typeof win.storage?.saveAll === 'function') {
+    const workingDb = cloneDb(liveDb);
+    const workingMan = (workingDb.manuscripts || []).find((m: any) => m.id === liveManuscript.id) || cloneDb(liveManuscript);
+    changed = applyStatus(workingMan, workingDb);
+    const savedDb = await win.storage.saveAll(workingDb);
+    const finalDb = savedDb || workingDb;
+    Object.keys(liveDb).forEach((k) => { if (!Object.hasOwn(finalDb, k)) delete liveDb[k]; });
+    Object.assign(liveDb, finalDb);
+    win.db = liveDb;
+    const savedMan = (liveDb.manuscripts || []).find((m: any) => m.id === liveManuscript.id);
+    if (savedMan && savedMan !== liveManuscript) Object.assign(liveManuscript, savedMan);
+    if (savedMan && manuscript !== savedMan) Object.assign(manuscript, savedMan);
+  } else {
+    changed = applyStatus(liveManuscript, liveDb);
+    if (manuscript !== liveManuscript) Object.assign(manuscript, liveManuscript);
+  }
+
+  const celebrateFn = win.RFUI?.shouldCelebrateAcceptance;
+  const shouldCelebrate = typeof celebrateFn === 'function'
+    ? Boolean(celebrateFn(previousStatus, liveManuscript.status))
+    : ((liveManuscript.status === 'accepted' || liveManuscript.status === 'published')
+      && previousStatus !== 'accepted' && previousStatus !== 'published');
+
+  return {
+    manuscript: liveManuscript,
+    previousStatus,
+    nextStatus: liveManuscript.status,
+    changed,
+    shouldCelebrate,
+  };
+}
 
 export async function deleteManuscript(manuscriptId: string): Promise<boolean> {
   if (!manuscriptId) return false;

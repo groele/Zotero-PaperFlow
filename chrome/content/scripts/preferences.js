@@ -263,12 +263,20 @@
     info.className = "rf-pref-info";
     const label = doc.createElement("div");
     label.className = "rf-pref-label";
-    if (field.l10nLabel) label.setAttribute("data-l10n-id", field.l10nLabel);
-    label.textContent = field.label;
+    if (field.l10nLabel) {
+      label.setAttribute("data-l10n-id", field.l10nLabel);
+      if (!doc.l10n) label.textContent = field.label;
+    } else {
+      label.textContent = field.label;
+    }
     const desc = doc.createElement("div");
     desc.className = "rf-pref-desc";
-    if (field.l10nDesc) desc.setAttribute("data-l10n-id", field.l10nDesc);
-    desc.textContent = field.desc;
+    if (field.l10nDesc) {
+      desc.setAttribute("data-l10n-id", field.l10nDesc);
+      if (!doc.l10n) desc.textContent = field.desc;
+    } else {
+      desc.textContent = field.desc;
+    }
     info.appendChild(label);
     info.appendChild(desc);
     row.appendChild(info);
@@ -291,8 +299,12 @@
       for (const [val, text, l10nId] of field.options) {
         const opt = doc.createElement("option");
         opt.value = val;
-        opt.textContent = text;
-        if (l10nId) opt.setAttribute("data-l10n-id", l10nId);
+        if (l10nId) {
+          opt.setAttribute("data-l10n-id", l10nId);
+          if (!doc.l10n) opt.textContent = text;
+        } else {
+          opt.textContent = text;
+        }
         if (val === currentVal) opt.selected = true;
         select.appendChild(opt);
       }
@@ -328,13 +340,20 @@
     for (const field of fields) {
       container.appendChild(buildSettingRow(field, doc));
     }
+    try {
+      doc.l10n?.translateFragment?.(container);
+    } catch (_) {
+    }
+  }
+  function getSectionContainerId(doc, primaryId, legacyId) {
+    return doc.getElementById(primaryId) ? primaryId : legacyId;
   }
   function initPreferencesWindow(win) {
     const doc = win.document;
-    renderPreferencesSection("rf-window-settings-list", "window", doc);
-    renderPreferencesSection("rf-integration-settings-list", "integration", doc);
-    renderPreferencesSection("rf-workflow-settings-list", "workflow", doc);
-    renderPreferencesSection("rf-storage-settings-list", "storage", doc);
+    renderPreferencesSection(getSectionContainerId(doc, "rf-pref-window", "rf-window-settings-list"), "window", doc);
+    renderPreferencesSection(getSectionContainerId(doc, "rf-pref-integration", "rf-integration-settings-list"), "integration", doc);
+    renderPreferencesSection(getSectionContainerId(doc, "rf-pref-workflow", "rf-workflow-settings-list"), "workflow", doc);
+    renderPreferencesSection(getSectionContainerId(doc, "rf-pref-data-sync", "rf-storage-settings-list"), "storage", doc);
     updateSubordinateStates(doc);
     const windowModeSelect = doc.getElementById("rf-pref-windowMode");
     if (windowModeSelect) {
@@ -342,12 +361,54 @@
         updateSubordinateStates(doc);
       });
     }
+    const zotero = typeof Zotero !== "undefined" ? Zotero : win.Zotero;
+    const hostWin = win;
+    if (hostWin._rfPrefObserverSymbol && zotero?.Prefs?.unregisterObserver) {
+      try {
+        zotero.Prefs.unregisterObserver(hostWin._rfPrefObserverSymbol);
+      } catch (_) {
+      }
+      hostWin._rfPrefObserverSymbol = null;
+    }
+    if (zotero?.Prefs?.registerObserver) {
+      try {
+        const sym = /* @__PURE__ */ Symbol("ResearchFlowPrefPaneObserver");
+        hostWin._rfPrefObserverSymbol = sym;
+        zotero.Prefs.registerObserver("extensions.researchflow.", (pref) => {
+          const prefix = "extensions.researchflow.";
+          const key = pref && pref.startsWith(prefix) ? pref.slice(prefix.length) : pref;
+          if (key) {
+            const ctrl = doc.getElementById(`rf-pref-${key}`);
+            const nextVal = getPrefValue(key);
+            if (ctrl) {
+              if (ctrl.type === "checkbox") ctrl.checked = Boolean(nextVal);
+              else if ("value" in ctrl) ctrl.value = nextVal;
+            }
+          }
+          updateSubordinateStates(doc);
+        }, sym);
+        if (!hostWin._rfPrefUnloadBound && typeof win.addEventListener === "function") {
+          hostWin._rfPrefUnloadBound = true;
+          win.addEventListener("unload", () => {
+            if (hostWin._rfPrefObserverSymbol && zotero?.Prefs?.unregisterObserver) {
+              try {
+                zotero.Prefs.unregisterObserver(hostWin._rfPrefObserverSymbol);
+              } catch (_) {
+              }
+              hostWin._rfPrefObserverSymbol = null;
+            }
+          }, { once: true });
+        }
+      } catch (_) {
+      }
+    }
     const resetBtn = doc.getElementById("rf-btn-reset-defaults");
-    if (resetBtn) {
+    if (resetBtn && !resetBtn.dataset?.rfBound) {
+      if (resetBtn.dataset) resetBtn.dataset.rfBound = "true";
       resetBtn.addEventListener("click", () => {
-        if (typeof Zotero !== "undefined" && Zotero.Prefs) {
+        if (zotero?.Prefs) {
           for (const [key, val] of Object.entries(DEFAULTS)) {
-            Zotero.Prefs.set(`extensions.researchflow.${key}`, val, true);
+            zotero.Prefs.set(`extensions.researchflow.${key}`, val, true);
           }
           initPreferencesWindow(win);
         }
@@ -364,9 +425,11 @@
     buildSettingRow,
     updateSubordinateStates,
     renderPreferencesSection,
+    init: initPreferencesWindow,
     initPreferencesWindow
   };
   if (typeof window !== "undefined") {
+    window.ResearchFlow_Preferences = ResearchFlow_Preferences;
     window.initPreferencesWindow = initPreferencesWindow;
     window.DEFAULTS = DEFAULTS;
     window.FIELDS = FIELDS;

@@ -167,7 +167,7 @@ export function createTransferredSubmission(sourceSub: any, targetJournal: strin
     firstDecisionDate: null,
     previousSubmissionId: sourceSub?.id || null,
     previousJournal: sourceSub ? getSubmissionJournalName(sourceSub) : null,
-    round: (sourceSub?.round || 1) + 1,
+    round: (Number(sourceSub?.round ?? sourceSub?.roundIndex) || 1) + 1,
     complianceChecklist: {},
     reviewMatrix: [],
     timelineNodes: [],

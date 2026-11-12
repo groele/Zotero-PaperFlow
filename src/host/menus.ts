@@ -6,6 +6,11 @@ import { ADDON_ID, CHROME_ROOT } from '../config.js';
 declare var Zotero: any;
 declare var Services: any;
 
+function isZhHostLocale(): boolean {
+  const loc = String((typeof Zotero !== 'undefined' && Zotero.locale) || '').toLowerCase();
+  return !loc || loc.startsWith('zh');
+}
+
 export const hostMenuMethods = {
   registerMenus(this: any) {
     this.updateItemContextMenu();
@@ -22,6 +27,7 @@ export const hostMenuMethods = {
 
     const enableReader = Boolean(this.getPref('enableReaderIntegration', true));
     if (enableReader && Zotero.MenuManager && typeof Zotero.MenuManager.registerMenu === 'function') {
+      const zh = isZhHostLocale();
       try {
         this._menuManagerReader = Zotero.MenuManager.registerMenu({
           menuID: 'researchflow-reader-context',
@@ -30,11 +36,14 @@ export const hostMenuMethods = {
           menus: [
             {
               menuType: 'menuitem',
-              label: '📝 摘录至 Zotero PaperFlow 稿件研究笔记',
+              label: zh
+                ? '📝 摘录至 Zotero PaperFlow 稿件研究笔记'
+                : '📝 Excerpt to Zotero PaperFlow Manuscript Notes',
               icon: `${CHROME_ROOT}icons/researchflow.svg`,
               onCommand: (event: any) => {
+                if (this._disposed) return;
                 try {
-                  this.createRecordFromReader((event?.target as HTMLElement)?.ownerDocument?.defaultView || (event?.target as any)?.ownerGlobal);
+                  this.createRecordFromReader((event?.target as HTMLElement)?.ownerDocument?.defaultView || null);
                 } catch (err) {
                   Zotero.logError?.('[PaperFlow] Reader context error: ' + err);
                 }
@@ -60,6 +69,7 @@ export const hostMenuMethods = {
 
     const showContextMenu = Boolean(this.getPref('showContextMenu', false));
     if (showContextMenu && Zotero.MenuManager && typeof Zotero.MenuManager.registerMenu === 'function') {
+      const zh = isZhHostLocale();
       try {
         this._menuManagerItem = Zotero.MenuManager.registerMenu({
           menuID: 'researchflow-itemmenu-actions',
@@ -68,9 +78,10 @@ export const hostMenuMethods = {
           menus: [
             {
               menuType: 'menuitem',
-              label: '新建论文稿件管线',
+              label: zh ? '新建论文稿件管线' : 'New Manuscript Pipeline for Selected Item',
               icon: `${CHROME_ROOT}icons/researchflow.svg`,
               onCommand: () => {
+                if (this._disposed) return;
                 try {
                   this.createManuscriptFromSelection();
                 } catch (err) {
@@ -80,9 +91,10 @@ export const hostMenuMethods = {
             },
             {
               menuType: 'menuitem',
-              label: '关联到现有稿件',
+              label: zh ? '关联到现有稿件' : 'Link to Existing Manuscript',
               icon: `${CHROME_ROOT}icons/researchflow.svg`,
               onCommand: () => {
+                if (this._disposed) return;
                 try {
                   this.linkSelectionToManuscript();
                 } catch (err) {

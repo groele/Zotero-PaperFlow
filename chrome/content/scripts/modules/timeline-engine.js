@@ -751,35 +751,55 @@
     const defaultKey = defaultTimelineNameKeys2[rawName];
     return defaultKey ? t(defaultKey) : rawName;
   }
+  function formatLocalDateParts(year, month, day) {
+    return `${String(year).padStart(4, "0")}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+  }
+  function parseCalendarDateParts(value) {
+    if (!value) return null;
+    if (typeof value === "string") {
+      const trimmed = value.trim();
+      const dateOnlyMatch = trimmed.match(/^(\d{4})-(\d{2})-(\d{2})(?:$|T00:00:00(?:\.000)?Z$)/);
+      if (dateOnlyMatch) {
+        const year = Number(dateOnlyMatch[1]);
+        const month = Number(dateOnlyMatch[2]);
+        const day = Number(dateOnlyMatch[3]);
+        const check = new Date(Date.UTC(year, month - 1, day));
+        if (check.getUTCFullYear() === year && check.getUTCMonth() === month - 1 && check.getUTCDate() === day) {
+          return { year, month, day };
+        }
+        return null;
+      }
+    }
+    const d = value instanceof Date ? value : new Date(value);
+    if (isNaN(d.getTime())) return null;
+    return { year: d.getFullYear(), month: d.getMonth() + 1, day: d.getDate() };
+  }
+  function diffCalendarDays(startValue, endValue) {
+    const start = parseCalendarDateParts(startValue);
+    const end = parseCalendarDateParts(endValue);
+    if (!start || !end) return null;
+    const utcStart = Date.UTC(start.year, start.month - 1, start.day);
+    const utcEnd = Date.UTC(end.year, end.month - 1, end.day);
+    return Math.round((utcEnd - utcStart) / 864e5);
+  }
   function getDaysDiff2(dateStr1, dateStr2) {
-    if (!dateStr1 || !dateStr2) return null;
-    const d1 = new Date(dateStr1);
-    const d2 = new Date(dateStr2);
-    if (isNaN(d1.getTime()) || isNaN(d2.getTime())) return null;
-    const utc1 = Date.UTC(d1.getFullYear(), d1.getMonth(), d1.getDate());
-    const utc2 = Date.UTC(d2.getFullYear(), d2.getMonth(), d2.getDate());
-    return Math.max(0, Math.round((utc2 - utc1) / 864e5));
+    const diff = diffCalendarDays(dateStr1, dateStr2);
+    return diff === null ? null : Math.max(0, diff);
   }
   function getRelativeDateLabel(dateStr) {
-    if (!dateStr) return "";
-    const d = new Date(dateStr);
-    if (isNaN(d.getTime())) return "";
-    const today = /* @__PURE__ */ new Date();
-    const utcDate = Date.UTC(d.getFullYear(), d.getMonth(), d.getDate());
-    const utcToday = Date.UTC(today.getFullYear(), today.getMonth(), today.getDate());
-    const diff = Math.round((utcToday - utcDate) / 864e5);
+    const diff = diffCalendarDays(dateStr, todayString2());
+    if (diff === null) return "";
     if (diff === 0) return t("relativeToday");
     if (diff > 0) return tf("relativeDaysAgo", { count: diff });
     return tf("relativeInDays", { count: Math.abs(diff) });
   }
   function todayString2() {
-    return (/* @__PURE__ */ new Date()).toISOString().slice(0, 10);
+    const parts = parseCalendarDateParts(/* @__PURE__ */ new Date());
+    return formatLocalDateParts(parts.year, parts.month, parts.day);
   }
   function normalizeDateString2(value) {
-    if (!value) return "";
-    const d = new Date(value);
-    if (isNaN(d.getTime())) return "";
-    return d.toISOString().slice(0, 10);
+    const parts = parseCalendarDateParts(value);
+    return parts ? formatLocalDateParts(parts.year, parts.month, parts.day) : "";
   }
   function dateInputToIso2(value) {
     const normalized = normalizeDateString2(value);
@@ -1026,15 +1046,9 @@
   }
   function setTimelineNodeDate(node, date, field = "completeDate") {
     if (!node || !date) return false;
-    let changed = false;
-    ["planDate", "dueDate", "completeDate"].forEach((dateField) => {
-      const next = dateField === field ? date : "";
-      if ((node[dateField] || "") !== next) {
-        node[dateField] = next;
-        changed = true;
-      }
-    });
-    return changed;
+    if ((node[field] || "") === date) return false;
+    node[field] = date;
+    return true;
   }
   function createCanonicalTimelineNode(subId, key, name, type, status = "pending") {
     return createTimelineNode2(subId, { key, name, type, status });
@@ -1239,7 +1253,7 @@
   function canHavePublicationLink(sub) {
     if (!sub) return false;
     if (hasPublicationStatus2(sub)) return true;
-    if (normalizeDateString(sub.acceptedAt || sub.publishedAt)) return true;
+    if (normalizeDateString2(sub.acceptedAt || sub.publishedAt)) return true;
     return isAcceptedSubmission(sub);
   }
   function clearPublicationLinkFields2(sub) {
@@ -1279,45 +1293,60 @@
     });
     return changed;
   }
+  function formatCalendarLocaleDate(dateStr) {
+    const parts = parseCalendarDateParts(dateStr);
+    if (!parts) return "";
+    return new Date(parts.year, parts.month - 1, parts.day).toLocaleDateString();
+  }
   function getSubmissionCycleTime(sub) {
-    const start = sub.submissionDate ? new Date(sub.submissionDate) : sub.createdAt ? new Date(sub.createdAt) : /* @__PURE__ */ new Date();
-    const isCompleted = sub.status === "accepted" || sub.status === "published";
-    let end = /* @__PURE__ */ new Date();
+    const submitNode = (sub?.timelineNodes || []).find((n) => inferKey2(n) === "submit");
+    const startRaw = normalizeDateString2(sub?.submissionDate) || normalizeDateString2(submitNode?.completeDate);
+    const isCompleted = sub?.status === "accepted" || sub?.status === "published";
+    if (!startRaw) {
+      return {
+        days: null,
+        hasStartDate: false,
+        isCompleted,
+        startDateStr: "",
+        endDateStr: ""
+      };
+    }
+    let endRaw = todayString2();
     if (isCompleted) {
-      if (sub.decisionDate) {
-        end = new Date(sub.decisionDate);
+      const explicitEnd = normalizeDateString2(sub.decisionDate || sub.acceptedAt);
+      if (explicitEnd) {
+        endRaw = explicitEnd;
       } else {
-        const completionNode = sub.timelineNodes?.find((n) => {
+        const completionNode = (sub.timelineNodes || []).find((n) => {
           if (!n.name || !n.completeDate) return false;
           const nodeName = n.name.toLowerCase();
           return n.name.includes("接收") || nodeName.includes("accept") || nodeName.includes("online");
         });
-        if (completionNode) {
-          end = new Date(completionNode.completeDate);
+        if (completionNode?.completeDate) {
+          endRaw = normalizeDateString2(completionNode.completeDate) || endRaw;
         } else if (sub.updatedAt) {
-          end = new Date(sub.updatedAt);
+          endRaw = normalizeDateString2(sub.updatedAt) || endRaw;
         }
       }
     }
-    const diffTime = Math.abs(end.getTime() - start.getTime());
-    const diffDays = Math.ceil(diffTime / (1e3 * 60 * 60 * 24));
+    const diffDays = diffCalendarDays(startRaw, endRaw);
     return {
-      days: diffDays,
+      days: diffDays !== null && diffDays >= 0 ? diffDays : null,
+      hasStartDate: true,
       isCompleted,
-      startDateStr: start.toLocaleDateString(),
-      endDateStr: end.toLocaleDateString()
+      startDateStr: formatCalendarLocaleDate(startRaw) || startRaw,
+      endDateStr: formatCalendarLocaleDate(endRaw) || endRaw
     };
   }
   function computeNodeStatus2(node) {
     if (node.completeDate || node.status === "completed") return "completed";
     if (node.status === "danger" || node.status === "blocked") return "blocked";
     if (node.dueDate) {
-      const dueTime = new Date(node.dueDate).getTime();
-      const now = /* @__PURE__ */ new Date();
-      now.setHours(0, 0, 0, 0);
-      const diffDays = Math.ceil((dueTime - now.getTime()) / (1e3 * 60 * 60 * 24));
-      if (diffDays < 0) return "overdue";
-      if (diffDays <= 7) return "due_soon";
+      const diffDays = diffCalendarDays(todayString2(), node.dueDate);
+      if (diffDays !== null) {
+        if (diffDays < 0) return "overdue";
+        if (diffDays <= 7) return "due_soon";
+      }
     }
     if (node.status === "active") return "in_progress";
     if (node.status === "pending") return "not_started";
@@ -1357,10 +1386,10 @@
     return "◯";
   }
   function formatShortDate2(dateStr) {
-    if (!dateStr) return "";
+    const parts = parseCalendarDateParts(dateStr);
+    if (!parts) return "";
     try {
-      const d = new Date(dateStr);
-      if (isNaN(d.getTime())) return "";
+      const d = new Date(parts.year, parts.month - 1, parts.day);
       const locale = currentLanguage === "zh" ? "zh-CN" : "en-US";
       return d.toLocaleDateString(locale, currentLanguage === "zh" ? { month: "numeric", day: "numeric" } : { month: "short", day: "numeric" });
     } catch (_) {
@@ -1368,13 +1397,8 @@
     }
   }
   function getRevisionCountdownMeta2(dueDate) {
-    if (!dueDate) return null;
-    const due = new Date(dueDate);
-    if (isNaN(due.getTime())) return null;
-    const now = /* @__PURE__ */ new Date();
-    const utcDue = Date.UTC(due.getFullYear(), due.getMonth(), due.getDate());
-    const utcNow = Date.UTC(now.getFullYear(), now.getMonth(), now.getDate());
-    const diffDays = Math.round((utcDue - utcNow) / 864e5);
+    const diffDays = diffCalendarDays(todayString2(), dueDate);
+    if (diffDays === null) return null;
     const isZh = typeof currentLanguage !== "undefined" ? currentLanguage === "zh" : true;
     if (diffDays < 0) {
       const overdueDays = Math.abs(diffDays);
@@ -1420,6 +1444,7 @@
     "src/modules/timeline-engine/status-lifecycle.ts"() {
       "use strict";
       init_normalizer_and_analyzer();
+      init_node_helpers();
     }
   });
 

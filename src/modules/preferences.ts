@@ -20,6 +20,7 @@ export const ResearchFlow_Preferences = {
   buildSettingRow,
   updateSubordinateStates,
   renderPreferencesSection,
+  init: initPreferencesWindow,
   initPreferencesWindow
 };
 
@@ -35,6 +36,7 @@ export {
 };
 
 if (typeof window !== 'undefined') {
+  (window as any).ResearchFlow_Preferences = ResearchFlow_Preferences;
   (window as any).initPreferencesWindow = initPreferencesWindow;
   (window as any).DEFAULTS = DEFAULTS;
   (window as any).FIELDS = FIELDS;

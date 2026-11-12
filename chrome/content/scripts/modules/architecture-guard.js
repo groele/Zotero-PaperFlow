@@ -408,6 +408,9 @@
 
   // src/modules/architecture-guard.ts
   var escapeHtml = (value) => String(value ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+  function isHostDisposed() {
+    return typeof Zotero !== "undefined" && Boolean(Zotero.ResearchFlow?._disposed);
+  }
   function isItemEditableAndActive(item) {
     if (!item) return false;
     if (item.deleted) return false;
@@ -415,6 +418,7 @@
     return true;
   }
   async function syncStatusTagToItem(host, item, status) {
+    if (host?._disposed || isHostDisposed()) return false;
     if (!host?.getPref?.("syncStatusTags", false)) {
       return true;
     }
@@ -451,6 +455,7 @@
       if (newTag) {
         target.addTag(newTag, 0);
       }
+      if (host?._disposed || isHostDisposed()) return false;
       await target.saveTx();
       return true;
     } catch (e) {
@@ -499,6 +504,7 @@
     }
   }
   async function syncManuscriptToChildNote(host, item, manuscript = null) {
+    if (host?._disposed || isHostDisposed()) return null;
     const target = host?.getLiteratureItem ? host.getLiteratureItem(item) : item?.topLevelItem || item;
     if (!target) return null;
     if (!isItemEditableAndActive(target)) {
@@ -509,13 +515,19 @@
     }
     try {
       const db = await host.loadDatabase();
+      if (host?._disposed || isHostDisposed()) return null;
       let targetMan = manuscript;
       if (!targetMan) {
-        targetMan = (db.manuscripts || []).find((m) => {
-          if (m.zoteroItemKey && m.zoteroItemKey === target.key) return true;
-          if (m.doi && target.getField && m.doi.toLowerCase() === (target.getField("DOI") || "").toLowerCase()) return true;
-          return false;
-        });
+        const manuscripts = db.manuscripts || [];
+        targetMan = manuscripts.find((m) => m.zoteroItemKey && m.zoteroItemKey === target.key);
+        if (!targetMan) {
+          const targetDoi = (target.getField?.("DOI") || "").trim().toLowerCase();
+          if (targetDoi) {
+            targetMan = manuscripts.find(
+              (m) => m.zoteroItemKey === void 0 && !m.zoteroUnbound && m.doi && String(m.doi).trim().toLowerCase() === targetDoi
+            );
+          }
+        }
       }
       if (!targetMan) return null;
       const meta = (host?.serializeLiteratureItem ? host.serializeLiteratureItem(target) : null) || (typeof RFAcademicCitation !== "undefined" && RFAcademicCitation.serializeLiteratureItem ? RFAcademicCitation.serializeLiteratureItem(target) : null) || {};
@@ -534,11 +546,12 @@
       };
       const statusText = statusMap[targetMan.status] || targetMan.status || "撰写中";
       const linkedSubmissions = (db.submissions || []).filter((s) => s.manuscriptId === targetMan.id);
-      const predecessorIds = new Set(linkedSubmissions.map((s) => s.previousSubmissionId).filter(Boolean));
+      const predecessorIds = new Set(linkedSubmissions.map((s) => s.previousSubmissionId || s.transferredFromId).filter(Boolean));
       const activeCandidates = linkedSubmissions.filter((s) => !predecessorIds.has(s.id));
       const parseSubTime = (v) => Date.parse(v || "") || 0;
+      const roundOf = (s) => Number(s?.round ?? s?.roundIndex) || 1;
       const sub = [...activeCandidates.length ? activeCandidates : linkedSubmissions].sort(
-        (a, b) => (Number(b.roundIndex) || 1) - (Number(a.roundIndex) || 1) || parseSubTime(b.submissionDate || b.submittedAt || b.createdAt) - parseSubTime(a.submissionDate || a.submittedAt || a.createdAt) || parseSubTime(b.createdAt) - parseSubTime(a.createdAt) || String(a.id || "").localeCompare(String(b.id || ""))
+        (a, b) => roundOf(b) - roundOf(a) || parseSubTime(b.submissionDate || b.submittedAt || b.createdAt) - parseSubTime(a.submissionDate || a.submittedAt || a.createdAt) || parseSubTime(b.createdAt) - parseSubTime(a.createdAt) || String(a.id || "").localeCompare(String(b.id || ""))
       )[0] || null;
       const targetJournalName = sub?.targetJournal || sub?.journalName || targetMan.targetJournal || targetMan.targetJournals?.[0] || "待定";
       let noteHtml = `<h1>🚀 [Zotero PaperFlow] 论文稿件与审稿跟踪快报</h1>`;
@@ -614,6 +627,7 @@
           }
         }
       }
+      if (host?._disposed || isHostDisposed()) return null;
       if (targetNote) {
         targetNote.setNote(noteHtml);
         await targetNote.saveTx();

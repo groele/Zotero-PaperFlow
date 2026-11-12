@@ -112,12 +112,21 @@ export const hostDatabaseStorageMethods = {
   },
 
   enqueueDatabaseOperation(this: any, operation: () => Promise<any>) {
-    const result = (this._saveQueue || Promise.resolve()).catch(() => {}).then(operation);
+    if (this._disposed) {
+      return Promise.reject(new Error('PaperFlow plugin is shutting down'));
+    }
+    const result = (this._saveQueue || Promise.resolve()).catch(() => {}).then(() => {
+      if (this._disposed) {
+        throw new Error('PaperFlow plugin is shutting down');
+      }
+      return operation();
+    });
     this._saveQueue = result;
     return result;
   },
 
   async loadDatabase(this: any) {
+    if (this._disposed) return Promise.reject(new Error('PaperFlow plugin is shutting down'));
     return this.enqueueDatabaseOperation(() => this.readDatabaseSnapshot());
   },
 
@@ -190,6 +199,9 @@ export const hostDatabaseStorageMethods = {
   },
 
   async saveDatabase(this: any, data: any, options = {}) {
+    if (this._disposed) {
+      return Promise.reject(new Error('PaperFlow plugin is shutting down'));
+    }
     this.validateDatabase(data);
     let snapshot = this.cloneDatabase(data);
     const expectedRevision = (options as any)?.expectedRevision;
@@ -221,6 +233,9 @@ export const hostDatabaseStorageMethods = {
   },
 
   async writeDatabaseSnapshot(this: any, data: any, fallbackRevision = 0) {
+    if (this._disposed) {
+      throw new Error('PaperFlow plugin is shutting down');
+    }
     const previousRevision = Number(this._cachedData?.revision) || Number(fallbackRevision) || 0;
     const snapshot = { ...data, revision: previousRevision + 1,
       lastUpdated: Date.now(), updatedAt: new Date().toISOString() };
@@ -229,7 +244,7 @@ export const hostDatabaseStorageMethods = {
       await IOUtils.writeUTF8(filePath, JSON.stringify(snapshot, null, 2), { tmpPath: `${filePath}.tmp` });
       this._cachedData = this.cloneDatabase(snapshot);
       this.rememberDatabaseSnapshot(snapshot);
-      this.notifyDataChanged();
+      if (!this._disposed) this.notifyDataChanged();
       return this.cloneDatabase(snapshot);
     } catch (error) {
       Zotero.logError?.('[PaperFlow] Failed to write researchflow-data.json: ' + error);

@@ -42,15 +42,9 @@ export function getTimelineNodeByKey(sub: any, key: string): any | null {
 
 export function setTimelineNodeDate(node: any, date: string, field = 'completeDate'): boolean {
   if (!node || !date) return false;
-  let changed = false;
-  ['planDate', 'dueDate', 'completeDate'].forEach((dateField) => {
-    const next = dateField === field ? date : '';
-    if ((node[dateField] || '') !== next) {
-      node[dateField] = next;
-      changed = true;
-    }
-  });
-  return changed;
+  if ((node[field] || '') === date) return false;
+  node[field] = date;
+  return true;
 }
 
 export function createCanonicalTimelineNode(subId: string, key: string, name: string, type: string, status = 'pending'): any {

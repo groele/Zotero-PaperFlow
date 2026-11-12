@@ -1,4 +1,4 @@
-> **16.5.0 Manuscript Card Header & Journal Pill Number Size Enhancement Release**: Enlarged sequence number badge (`.submission-index`) and typography for heightened visual focus and legibility. Upgraded squircle badge size from 28px to 34px with 16px bold white numerals (800 extra-bold weight) and synchronized 32px journal pill height, maximizing card scanability. [Release notes](docs/releases/v16.5.0.md).
+> **16.5.1 Reliability & Data Consistency Fix Release**: Fixed missing kanban persistence handler, multi-round status overwrites, UTC vs. local calendar date/countdown drifts, unbound item note write-backs, and shutdown save races, alongside preference observer and l10n alignment. [Release notes](docs/releases/v16.5.1.md).
 
 # Zotero PaperFlow
 
@@ -11,7 +11,7 @@ Manage manuscripts, submission rounds, and review responses.
 
 [简体中文](README.md) · [English](README.en.md)
 
-[![Release](https://img.shields.io/badge/version-16.5.0-245ac7?style=flat-square)](https://github.com/groele/Zotero-PaperFlow/releases/tag/v16.5.0) · [Download XPI](https://github.com/groele/Zotero-PaperFlow/releases/download/v16.5.0/zotero-paperflow-16.5.0.xpi) · [Report an issue](https://github.com/groele/Zotero-PaperFlow/issues)
+[![Release](https://img.shields.io/badge/version-16.5.1-245ac7?style=flat-square)](https://github.com/groele/Zotero-PaperFlow/releases/tag/v16.5.1) · [Download XPI](https://github.com/groele/Zotero-PaperFlow/releases/download/v16.5.1/zotero-paperflow-16.5.1.xpi) · [Report an issue](https://github.com/groele/Zotero-PaperFlow/issues)
 
 [Overview](#overview) · [Installation and updates](#installation) · [Quick start](#quick-start) · [Key features](#features) · [Settings](#settings) · [Data, sync, and services](#data) · [Compatibility and validation](#compatibility) · [Troubleshooting](#troubleshooting) · [Development and documentation](#development) · [The Flow series](#series) · [Origin and license](#license)
 

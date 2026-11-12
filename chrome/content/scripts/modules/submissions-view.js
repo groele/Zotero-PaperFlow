@@ -233,7 +233,11 @@
       const icon = cycleCard.querySelector(".submission-cycle-icon");
       if (label) label.textContent = t(cycle.isCompleted ? "cycleTimeCompleted" : "submissionCycleTracking");
       if (text) {
-        text.textContent = cycle.isCompleted ? tf("cycleTimeCompletedText", { start: cycle.startDateStr, end: cycle.endDateStr, days: cycle.days }) : tf("submissionCycleText", { start: cycle.startDateStr, days: cycle.days });
+        if (cycle.days === null || !cycle.hasStartDate) {
+          text.textContent = typeof window.currentLanguage !== "undefined" && window.currentLanguage === "zh" ? "暂无有效投稿日期，暂无法计算在审天数。" : "No valid submission date recorded yet.";
+        } else {
+          text.textContent = cycle.isCompleted ? tf("cycleTimeCompletedText", { start: cycle.startDateStr, end: cycle.endDateStr, days: cycle.days }) : tf("submissionCycleText", { start: cycle.startDateStr, days: cycle.days });
+        }
       }
       if (icon) {
         w.RFUI.setHTML(icon, cycle.isCompleted ? '<svg class="svg-icon" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></svg>' : '<svg class="svg-icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15 14"/></svg>');
@@ -396,8 +400,14 @@
     let saveChain = Promise.resolve();
     let lastSavedSnapshot = JSON.stringify(getSubmissionEditValues("sub-edit"));
     const debounceMs = 650;
+    const isHostDisposed = () => {
+      const w = window;
+      return Boolean(
+        w.Zotero?.ResearchFlow?._disposed || w.opener?.Zotero?.ResearchFlow?._disposed || w.top?.Zotero?.ResearchFlow?._disposed
+      );
+    };
     const setStatus = (state, message, detail = "") => {
-      if (!editCenter.isConnected) return;
+      if (!editCenter.isConnected || isHostDisposed()) return;
       status.dataset.state = state;
       status.title = detail || "";
       const label = status.querySelector("[data-submission-autosave-label]");
@@ -408,6 +418,7 @@
         clearTimeout(debounceTimer);
         debounceTimer = null;
       }
+      if (!editCenter.isConnected || isHostDisposed()) return;
       const requestedRevision = revision;
       const values = getSubmissionEditValues("sub-edit");
       const currentSnapshot = JSON.stringify(values);
@@ -415,6 +426,7 @@
       setStatus("saving", t("autoSaveSaving"));
       saveChain = saveChain.catch(() => {
       }).then(async () => {
+        if (!editCenter.isConnected || isHostDisposed()) return;
         if (currentSnapshot === lastSavedSnapshot) {
           if (requestedRevision === revision) setStatus("saved", t("autoSaveSaved"));
           return;
@@ -430,7 +442,7 @@
             validationError = error;
           }
         }, getSubmissionEditValues);
-        if (!editCenter.isConnected) return;
+        if (!editCenter.isConnected || isHostDisposed()) return;
         if (!saved) {
           setStatus("invalid", t("autoSaveInvalid"), validationError);
           return;
@@ -1179,7 +1191,7 @@
       </div>
       <div class="form-group">
         <label for="sub-date">${t("initialSubmissionDate")}</label>
-        <input type="date" id="sub-date" value="${(/* @__PURE__ */ new Date()).toISOString().split("T")[0]}">
+        <input type="date" id="sub-date" value="${todayString()}">
       </div>
     </div>
     <div class="modal-footer">
@@ -1318,6 +1330,9 @@
         linkedManuscript.firstAuthor = firstAuthor;
         linkedManuscript.updatedAt = (/* @__PURE__ */ new Date()).toISOString();
       }
+      const existingForMan = (db.submissions || []).filter((s) => s.manuscriptId === manuscriptId);
+      const prevRoundSub = existingForMan.length ? w.RFCore?.getCurrentSubmission?.(db, manuscriptId) || existingForMan[existingForMan.length - 1] : null;
+      const nextRound = existingForMan.length ? existingForMan.reduce((max, s) => Math.max(max, Number(s?.round ?? s?.roundIndex) || 1), 0) + 1 : 1;
       const newSub = {
         id: "sub_" + Math.random().toString(36).substring(2, 9),
         userId: "user",
@@ -1332,6 +1347,8 @@
         decisionDate: null,
         revisionDueDate: null,
         firstDecisionDate: null,
+        round: nextRound,
+        previousSubmissionId: prevRoundSub?.id || null,
         complianceChecklist: {},
         reviewMatrix: [],
         timelineNodes: [],
@@ -1470,7 +1487,12 @@
     const cardClass = cycle.isCompleted ? "submission-cycle-card-complete" : "submission-cycle-card-active";
     const icon = cycle.isCompleted ? '<svg class="svg-icon" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></svg>' : '<svg class="svg-icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15 14"/></svg>';
     const label = t(cycle.isCompleted ? "cycleTimeCompleted" : "submissionCycleTracking");
-    const text = cycle.isCompleted ? tf("cycleTimeCompletedText", { start: `<strong>${escapeHTML(cycle.startDateStr)}</strong>`, end: `<strong>${escapeHTML(cycle.endDateStr)}</strong>`, days: `<strong>${cycle.days}</strong>` }) : tf("submissionCycleText", { start: `<strong>${escapeHTML(cycle.startDateStr)}</strong>`, days: `<strong>${cycle.days}</strong>` });
+    let text = "";
+    if (cycle.days === null || !cycle.hasStartDate) {
+      text = escapeHTML(currentLanguage === "zh" ? "暂无有效投稿日期，暂无法计算在审天数。" : "No valid submission date recorded yet.");
+    } else {
+      text = cycle.isCompleted ? tf("cycleTimeCompletedText", { start: `<strong>${escapeHTML(cycle.startDateStr)}</strong>`, end: `<strong>${escapeHTML(cycle.endDateStr)}</strong>`, days: `<strong>${cycle.days}</strong>` }) : tf("submissionCycleText", { start: `<strong>${escapeHTML(cycle.startDateStr)}</strong>`, days: `<strong>${cycle.days}</strong>` });
+    }
     return `
     <div class="submission-cycle-card ${cardClass}" data-submission-cycle-card>
       <span class="submission-cycle-icon" aria-hidden="true">${icon}</span>

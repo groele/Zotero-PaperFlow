@@ -79,23 +79,41 @@
       (sub) => sub.manuscriptId === manuscriptId && sub.status !== "rejected" && sub.status !== "withdrawn"
     );
   }
+  function resolveCurrentSubmissionForSync(manuscriptId, database) {
+    if (!manuscriptId || !database) return null;
+    const g = typeof globalThis !== "undefined" ? globalThis : null;
+    if (g?.RFCore?.getCurrentSubmission) {
+      return g.RFCore.getCurrentSubmission(database, manuscriptId);
+    }
+    const activeSubs = getLinkedActiveSubmissions(manuscriptId, database);
+    const pool = activeSubs.length ? activeSubs : (database.submissions || []).filter((s) => s?.manuscriptId === manuscriptId);
+    if (!pool.length) return null;
+    const predecessors = new Set(pool.map((s) => s?.previousSubmissionId || s?.transferredFromId).filter(Boolean));
+    return [...pool].sort((a, b) => {
+      const aHead = predecessors.has(a.id) ? 0 : 1;
+      const bHead = predecessors.has(b.id) ? 0 : 1;
+      if (aHead !== bHead) return bHead - aHead;
+      const roundDiff = (Number(b?.round ?? b?.roundIndex) || 1) - (Number(a?.round ?? a?.roundIndex) || 1);
+      if (roundDiff !== 0) return roundDiff;
+      const timeA = Date.parse(a?.updatedAt || a?.submissionDate || a?.createdAt || "") || 0;
+      const timeB = Date.parse(b?.updatedAt || b?.submissionDate || b?.createdAt || "") || 0;
+      return timeB - timeA;
+    })[0] || null;
+  }
   function syncLinkedSubmissionsFromManuscript(manuscript, database = typeof db !== "undefined" ? db : null) {
     if (!manuscript || !database) return false;
-    let changed = false;
-    const activeSubs = getLinkedActiveSubmissions(manuscript.id, database);
-    if (!activeSubs.length) return false;
+    const currentSub = resolveCurrentSubmissionForSync(manuscript.id, database);
+    if (!currentSub) return false;
     const targetStatus = manuscript.status;
     if (["submitted", "under_review", "revision", "accepted", "published"].includes(targetStatus)) {
-      activeSubs.forEach((sub) => {
-        const canonical = normalizeSubmissionStatus(targetStatus);
-        if (sub.status !== canonical) {
-          sub.status = canonical;
-          sub.updatedAt = (/* @__PURE__ */ new Date()).toISOString();
-          changed = true;
-        }
-      });
+      const canonical = normalizeSubmissionStatus(targetStatus);
+      if (currentSub.status !== canonical) {
+        currentSub.status = canonical;
+        currentSub.updatedAt = (/* @__PURE__ */ new Date()).toISOString();
+        return true;
+      }
     }
-    return changed;
+    return false;
   }
   function setManuscriptStatus(manuscript, status, { syncSubmissions = true, database = typeof db !== "undefined" ? db : null } = {}) {
     if (!manuscript) return false;
@@ -127,7 +145,22 @@
   }
   function validateLinkedManuscriptStatus(manuscript, status) {
     if (!manuscript) return;
-    const valid = ["idea", "outline", "data_collection", "figure_preparation", "drafting", "internal_review", "submitted", "under_review", "revision", "accepted", "published", "rejected"];
+    const valid = [
+      "planning",
+      "idea",
+      "outline",
+      "data_collection",
+      "in_progress",
+      "figure_preparation",
+      "drafting",
+      "internal_review",
+      "submitted",
+      "under_review",
+      "revision",
+      "accepted",
+      "published",
+      "rejected"
+    ];
     if (!valid.includes(status)) {
       throw new Error(`Invalid manuscript status: ${status}`);
     }
@@ -207,7 +240,7 @@
       journalUrl,
       submissionDate,
       status: "submitted",
-      round: (sourceSub?.round || 1) + 1,
+      round: (Number(sourceSub?.round ?? sourceSub?.roundIndex) || 1) + 1,
       transferredFromId: sourceSub?.id || null,
       timelineNodes: [],
       createdAt: (/* @__PURE__ */ new Date()).toISOString(),

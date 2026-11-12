@@ -647,6 +647,9 @@
       return `Unsupported sync provider: ${provider}`;
     }
     async shouldRunCloudSync(database = this.cache) {
+      if (database?.settings?.autoSync === false) return false;
+      const bridge = typeof ZoteroBridge !== "undefined" ? ZoteroBridge : typeof window !== "undefined" ? window.ZoteroBridge : null;
+      if (bridge?.getPref && bridge.getPref("autoSync", true) === false) return false;
       const metadata = database?.settings?.syncProviders?.metadata;
       if (metadata?.autoSync === false) return false;
       const metadataProvider = await this.getEffectiveMetadataProvider(database);

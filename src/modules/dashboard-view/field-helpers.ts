@@ -78,32 +78,55 @@ export function getSubmissionArticleUrl(sub: any): string {
   return doi ? `https://doi.org/${doi}` : '';
 }
 
+function formatCalendarParts(year: number, month: number, day: number): string {
+  return `${String(year).padStart(4, '0')}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+}
+
+function parseCalendarParts(dateStr: any): { year: number; month: number; day: number } | null {
+  if (!dateStr) return null;
+  if (typeof dateStr === 'string') {
+    const trimmed = dateStr.trim();
+    const match = trimmed.match(/^(\d{4})-(\d{2})-(\d{2})(?:$|T00:00:00(?:\.000)?Z$)/);
+    if (match) {
+      const year = Number(match[1]);
+      const month = Number(match[2]);
+      const day = Number(match[3]);
+      const probe = new Date(Date.UTC(year, month - 1, day));
+      if (probe.getUTCFullYear() === year && probe.getUTCMonth() === month - 1 && probe.getUTCDate() === day) {
+        return { year, month, day };
+      }
+      return null;
+    }
+  }
+  try {
+    const d = dateStr instanceof Date ? dateStr : new Date(dateStr);
+    if (isNaN(d.getTime())) return null;
+    return { year: d.getFullYear(), month: d.getMonth() + 1, day: d.getDate() };
+  } catch (_) {
+    return null;
+  }
+}
+
 export function todayString(): string {
-  return new Date().toISOString().split('T')[0];
+  const now = new Date();
+  return formatCalendarParts(now.getFullYear(), now.getMonth() + 1, now.getDate());
 }
 
 export function normalizeDateString(dateStr: any): string {
-  if (!dateStr) return '';
-  if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) return dateStr;
-  try {
-    const d = new Date(dateStr);
-    if (isNaN(d.getTime())) return '';
-    return d.toISOString().split('T')[0];
-  } catch (_) {
-    return '';
-  }
+  const parts = parseCalendarParts(dateStr);
+  return parts ? formatCalendarParts(parts.year, parts.month, parts.day) : '';
 }
 
 export function addDays(dateStr: string, days: number): string {
   const base = normalizeDateString(dateStr) || todayString();
-  const d = new Date(base + 'T00:00:00');
-  d.setDate(d.getDate() + days);
-  return d.toISOString().split('T')[0];
+  const parts = parseCalendarParts(base)!;
+  const shifted = new Date(Date.UTC(parts.year, parts.month - 1, parts.day + days));
+  return formatCalendarParts(shifted.getUTCFullYear(), shifted.getUTCMonth() + 1, shifted.getUTCDate());
 }
 
 export function dateInputToIso(dateStr: string): string | null {
   const normalized = normalizeDateString(dateStr);
-  return normalized ? new Date(normalized + 'T12:00:00').toISOString() : null;
+  return normalized ? `${normalized}T12:00:00.000Z` : null;
 }
 
 export function getNodeDate(node: any): string {
@@ -120,25 +143,24 @@ export function getLatestTimelineNode(nodes: any[] = []): any | null {
 }
 
 export function getRelativeDayLabel(dateStr: any): string {
-  const normalized = normalizeDateString(dateStr);
-  if (!normalized) return '';
-  const target = new Date(normalized + 'T00:00:00').getTime();
-  const now = new Date();
-  now.setHours(0, 0, 0, 0);
-  const diffDays = Math.round((target - now.getTime()) / (1000 * 60 * 60 * 24));
+  const target = parseCalendarParts(dateStr);
+  const now = parseCalendarParts(todayString());
+  if (!target || !now) return '';
+  const diffDays = Math.round(
+    (Date.UTC(target.year, target.month - 1, target.day) - Date.UTC(now.year, now.month - 1, now.day)) / 86400000
+  );
   if (diffDays === 0) return t('relativeToday');
   if (diffDays < 0) return tf('relativeDaysAgo', { count: Math.abs(diffDays) });
   return tf('relativeInDays', { count: diffDays });
 }
 
 export function getDaysDiff(startDateStr: any, endDateStr: any): number | null {
-  const start = normalizeDateString(startDateStr);
-  const end = normalizeDateString(endDateStr);
+  const start = parseCalendarParts(startDateStr);
+  const end = parseCalendarParts(endDateStr);
   if (!start || !end) return null;
-  const s = new Date(start + 'T00:00:00').getTime();
-  const e = new Date(end + 'T00:00:00').getTime();
-  if (isNaN(s) || isNaN(e)) return null;
-  return Math.max(0, Math.round((e - s) / (1000 * 60 * 60 * 24)));
+  const s = Date.UTC(start.year, start.month - 1, start.day);
+  const e = Date.UTC(end.year, end.month - 1, end.day);
+  return Math.max(0, Math.round((e - s) / 86400000));
 }
 
 export function average(values: any[]): number | null {

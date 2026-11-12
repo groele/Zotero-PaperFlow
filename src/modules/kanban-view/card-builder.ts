@@ -1,7 +1,7 @@
 /**
  * Zotero PaperFlow - Kanban Card Builder & Interaction Handlers
  */
-import { deleteManuscript } from './status-helpers.js';
+import { deleteManuscript, persistManuscriptStatusChange } from './status-helpers.js';
 import { openManuscriptModal } from './manuscript-modal.js';
 
 declare const db: any;
@@ -12,7 +12,6 @@ declare function t(key: string): string;
 declare function getManuscriptStatusLabel(status: string): string;
 declare function getSubmissionStatusLabel(status: string): string;
 declare function normalizeKanbanStatusClass(status: string): string;
-declare function persistManuscriptStatusChange(manuscript: any, nextStatus: string): Promise<any>;
 declare function navigateToSubmissionDetails(subId: string): void;
 declare function renderDashboard(): void;
 declare function renderSubmissions(): void;

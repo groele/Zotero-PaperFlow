@@ -1,4 +1,9 @@
-import { deleteManuscript, updateKanbanEmptyColumns, initializeKanbanEmptyColumnsMode } from './kanban-view/status-helpers';
+import {
+  deleteManuscript,
+  persistManuscriptStatusChange,
+  updateKanbanEmptyColumns,
+  initializeKanbanEmptyColumnsMode
+} from './kanban-view/status-helpers';
 import { renderKanban } from './kanban-view/board-renderer';
 import { bindAddManuscriptButton, openManuscriptModal } from './kanban-view/manuscript-modal';
 
@@ -10,6 +15,7 @@ initializeKanbanEmptyColumnsMode();
 const exportedApi = {
   renderKanban,
   deleteManuscript,
+  persistManuscriptStatusChange,
   openManuscriptModal,
   updateKanbanEmptyColumns,
   initializeKanbanEmptyColumnsMode,

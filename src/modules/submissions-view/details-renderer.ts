@@ -155,9 +155,14 @@ function buildCycleTimeCardHtml(cycle: any): string {
     ? '<svg class="svg-icon" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></svg>'
     : '<svg class="svg-icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15 14"/></svg>';
   const label = t(cycle.isCompleted ? 'cycleTimeCompleted' : 'submissionCycleTracking');
-  const text = cycle.isCompleted
-    ? tf('cycleTimeCompletedText', { start: `<strong>${escapeHTML(cycle.startDateStr)}</strong>`, end: `<strong>${escapeHTML(cycle.endDateStr)}</strong>`, days: `<strong>${cycle.days}</strong>` })
-    : tf('submissionCycleText', { start: `<strong>${escapeHTML(cycle.startDateStr)}</strong>`, days: `<strong>${cycle.days}</strong>` });
+  let text = '';
+  if (cycle.days === null || !cycle.hasStartDate) {
+    text = escapeHTML(currentLanguage === 'zh' ? '暂无有效投稿日期，暂无法计算在审天数。' : 'No valid submission date recorded yet.');
+  } else {
+    text = cycle.isCompleted
+      ? tf('cycleTimeCompletedText', { start: `<strong>${escapeHTML(cycle.startDateStr)}</strong>`, end: `<strong>${escapeHTML(cycle.endDateStr)}</strong>`, days: `<strong>${cycle.days}</strong>` })
+      : tf('submissionCycleText', { start: `<strong>${escapeHTML(cycle.startDateStr)}</strong>`, days: `<strong>${cycle.days}</strong>` });
+  }
   return `
     <div class="submission-cycle-card ${cardClass}" data-submission-cycle-card>
       <span class="submission-cycle-icon" aria-hidden="true">${icon}</span>

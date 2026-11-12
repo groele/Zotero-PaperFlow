@@ -53,25 +53,48 @@ export function getTimelineNodeDisplayName(node: any): string {
   return defaultKey ? t(defaultKey) : rawName;
 }
 
-export function getDaysDiff(dateStr1: any, dateStr2: any): number | null {
-  if (!dateStr1 || !dateStr2) return null;
-  const d1 = new Date(dateStr1);
-  const d2 = new Date(dateStr2);
-  if (isNaN(d1.getTime()) || isNaN(d2.getTime())) return null;
+export function formatLocalDateParts(year: number, month: number, day: number): string {
+  return `${String(year).padStart(4, '0')}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+}
 
-  const utc1 = Date.UTC(d1.getFullYear(), d1.getMonth(), d1.getDate());
-  const utc2 = Date.UTC(d2.getFullYear(), d2.getMonth(), d2.getDate());
-  return Math.max(0, Math.round((utc2 - utc1) / 86400000));
+export function parseCalendarDateParts(value: any): { year: number; month: number; day: number } | null {
+  if (!value) return null;
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    const dateOnlyMatch = trimmed.match(/^(\d{4})-(\d{2})-(\d{2})(?:$|T00:00:00(?:\.000)?Z$)/);
+    if (dateOnlyMatch) {
+      const year = Number(dateOnlyMatch[1]);
+      const month = Number(dateOnlyMatch[2]);
+      const day = Number(dateOnlyMatch[3]);
+      const check = new Date(Date.UTC(year, month - 1, day));
+      if (check.getUTCFullYear() === year && check.getUTCMonth() === month - 1 && check.getUTCDate() === day) {
+        return { year, month, day };
+      }
+      return null;
+    }
+  }
+  const d = value instanceof Date ? value : new Date(value);
+  if (isNaN(d.getTime())) return null;
+  return { year: d.getFullYear(), month: d.getMonth() + 1, day: d.getDate() };
+}
+
+export function diffCalendarDays(startValue: any, endValue: any): number | null {
+  const start = parseCalendarDateParts(startValue);
+  const end = parseCalendarDateParts(endValue);
+  if (!start || !end) return null;
+  const utcStart = Date.UTC(start.year, start.month - 1, start.day);
+  const utcEnd = Date.UTC(end.year, end.month - 1, end.day);
+  return Math.round((utcEnd - utcStart) / 86400000);
+}
+
+export function getDaysDiff(dateStr1: any, dateStr2: any): number | null {
+  const diff = diffCalendarDays(dateStr1, dateStr2);
+  return diff === null ? null : Math.max(0, diff);
 }
 
 export function getRelativeDateLabel(dateStr: any): string {
-  if (!dateStr) return '';
-  const d = new Date(dateStr);
-  if (isNaN(d.getTime())) return '';
-  const today = new Date();
-  const utcDate = Date.UTC(d.getFullYear(), d.getMonth(), d.getDate());
-  const utcToday = Date.UTC(today.getFullYear(), today.getMonth(), today.getDate());
-  const diff = Math.round((utcToday - utcDate) / 86400000);
+  const diff = diffCalendarDays(dateStr, todayString());
+  if (diff === null) return '';
 
   if (diff === 0) return t('relativeToday');
   if (diff > 0) return tf('relativeDaysAgo', { count: diff });
@@ -79,14 +102,13 @@ export function getRelativeDateLabel(dateStr: any): string {
 }
 
 export function todayString(): string {
-  return new Date().toISOString().slice(0, 10);
+  const parts = parseCalendarDateParts(new Date())!;
+  return formatLocalDateParts(parts.year, parts.month, parts.day);
 }
 
 export function normalizeDateString(value: any): string {
-  if (!value) return '';
-  const d = new Date(value);
-  if (isNaN(d.getTime())) return '';
-  return d.toISOString().slice(0, 10);
+  const parts = parseCalendarDateParts(value);
+  return parts ? formatLocalDateParts(parts.year, parts.month, parts.day) : '';
 }
 
 export function dateInputToIso(value: any): string | null {

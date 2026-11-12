@@ -42,7 +42,10 @@ export const hostWindowUiMethods = {
     if (!btn) {
       btn = this.createXULElement(doc, 'toolbarbutton');
       btn.id = 'researchflow-toolbar-button';
-      btn.setAttribute('tooltiptext', '打开 Zotero PaperFlow 工作台 (Ctrl+Alt+R)');
+      btn.setAttribute('data-l10n-id', 'researchflow-toolbar-tooltip');
+      btn.setAttribute('data-l10n-attrs', 'tooltiptext');
+      const zh = !Zotero?.locale || String(Zotero.locale).toLowerCase().startsWith('zh');
+      btn.setAttribute('tooltiptext', zh ? '打开 Zotero PaperFlow 工作台 (Ctrl+Alt+R)' : 'Open Zotero PaperFlow Workspace (Ctrl+Alt+R)');
       btn.setAttribute('image', `${CHROME_ROOT}icons/researchflow.svg`);
       btn.setAttribute('class', 'zotero-tb-button toolbarbutton-1 chromeclass-toolbar-additional');
       btn.setAttribute(

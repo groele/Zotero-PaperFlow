@@ -1,4 +1,4 @@
-> **16.5.0 稿件卡片标题与期刊胶囊数字序号尺寸增强版**：针对卡片层级可读性与浏览焦点，对序号徽标（`.submission-index`）尺寸与字体全面扩充升级。序号徽标由 28px 提升至 34px 高度（`min-width: 34px; height: 34px`，弹性居中），数字字号由 13.5px 放大至 16px（800 极粗字重，Tabular 等宽排版），期刊胶囊高度同步调整为 32px，在保持精致皇家钴蓝美学的同时，大幅提升跨屏浏览识别度。见[版本说明](docs/releases/v16.5.0.md)。
+> **16.5.1 稳定性与数据一致性修复版**：修复看板状态持久化缺失、模态框多轮次状态串改、本地日历与审稿周期时区偏差、未绑定条目误写回与插件停用竞态等问题，并完善设置页观察器与多语言状态同步。见[版本说明](docs/releases/v16.5.1.md)。
 
 # Zotero PaperFlow
 
@@ -11,7 +11,7 @@
 
 [简体中文](README.md) · [English](README.en.md)
 
-[![当前版本](https://img.shields.io/badge/version-16.5.0-245ac7?style=flat-square)](https://github.com/groele/Zotero-PaperFlow/releases/tag/v16.5.0) · [下载 XPI](https://github.com/groele/Zotero-PaperFlow/releases/download/v16.5.0/zotero-paperflow-16.5.0.xpi) · [问题反馈](https://github.com/groele/Zotero-PaperFlow/issues)
+[![当前版本](https://img.shields.io/badge/version-16.5.1-245ac7?style=flat-square)](https://github.com/groele/Zotero-PaperFlow/releases/tag/v16.5.1) · [下载 XPI](https://github.com/groele/Zotero-PaperFlow/releases/download/v16.5.1/zotero-paperflow-16.5.1.xpi) · [问题反馈](https://github.com/groele/Zotero-PaperFlow/issues)
 
 [产品定位](#overview) · [安装与更新](#installation) · [快速开始](#quick-start) · [核心功能](#features) · [设置与使用](#settings) · [数据、同步与外部服务](#data) · [兼容性与验证范围](#compatibility) · [常见问题](#troubleshooting) · [开发与详细文档](#development) · [系列产品](#series) · [项目来源与许可](#license)
 

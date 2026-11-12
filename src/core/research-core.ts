@@ -86,18 +86,38 @@ function isTerminalPublicationStatus(status: any): boolean {
 
 function getSubmissionsForManuscript(db: any, manuscriptId: string): any[] {
   if (!db || !Array.isArray(db.submissions) || !manuscriptId) return [];
-  return db.submissions
-    .filter((sub: any) => sub && sub.manuscriptId === manuscriptId)
-    .slice()
-    .sort((a: any, b: any) => {
-      const aPublished = normalizeStatus(a.status) === 'published' ? 2 : (isTerminalPublicationStatus(a.status) ? 1 : 0);
-      const bPublished = normalizeStatus(b.status) === 'published' ? 2 : (isTerminalPublicationStatus(b.status) ? 1 : 0);
-      if (aPublished !== bPublished) return bPublished - aPublished;
-      const aActive = normalizeStatus(a.status) !== 'rejected' ? 1 : 0;
-      const bActive = normalizeStatus(b.status) !== 'rejected' ? 1 : 0;
-      if (aActive !== bActive) return bActive - aActive;
-      return submissionRecencyScore(b) - submissionRecencyScore(a);
-    });
+  const subs = db.submissions.filter((sub: any) => sub && sub.manuscriptId === manuscriptId);
+  if (!subs.length) return [];
+  const predecessorIds = new Set(
+    subs.map((sub: any) => sub?.previousSubmissionId || sub?.transferredFromId).filter(Boolean)
+  );
+  const indexBySub = new Map<any, number>(subs.map((sub: any, idx: number) => [sub, idx]));
+  const isClosed = (status: any) => {
+    const s = normalizeStatus(status, 'submitted');
+    return s === 'rejected' || s === 'withdrawn';
+  };
+  const roundOf = (sub: any) => Number(sub?.round ?? sub?.roundIndex) || 1;
+  return subs.slice().sort((a: any, b: any) => {
+    const aOpen = isClosed(a.status) ? 0 : 1;
+    const bOpen = isClosed(b.status) ? 0 : 1;
+    if (aOpen !== bOpen) return bOpen - aOpen;
+
+    const aHead = predecessorIds.has(a.id) ? 0 : 1;
+    const bHead = predecessorIds.has(b.id) ? 0 : 1;
+    if (aHead !== bHead) return bHead - aHead;
+
+    const roundDiff = roundOf(b) - roundOf(a);
+    if (roundDiff !== 0) return roundDiff;
+
+    const recencyDiff = submissionRecencyScore(b) - submissionRecencyScore(a);
+    if (recencyDiff !== 0) return recencyDiff;
+
+    const aPublished = normalizeStatus(a.status) === 'published' ? 2 : (isTerminalPublicationStatus(a.status) ? 1 : 0);
+    const bPublished = normalizeStatus(b.status) === 'published' ? 2 : (isTerminalPublicationStatus(b.status) ? 1 : 0);
+    if (aPublished !== bPublished) return bPublished - aPublished;
+
+    return (indexBySub.get(b) ?? 0) - (indexBySub.get(a) ?? 0);
+  });
 }
 
 function getCurrentSubmission(db: any, manuscriptId: string): any | null {

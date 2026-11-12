@@ -12,7 +12,7 @@
   var ADDON_ID = "zotero-paperflow@groele.org";
   var CHROME_ROOT = "chrome://researchflow/content/";
   var PREF_PREFIX = "extensions.researchflow.";
-  var DEFAULT_VERSION = "16.5.0";
+  var DEFAULT_VERSION = "16.5.1";
 
   // src/modules/academic-citation/formatters.ts
   var extractCiteKey = (target) => {
@@ -679,6 +679,10 @@
   };
 
   // src/host/menus.ts
+  function isZhHostLocale() {
+    const loc = String(typeof Zotero !== "undefined" && Zotero.locale || "").toLowerCase();
+    return !loc || loc.startsWith("zh");
+  }
   var hostMenuMethods = {
     registerMenus() {
       this.updateItemContextMenu();
@@ -694,6 +698,7 @@
       }
       const enableReader = Boolean(this.getPref("enableReaderIntegration", true));
       if (enableReader && Zotero.MenuManager && typeof Zotero.MenuManager.registerMenu === "function") {
+        const zh = isZhHostLocale();
         try {
           this._menuManagerReader = Zotero.MenuManager.registerMenu({
             menuID: "researchflow-reader-context",
@@ -702,11 +707,12 @@
             menus: [
               {
                 menuType: "menuitem",
-                label: "📝 摘录至 Zotero PaperFlow 稿件研究笔记",
+                label: zh ? "📝 摘录至 Zotero PaperFlow 稿件研究笔记" : "📝 Excerpt to Zotero PaperFlow Manuscript Notes",
                 icon: `${CHROME_ROOT}icons/researchflow.svg`,
                 onCommand: (event) => {
+                  if (this._disposed) return;
                   try {
-                    this.createRecordFromReader(event?.target?.ownerDocument?.defaultView || event?.target?.ownerGlobal);
+                    this.createRecordFromReader(event?.target?.ownerDocument?.defaultView || null);
                   } catch (err) {
                     Zotero.logError?.("[PaperFlow] Reader context error: " + err);
                   }
@@ -730,6 +736,7 @@
       this.purgeStaleContextMenus();
       const showContextMenu = Boolean(this.getPref("showContextMenu", false));
       if (showContextMenu && Zotero.MenuManager && typeof Zotero.MenuManager.registerMenu === "function") {
+        const zh = isZhHostLocale();
         try {
           this._menuManagerItem = Zotero.MenuManager.registerMenu({
             menuID: "researchflow-itemmenu-actions",
@@ -738,9 +745,10 @@
             menus: [
               {
                 menuType: "menuitem",
-                label: "新建论文稿件管线",
+                label: zh ? "新建论文稿件管线" : "New Manuscript Pipeline for Selected Item",
                 icon: `${CHROME_ROOT}icons/researchflow.svg`,
                 onCommand: () => {
+                  if (this._disposed) return;
                   try {
                     this.createManuscriptFromSelection();
                   } catch (err) {
@@ -750,9 +758,10 @@
               },
               {
                 menuType: "menuitem",
-                label: "关联到现有稿件",
+                label: zh ? "关联到现有稿件" : "Link to Existing Manuscript",
                 icon: `${CHROME_ROOT}icons/researchflow.svg`,
                 onCommand: () => {
+                  if (this._disposed) return;
                   try {
                     this.linkSelectionToManuscript();
                   } catch (err) {
@@ -1174,12 +1183,21 @@
       return JSON.parse(JSON.stringify(data));
     },
     enqueueDatabaseOperation(operation) {
+      if (this._disposed) {
+        return Promise.reject(new Error("PaperFlow plugin is shutting down"));
+      }
       const result = (this._saveQueue || Promise.resolve()).catch(() => {
-      }).then(operation);
+      }).then(() => {
+        if (this._disposed) {
+          throw new Error("PaperFlow plugin is shutting down");
+        }
+        return operation();
+      });
       this._saveQueue = result;
       return result;
     },
     async loadDatabase() {
+      if (this._disposed) return Promise.reject(new Error("PaperFlow plugin is shutting down"));
       return this.enqueueDatabaseOperation(() => this.readDatabaseSnapshot());
     },
     rememberDatabaseSnapshot(data) {
@@ -1246,6 +1264,9 @@
       return this.writeDatabaseSnapshot(initial);
     },
     async saveDatabase(data, options = {}) {
+      if (this._disposed) {
+        return Promise.reject(new Error("PaperFlow plugin is shutting down"));
+      }
       this.validateDatabase(data);
       let snapshot = this.cloneDatabase(data);
       const expectedRevision = options?.expectedRevision;
@@ -1280,6 +1301,9 @@
       });
     },
     async writeDatabaseSnapshot(data, fallbackRevision = 0) {
+      if (this._disposed) {
+        throw new Error("PaperFlow plugin is shutting down");
+      }
       const previousRevision = Number(this._cachedData?.revision) || Number(fallbackRevision) || 0;
       const snapshot = {
         ...data,
@@ -1292,7 +1316,7 @@
         await IOUtils.writeUTF8(filePath, JSON.stringify(snapshot, null, 2), { tmpPath: `${filePath}.tmp` });
         this._cachedData = this.cloneDatabase(snapshot);
         this.rememberDatabaseSnapshot(snapshot);
-        this.notifyDataChanged();
+        if (!this._disposed) this.notifyDataChanged();
         return this.cloneDatabase(snapshot);
       } catch (error) {
         Zotero.logError?.("[PaperFlow] Failed to write researchflow-data.json: " + error);
@@ -1530,7 +1554,10 @@
       if (!btn) {
         btn = this.createXULElement(doc, "toolbarbutton");
         btn.id = "researchflow-toolbar-button";
-        btn.setAttribute("tooltiptext", "打开 Zotero PaperFlow 工作台 (Ctrl+Alt+R)");
+        btn.setAttribute("data-l10n-id", "researchflow-toolbar-tooltip");
+        btn.setAttribute("data-l10n-attrs", "tooltiptext");
+        const zh = !Zotero?.locale || String(Zotero.locale).toLowerCase().startsWith("zh");
+        btn.setAttribute("tooltiptext", zh ? "打开 Zotero PaperFlow 工作台 (Ctrl+Alt+R)" : "Open Zotero PaperFlow Workspace (Ctrl+Alt+R)");
         btn.setAttribute("image", `${CHROME_ROOT}icons/researchflow.svg`);
         btn.setAttribute("class", "zotero-tb-button toolbarbutton-1 chromeclass-toolbar-additional");
         btn.setAttribute(
@@ -1667,12 +1694,14 @@
   function createHostMessageHandler(host, window2) {
     return function handleHostMessage(event) {
       try {
+        if (host?._disposed) return;
         const data = event.data;
         if (!data || typeof data !== "object") return;
         if (typeof data.type !== "string" || !data.type.startsWith("RESEARCHFLOW_")) return;
         const sourceWin = event.source;
         const iframe = window2.document.getElementById("researchflow-tab-iframe");
         const replyResult = (msgObj) => {
+          if (host?._disposed) return;
           try {
             if (sourceWin && typeof sourceWin.postMessage === "function") {
               sourceWin.postMessage(msgObj, "*");
@@ -2394,6 +2423,7 @@
   // src/host/shutdown.ts
   var hostShutdownMethods = {
     async shutdown() {
+      this._disposed = true;
       for (const win of this._standaloneWindows || []) {
         try {
           win.close();
@@ -2417,6 +2447,15 @@
         });
       }
       injectedElements.clear();
+      const pendingQueues = [this._saveQueue, this._uiStateQueue].filter(Boolean);
+      if (pendingQueues.length) {
+        try {
+          await Promise.allSettled(pendingQueues);
+        } catch (_) {
+        }
+      }
+      this._saveQueue = null;
+      this._uiStateQueue = null;
       if (this._prefPaneID && Zotero.PreferencePanes?.unregister) {
         try {
           Zotero.PreferencePanes.unregister(this._prefPaneID);

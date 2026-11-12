@@ -1,6 +1,7 @@
 researchflow-menu-open = Zotero PaperFlow Workspace
 researchflow-menu-preferences = Zotero PaperFlow Preferences...
 researchflow-toolbar-tooltip = Open Zotero PaperFlow Workspace (Ctrl+Alt+R)
+    .tooltiptext = Open Zotero PaperFlow Workspace (Ctrl+Alt+R)
 researchflow-item-menu-create = New Manuscript Pipeline for Selected Item
 researchflow-item-menu-link = Link to Existing Manuscript
 researchflow-collection-menu-create = Create Manuscript Pipeline for This Collection

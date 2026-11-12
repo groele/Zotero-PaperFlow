@@ -17,6 +17,7 @@ declare var Ci: any;
 export function createHostMessageHandler(host: any, window: any) {
   return function handleHostMessage(event: any) {
     try {
+      if (host?._disposed) return;
       const data = event.data;
       if (!data || typeof data !== 'object') return;
       if (typeof data.type !== 'string' || !data.type.startsWith('RESEARCHFLOW_')) return;
@@ -25,6 +26,7 @@ export function createHostMessageHandler(host: any, window: any) {
       const iframe = window.document.getElementById('researchflow-tab-iframe');
 
       const replyResult = (msgObj: any) => {
+        if (host?._disposed) return;
         try {
           if (sourceWin && typeof sourceWin.postMessage === 'function') {
             sourceWin.postMessage(msgObj, '*');

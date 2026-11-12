@@ -30,28 +30,7 @@ function computeCountdown(dateStr: string): any {
       if (meta) return meta;
     } catch (_) {}
   }
-  try {
-    const due = new Date(dateStr);
-    if (isNaN(due.getTime())) return null;
-    const now = new Date();
-    const utcDue = Date.UTC(due.getFullYear(), due.getMonth(), due.getDate());
-    const utcNow = Date.UTC(now.getFullYear(), now.getMonth(), now.getDate());
-    const diffDays = Math.round((utcDue - utcNow) / 86400000);
-    const isZh = typeof currentLanguage !== 'undefined' ? currentLanguage === 'zh' : true;
-    if (diffDays < 0) {
-      const d = Math.abs(diffDays);
-      return { days: diffDays, level: 'overdue', badgeClass: 'badge-danger', icon: '🚨', text: isZh ? `已逾期 ${d} 天` : `${d}d overdue` };
-    }
-    if (diffDays === 0) {
-      return { days: 0, level: 'due_today', badgeClass: 'badge-danger', icon: '🚨', text: isZh ? '今天截止' : 'Due today' };
-    }
-    if (diffDays <= 7) {
-      return { days: diffDays, level: 'due_soon', badgeClass: 'badge-warning', icon: '⚠️', text: isZh ? `仅剩 ${diffDays} 天` : `${diffDays}d left` };
-    }
-    return { days: diffDays, level: 'upcoming', badgeClass: 'badge-info', icon: '📅', text: isZh ? `剩 ${diffDays} 天` : `${diffDays}d left` };
-  } catch (_) {
-    return null;
-  }
+  return null;
 }
 
 export function renderTimelineAlerts(): void {
@@ -145,7 +124,7 @@ export function renderTimelineAlerts(): void {
             title: `${journalName}: ${t('revisionDueLabel') || (isZh ? '修回截止' : 'Revision Deadline')}`,
             date: '',
             displayDate: isZh ? '待设截止日' : 'No deadline',
-            countdown: { icon: '⚠️', text: isZh ? '待设截止日' : 'No deadline', level: 'due_soon', days: 1 },
+            countdown: { icon: '⚠️', text: isZh ? '待设截止日' : 'No deadline', level: 'due_soon', days: null },
             manTitle: man ? man.title : t('untitledManuscript'),
             isRevision: true
           });

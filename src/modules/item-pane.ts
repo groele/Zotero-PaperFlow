@@ -75,12 +75,15 @@ export function registerItemPaneSection(host: any): string | null {
         const targetKey = target.key;
         const targetDoi = (typeof target.getField === 'function' ? target.getField('DOI') : '') || '';
 
-        // Find linked manuscripts
-        const manuscripts = (db.manuscripts || []).filter((m: any) => {
-          if (m.zoteroItemKey && m.zoteroItemKey === targetKey) return true;
-          if (targetDoi && m.doi && m.doi.toLowerCase() === targetDoi.toLowerCase()) return true;
-          return false;
-        });
+        // Find linked manuscripts (zoteroItemKey takes precedence; unbound items do not match via DOI)
+        const allManuscripts = db.manuscripts || [];
+        const keyMatched = allManuscripts.filter((m: any) => m.zoteroItemKey && m.zoteroItemKey === targetKey);
+        const doiMatched = !keyMatched.length && targetDoi
+          ? allManuscripts.filter((m: any) =>
+              m.zoteroItemKey === undefined && !m.zoteroUnbound && m.doi && m.doi.toLowerCase() === targetDoi.toLowerCase()
+            )
+          : [];
+        const manuscripts = keyMatched.length ? keyMatched : doiMatched;
 
         const count = manuscripts.length;
         setSectionSummary?.(count ? `${count} 个稿件管线` : '');

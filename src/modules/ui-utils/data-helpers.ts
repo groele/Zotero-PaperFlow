@@ -206,10 +206,18 @@ export function buildSubmissionEditSyncPlan(input: any = {}): any {
       journalUrl: journalUrl || null,
       externalManuscriptId: externalManuscriptId || null,
       status,
-      submissionDate: submissionDate ? new Date(submissionDate).toISOString() : null,
-      firstDecisionDate: firstDecisionDate ? new Date(firstDecisionDate).toISOString() : null,
-      revisionDueDate: revisionDueDate ? new Date(revisionDueDate).toISOString() : null,
-      decisionDate: decisionDate ? new Date(decisionDate).toISOString() : null
+      submissionDate: submissionDate
+        ? (/^\d{4}-\d{2}-\d{2}$/.test(submissionDate) ? `${submissionDate}T12:00:00.000Z` : new Date(submissionDate).toISOString())
+        : null,
+      firstDecisionDate: firstDecisionDate
+        ? (/^\d{4}-\d{2}-\d{2}$/.test(firstDecisionDate) ? `${firstDecisionDate}T12:00:00.000Z` : new Date(firstDecisionDate).toISOString())
+        : null,
+      revisionDueDate: revisionDueDate
+        ? (/^\d{4}-\d{2}-\d{2}$/.test(revisionDueDate) ? `${revisionDueDate}T12:00:00.000Z` : new Date(revisionDueDate).toISOString())
+        : null,
+      decisionDate: decisionDate
+        ? (/^\d{4}-\d{2}-\d{2}$/.test(decisionDate) ? `${decisionDate}T12:00:00.000Z` : new Date(decisionDate).toISOString())
+        : null
     },
     publicationPatch: canKeepPublicationLinks
       ? {
