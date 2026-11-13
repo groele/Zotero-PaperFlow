@@ -2,8 +2,23 @@
  * Zotero PaperFlow Preferences - Controller & DOM Bindings
  */
 import { DEFAULTS, FIELDS } from './schema.js';
+import { bindPreferenceActions } from './actions.js';
 
 declare var Zotero: any;
+const HTML_NS = 'http://www.w3.org/1999/xhtml';
+const SUBORDINATE_KEYS = new Set(['subwindowAlwaysOnTop', 'subwindowCompactMode']);
+
+function createHtmlElement<K extends keyof HTMLElementTagNameMap>(
+  doc: Document,
+  tag: K,
+  className?: string
+): HTMLElementTagNameMap[K] {
+  const el = (typeof doc.createElementNS === 'function'
+    ? doc.createElementNS(HTML_NS, tag)
+    : doc.createElement(tag)) as HTMLElementTagNameMap[K];
+  if (className) el.className = className;
+  return el;
+}
 
 export function getPrefValue(key: string): any {
   if (typeof Zotero === 'undefined' || !Zotero.Prefs) {
@@ -19,15 +34,51 @@ export function setPrefValue(key: string, value: any): void {
 }
 
 export function buildSettingRow(field: any, doc: Document): HTMLElement {
-  const row = doc.createElement('div');
-  row.className = 'rf-pref-row';
+  const currentVal = getPrefValue(field.key);
+  const subordinate = SUBORDINATE_KEYS.has(field.key);
+
+  if (field.type === 'check') {
+    const item = createHtmlElement(doc, 'div', subordinate ? 'rf-setting-item rf-subordinate-row' : 'rf-setting-item');
+    item.id = `rf-pref-row-${field.key}`;
+
+    const header = createHtmlElement(doc, 'label', 'rf-check-header');
+    const input = createHtmlElement(doc, 'input');
+    input.type = 'checkbox';
+    input.id = `rf-pref-${field.key}`;
+    input.checked = Boolean(currentVal);
+    input.addEventListener('change', () => {
+      setPrefValue(field.key, input.checked);
+      updateSubordinateStates(doc);
+    });
+
+    const title = createHtmlElement(doc, 'span', 'rf-check-title');
+    if (field.l10nLabel) {
+      title.setAttribute('data-l10n-id', field.l10nLabel);
+      if (!(doc as any).l10n) title.textContent = field.label;
+    } else {
+      title.textContent = field.label;
+    }
+
+    header.appendChild(input);
+    header.appendChild(title);
+    item.appendChild(header);
+
+    const desc = createHtmlElement(doc, 'p', 'rf-setting-desc');
+    if (field.l10nDesc) {
+      desc.setAttribute('data-l10n-id', field.l10nDesc);
+      if (!(doc as any).l10n) desc.textContent = field.desc;
+    } else {
+      desc.textContent = field.desc;
+    }
+    item.appendChild(desc);
+    return item;
+  }
+
+  const row = createHtmlElement(doc, 'div', subordinate ? 'rf-pref-row rf-subordinate-row' : 'rf-pref-row');
   row.id = `rf-pref-row-${field.key}`;
 
-  const info = doc.createElement('div');
-  info.className = 'rf-pref-info';
-
-  const label = doc.createElement('div');
-  label.className = 'rf-pref-label';
+  const info = createHtmlElement(doc, 'div', 'rf-pref-info');
+  const label = createHtmlElement(doc, 'div', 'rf-pref-label');
   if (field.l10nLabel) {
     label.setAttribute('data-l10n-id', field.l10nLabel);
     if (!(doc as any).l10n) label.textContent = field.label;
@@ -35,8 +86,7 @@ export function buildSettingRow(field: any, doc: Document): HTMLElement {
     label.textContent = field.label;
   }
 
-  const desc = doc.createElement('div');
-  desc.className = 'rf-pref-desc';
+  const desc = createHtmlElement(doc, 'div', 'rf-pref-desc');
   if (field.l10nDesc) {
     desc.setAttribute('data-l10n-id', field.l10nDesc);
     if (!(doc as any).l10n) desc.textContent = field.desc;
@@ -48,26 +98,12 @@ export function buildSettingRow(field: any, doc: Document): HTMLElement {
   info.appendChild(desc);
   row.appendChild(info);
 
-  const ctrl = doc.createElement('div');
-  ctrl.className = 'rf-pref-ctrl';
-
-  const currentVal = getPrefValue(field.key);
-
-  if (field.type === 'check') {
-    const input = doc.createElement('input');
-    input.type = 'checkbox';
-    input.id = `rf-pref-${field.key}`;
-    input.checked = Boolean(currentVal);
-    input.addEventListener('change', () => {
-      setPrefValue(field.key, input.checked);
-      updateSubordinateStates(doc);
-    });
-    ctrl.appendChild(input);
-  } else if (field.type === 'select') {
-    const select = doc.createElement('select');
+  const ctrl = createHtmlElement(doc, 'div', 'rf-pref-ctrl');
+  if (field.type === 'select') {
+    const select = createHtmlElement(doc, 'select');
     select.id = `rf-pref-${field.key}`;
     for (const [val, text, l10nId] of field.options) {
-      const opt = doc.createElement('option');
+      const opt = createHtmlElement(doc, 'option');
       opt.value = val;
       if (l10nId) {
         opt.setAttribute('data-l10n-id', l10nId);
@@ -139,6 +175,8 @@ export function initPreferencesWindow(win: Window): void {
       updateSubordinateStates(doc);
     });
   }
+
+  bindPreferenceActions(doc, win, getPrefValue, setPrefValue);
 
   const zotero = typeof Zotero !== 'undefined' ? Zotero : (win as any).Zotero;
   const hostWin = win as any;

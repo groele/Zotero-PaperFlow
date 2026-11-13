@@ -210,7 +210,7 @@
     const deletedCount = (key) => Array.isArray(sourceDb?.deletedEntities?.[key]) ? sourceDb.deletedEntities[key].length : 0;
     return {
       app: "Zotero PaperFlow",
-      version: "16.4.2",
+      version: "16.5.5",
       exportedAt: (/* @__PURE__ */ new Date()).toISOString(),
       environment: {
         language: currentLanguage,
