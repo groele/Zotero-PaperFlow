@@ -6,7 +6,7 @@
  * Target runtime: Gecko 153+ / Firefox 140+ (minify: false for Error Console audit)
  * ----------------------------------------------------------------------------------
  */
-const RF_OPTIONS_RENDER_VERSION = '16.5.2';
+const RF_OPTIONS_RENDER_VERSION = '16.5.3';
 "use strict";
 (() => {
   var __getOwnPropNames = Object.getOwnPropertyNames;
