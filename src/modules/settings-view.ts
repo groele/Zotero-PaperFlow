@@ -1,6 +1,7 @@
 /**
  * Zotero PaperFlow - Multi-Cloud Settings View Entry Point
  */
+import { createLifecycleScope } from './ui-utils/lifecycle.js';
 import {
   getDeviceSyncSecretsFromInputs,
   renderSettings,
@@ -41,12 +42,21 @@ declare function renderSubmissions(): void;
 declare function renderAllViews(): Promise<void>;
 declare function loadSettings(): Promise<void>;
 
+const settingsViewScope = createLifecycleScope();
+let settingsListenersScope = settingsViewScope.child();
+if (typeof window !== 'undefined' && typeof window.addEventListener === 'function') {
+  window.addEventListener('unload', () => settingsViewScope.abort(), { once: true });
+}
+
 bindSettingsRoutingListeners();
 
 export function setupSettingsListeners(): void {
+  settingsListenersScope.abort();
+  settingsListenersScope = settingsViewScope.child();
+
   const languageSelect = document.getElementById('ui-language') as HTMLSelectElement | null;
   if (languageSelect) {
-    languageSelect.addEventListener('change', async () => {
+    settingsListenersScope.on(languageSelect, 'change', async () => {
       currentLanguage = languageSelect.value;
       document.documentElement.lang = currentLanguage === 'zh' ? 'zh-CN' : 'en';
       db.settings = db.settings || {};
@@ -66,7 +76,7 @@ export function setupSettingsListeners(): void {
 
   const themeSelect = document.getElementById('ui-theme') as HTMLSelectElement | null;
   if (themeSelect) {
-    themeSelect.addEventListener('change', async () => {
+    settingsListenersScope.on(themeSelect, 'change', async () => {
       const previousTheme = typeof normalizeThemePreference === 'function' ? normalizeThemePreference(db.settings?.profile?.theme) : '';
       const nextTheme = typeof applyThemePreference === 'function' ? applyThemePreference(themeSelect.value) : themeSelect.value;
       db.settings = db.settings || {};
@@ -87,7 +97,7 @@ export function setupSettingsListeners(): void {
 
 setupSettingsListeners();
 
-document.getElementById('btn-export-db')?.addEventListener('click', () => {
+settingsViewScope.on(document.getElementById('btn-export-db'), 'click', () => {
   const dataStr = 'data:text/json;charset=utf-8,' + encodeURIComponent(JSON.stringify(stripCredentialsForExport(db), null, 2));
   const dlAnchorElem = document.createElement('a');
   dlAnchorElem.setAttribute('href', dataStr);
@@ -96,7 +106,7 @@ document.getElementById('btn-export-db')?.addEventListener('click', () => {
   showGlobalToast(t('databaseExported'), 'success');
 });
 
-document.getElementById('btn-export-diagnostics')?.addEventListener('click', () => {
+settingsViewScope.on(document.getElementById('btn-export-diagnostics'), 'click', () => {
   const report = buildPrivacySafeDiagnostics(db);
   const dataStr = 'data:text/json;charset=utf-8,' + encodeURIComponent(JSON.stringify(report, null, 2));
   const dlAnchorElem = document.createElement('a');
@@ -126,7 +136,7 @@ document.getElementById('btn-trigger-import')?.addEventListener('click', async (
       }
       showGlobalToast(res?.error || t('invalidBackup'), 'error');
     } catch (e: any) {
-      console.error('[ResearchFlow] Zotero native import failed:', e);
+      console.error('[PaperFlow] Zotero native import failed:', e);
       showGlobalToast(e.message || t('invalidBackup'), 'error');
     }
     return;
@@ -157,7 +167,7 @@ document.getElementById('btn-restore-import-backup')?.addEventListener('click', 
       }
       showGlobalToast(t('invalidBackup'), 'error');
     } catch (e: any) {
-      console.error('[ResearchFlow] Zotero restore failed:', e);
+      console.error('[PaperFlow] Zotero restore failed:', e);
       showGlobalToast(e.message || t('invalidBackup'), 'error');
     }
     return;
@@ -190,7 +200,7 @@ document.getElementById('btn-restore-import-backup')?.addEventListener('click', 
 });
 
 // Handle Imported JSON File
-document.getElementById('import-db-file')?.addEventListener('change', (e: any) => {
+settingsViewScope.on(document.getElementById('import-db-file'), 'change', (e: any) => {
   const file = e.target.files?.[0];
   if (!file) return;
   if (file.size > MAX_IMPORT_DATABASE_BYTES) {
@@ -229,7 +239,7 @@ document.getElementById('import-db-file')?.addEventListener('change', (e: any) =
   e.target.value = '';
 });
 
-document.getElementById('btn-refresh-conflicts')?.addEventListener('click', () => {
+settingsViewScope.on(document.getElementById('btn-refresh-conflicts'), 'click', () => {
   refreshConflictDrafts();
 });
 

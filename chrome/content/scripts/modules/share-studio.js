@@ -25,6 +25,219 @@
     }
   };
 
+  // src/modules/ui-utils/lifecycle.ts
+  function createFallbackController() {
+    let aborted = false;
+    let reason;
+    const listeners = /* @__PURE__ */ new Set();
+    const signal = {
+      get aborted() {
+        return aborted;
+      },
+      get reason() {
+        return reason;
+      },
+      addEventListener(type, listener) {
+        if (type !== "abort" || typeof listener !== "function") return;
+        if (aborted) {
+          try {
+            listener({ type: "abort" });
+          } catch (_) {
+          }
+          return;
+        }
+        listeners.add(listener);
+      },
+      removeEventListener(type, listener) {
+        if (type !== "abort") return;
+        listeners.delete(listener);
+      }
+    };
+    return {
+      signal,
+      abort(nextReason) {
+        if (aborted) return;
+        aborted = true;
+        reason = nextReason;
+        const snapshot = Array.from(listeners);
+        listeners.clear();
+        for (const listener of snapshot) {
+          try {
+            listener({ type: "abort" });
+          } catch (_) {
+          }
+        }
+      }
+    };
+  }
+  function isNativeAbortSignal(signal) {
+    return typeof AbortSignal !== "undefined" && signal instanceof AbortSignal;
+  }
+  function createLifecycleScope(parentSignal) {
+    const controller = typeof AbortController !== "undefined" ? new AbortController() : createFallbackController();
+    const cleanups = /* @__PURE__ */ new Set();
+    let localAborted = false;
+    const runCleanups = () => {
+      const snapshot = Array.from(cleanups);
+      cleanups.clear();
+      for (const cleanup of snapshot) {
+        try {
+          cleanup();
+        } catch (_) {
+        }
+      }
+    };
+    const abort = (reason) => {
+      if (localAborted) return;
+      localAborted = true;
+      try {
+        controller.abort(reason);
+      } catch (_) {
+      }
+      runCleanups();
+    };
+    if (parentSignal) {
+      if (parentSignal.aborted) {
+        abort(parentSignal.reason);
+      } else if (typeof parentSignal.addEventListener === "function") {
+        const onParentAbort = () => abort(parentSignal.reason);
+        parentSignal.addEventListener("abort", onParentAbort, { once: true });
+        cleanups.add(() => {
+          try {
+            parentSignal.removeEventListener?.("abort", onParentAbort);
+          } catch (_) {
+          }
+        });
+      }
+    }
+    const scope = {
+      signal: controller.signal,
+      get aborted() {
+        return localAborted || Boolean(controller.signal?.aborted);
+      },
+      abort,
+      onAbort(fn) {
+        if (typeof fn !== "function") return () => {
+        };
+        if (scope.aborted) {
+          try {
+            fn();
+          } catch (_) {
+          }
+          return () => {
+          };
+        }
+        cleanups.add(fn);
+        return () => {
+          cleanups.delete(fn);
+        };
+      },
+      on(target, type, listener, options) {
+        if (!target || typeof target.addEventListener !== "function" || typeof listener !== "function" || scope.aborted) {
+          return () => {
+          };
+        }
+        const capture = typeof options === "boolean" ? options : Boolean(options?.capture);
+        const baseOpts = typeof options === "boolean" ? { capture: options } : options ? { ...options } : {};
+        const listenerOptions = isNativeAbortSignal(controller.signal) ? { ...baseOpts, signal: controller.signal } : typeof options === "boolean" ? options : options || void 0;
+        target.addEventListener(type, listener, listenerOptions);
+        const detach = () => {
+          cleanups.delete(detach);
+          if (typeof target.removeEventListener === "function") {
+            try {
+              target.removeEventListener(type, listener, capture);
+            } catch (_) {
+            }
+          }
+        };
+        cleanups.add(detach);
+        return detach;
+      },
+      setTimeout(fn, delay = 0) {
+        const st = globalThis.setTimeout;
+        const ct = globalThis.clearTimeout;
+        if (scope.aborted || typeof st !== "function") return 0;
+        let timerId = 0;
+        const cancel = () => {
+          cleanups.delete(cancel);
+          if (timerId && typeof ct === "function") {
+            ct(timerId);
+            timerId = 0;
+          }
+        };
+        cleanups.add(cancel);
+        timerId = st(() => {
+          cleanups.delete(cancel);
+          timerId = 0;
+          if (!scope.aborted) fn();
+        }, delay);
+        return timerId;
+      },
+      setInterval(fn, delay = 0) {
+        const si = globalThis.setInterval;
+        const ci = globalThis.clearInterval;
+        if (scope.aborted || typeof si !== "function") return 0;
+        let timerId = 0;
+        const cancel = () => {
+          cleanups.delete(cancel);
+          if (timerId && typeof ci === "function") {
+            ci(timerId);
+            timerId = 0;
+          }
+        };
+        cleanups.add(cancel);
+        timerId = si(() => {
+          if (!scope.aborted) fn();
+        }, delay);
+        return timerId;
+      },
+      raf(fn) {
+        const req = globalThis.requestAnimationFrame;
+        const can = globalThis.cancelAnimationFrame;
+        if (scope.aborted) return 0;
+        if (typeof req !== "function") {
+          return scope.setTimeout(() => fn(Date.now()), 0);
+        }
+        let rafId = 0;
+        const cancel = () => {
+          cleanups.delete(cancel);
+          if (rafId && typeof can === "function") {
+            can(rafId);
+            rafId = 0;
+          }
+        };
+        cleanups.add(cancel);
+        rafId = req((ts) => {
+          cleanups.delete(cancel);
+          rafId = 0;
+          if (!scope.aborted) fn(ts);
+        });
+        return rafId;
+      },
+      child() {
+        return createLifecycleScope(controller.signal);
+      }
+    };
+    return scope;
+  }
+  function acquireModalScope() {
+    const g2 = typeof globalThis !== "undefined" ? globalThis : typeof window !== "undefined" ? window : {};
+    if (typeof g2?.getModalLifecycleScope === "function") {
+      return g2.getModalLifecycleScope();
+    }
+    const scope = createLifecycleScope();
+    const register = g2?.registerModalCleanup || (typeof window !== "undefined" ? window.registerModalCleanup : null);
+    if (typeof register === "function") {
+      register(() => scope.abort("modal-closed"));
+    }
+    return scope;
+  }
+  var init_lifecycle = __esm({
+    "src/modules/ui-utils/lifecycle.ts"() {
+      "use strict";
+    }
+  });
+
   // src/modules/share-studio/preferences-and-data.ts
   function getShareThemes() {
     return [
@@ -238,7 +451,7 @@
       link.remove();
       return { cancelled: false, path: filename };
     } finally {
-      setTimeout(() => URL.revokeObjectURL(url), 1e3);
+      blobRevokeScope.setTimeout(() => URL.revokeObjectURL(url), 1e3);
     }
   }
   async function copyPngBlobToClipboard(blob) {
@@ -253,14 +466,19 @@
     }
     return false;
   }
-  var g, SHARE_THEME_DEFAULT, SHARE_SIZE_DEFAULT, SHARE_TIMELINE_START_DEFAULT, SHARE_BRAND_SIZE_DEFAULT, SHARE_RESOLUTION_DEFAULT;
+  var g, blobRevokeScope, SHARE_THEME_DEFAULT, SHARE_SIZE_DEFAULT, SHARE_TIMELINE_START_DEFAULT, SHARE_BRAND_SIZE_DEFAULT, SHARE_RESOLUTION_DEFAULT;
   var init_preferences_and_data = __esm({
     "src/modules/share-studio/preferences-and-data.ts"() {
       "use strict";
+      init_lifecycle();
       g = typeof globalThis !== "undefined" ? globalThis : window;
       if (!("sharePreferenceWrites" in g)) g.sharePreferenceWrites = Promise.resolve();
       if (!("activeSharePreviewUrl" in g)) g.activeSharePreviewUrl = null;
       if (!("activeSharePreviewCleanup" in g)) g.activeSharePreviewCleanup = null;
+      blobRevokeScope = createLifecycleScope();
+      if (typeof window !== "undefined" && typeof window.addEventListener === "function") {
+        blobRevokeScope.on(window, "unload", () => blobRevokeScope.abort(), { once: true });
+      }
       SHARE_THEME_DEFAULT = "estuary";
       SHARE_SIZE_DEFAULT = "portrait";
       SHARE_TIMELINE_START_DEFAULT = "experiment";
@@ -422,10 +640,10 @@
         return;
       }
       openModalFn(buildShareModal(prefs));
+      const modalScope = acquireModalScope();
       const modalEl = document.getElementById("modal-body") || (typeof modalContent !== "undefined" ? modalContent : null);
       modalEl?.classList?.add("share-preview-card");
-      const regCleanup = g2.registerModalCleanup || (typeof registerModalCleanup === "function" ? registerModalCleanup : null);
-      if (regCleanup) regCleanup(() => modalEl?.classList?.remove("share-preview-card"));
+      modalScope.onAbort(() => modalEl?.classList?.remove("share-preview-card"));
       const preview = document.getElementById("share-journey-preview");
       const previewWrap = document.getElementById("share-journey-preview-wrap");
       const loadingEl = document.getElementById("share-preview-loading");
@@ -441,20 +659,24 @@
       let currentKey = "";
       let renderSeq = 0;
       let closed = false;
-      let prefsTimer = null;
+      let prefsTimerId = null;
+      let pendingPrefsSave = false;
       const pendingUrls = /* @__PURE__ */ new Set();
       activeSharePreviewCleanup = () => {
         closed = true;
         renderSeq += 1;
-        if (prefsTimer !== null) {
-          clearTimeout(prefsTimer);
-          prefsTimer = null;
+        if (prefsTimerId !== null) {
+          clearTimeout(prefsTimerId);
+          prefsTimerId = null;
+        }
+        if (pendingPrefsSave) {
+          pendingPrefsSave = false;
           void persistSharePreferences(prefs);
         }
         pendingUrls.forEach((url) => URL.revokeObjectURL(url));
         pendingUrls.clear();
       };
-      if (regCleanup) regCleanup(clearActiveSharePreview);
+      modalScope.onAbort(clearActiveSharePreview);
       const setSaveStatus = (message, state = "neutral") => {
         if (!statusEl) return;
         statusEl.textContent = message;
@@ -580,10 +802,15 @@
         prefs = normalizeSharePreferences({ ...prefs, ...patch, visible: { ...prefs.visible, ...patch.visible || {} } });
         syncControlSelection();
         setBusy();
-        if (prefsTimer !== null) clearTimeout(prefsTimer);
-        prefsTimer = setTimeout(async () => {
-          prefsTimer = null;
-          if (closed) return;
+        if (prefsTimerId !== null) {
+          clearTimeout(prefsTimerId);
+          prefsTimerId = null;
+        }
+        pendingPrefsSave = true;
+        prefsTimerId = modalScope.setTimeout(async () => {
+          prefsTimerId = null;
+          pendingPrefsSave = false;
+          if (closed || modalScope.aborted) return;
           await renderPreview();
           await persistSharePreferences(prefs);
         }, 90);
@@ -597,25 +824,25 @@
         canvas.width = canvas.height = 1;
         return blob;
       };
-      document.getElementById("share-appearance")?.addEventListener("change", (e) => updatePrefs({ theme: e.target.value, appearance: e.target.value }));
+      modalScope.on(document.getElementById("share-appearance"), "change", (e) => updatePrefs({ theme: e.target.value, appearance: e.target.value }));
       modalEl?.querySelectorAll("[data-share-theme]").forEach((btn) => {
-        btn.addEventListener("click", () => {
+        modalScope.on(btn, "click", () => {
           const id = btn.getAttribute("data-share-theme");
           updatePrefs({ theme: id, appearance: id });
         });
       });
       modalEl?.querySelectorAll("[data-share-visible]").forEach((input) => {
-        input.addEventListener("change", () => updatePrefs({ visible: { [input.getAttribute("data-share-visible")]: input.checked } }));
+        modalScope.on(input, "change", () => updatePrefs({ visible: { [input.getAttribute("data-share-visible")]: input.checked } }));
       });
       modalEl?.querySelectorAll('input[name="share-timeline-start"]').forEach((input) => {
-        input.addEventListener("change", () => {
+        modalScope.on(input, "change", () => {
           if (input.checked) updatePrefs({ timelineStart: input.value });
         });
       });
-      document.getElementById("share-card-size")?.addEventListener("change", (e) => updatePrefs({ size: e.target.value }));
-      document.getElementById("share-brand-size")?.addEventListener("change", (e) => updatePrefs({ brandSize: e.target.value }));
-      document.getElementById("share-card-resolution")?.addEventListener("change", (e) => updatePrefs({ resolution: e.target.value }));
-      document.getElementById("btn-reset-share-style")?.addEventListener("click", () => {
+      modalScope.on(document.getElementById("share-card-size"), "change", (e) => updatePrefs({ size: e.target.value }));
+      modalScope.on(document.getElementById("share-brand-size"), "change", (e) => updatePrefs({ brandSize: e.target.value }));
+      modalScope.on(document.getElementById("share-card-resolution"), "change", (e) => updatePrefs({ resolution: e.target.value }));
+      modalScope.on(document.getElementById("btn-reset-share-style"), "click", () => {
         updatePrefs({ theme: SHARE_THEME_DEFAULT, appearance: SHARE_THEME_DEFAULT, size: SHARE_SIZE_DEFAULT, timelineStart: SHARE_TIMELINE_START_DEFAULT, brandSize: SHARE_BRAND_SIZE_DEFAULT, resolution: SHARE_RESOLUTION_DEFAULT });
       });
       const toggleZoom = () => {
@@ -625,13 +852,13 @@
         zoomBtn.textContent = t(zoomed ? "shareFit" : "shareZoom");
         previewWrap.scrollTo?.({ top: 0, left: 0 });
       };
-      zoomBtn?.addEventListener("click", toggleZoom);
-      preview?.addEventListener("click", toggleZoom);
-      retryBtn?.addEventListener("click", () => {
+      modalScope.on(zoomBtn, "click", toggleZoom);
+      modalScope.on(preview, "click", toggleZoom);
+      modalScope.on(retryBtn, "click", () => {
         void renderPreview();
       });
-      downloadBtn?.addEventListener("click", async () => {
-        if (!currentBlob) return;
+      modalScope.on(downloadBtn, "click", async () => {
+        if (!downloadBtn || !currentBlob) return;
         downloadBtn.disabled = true;
         try {
           setSaveStatus(t("shareJourneySaving"), "pending");
@@ -653,8 +880,8 @@
           if (!closed) downloadBtn.disabled = !currentBlob;
         }
       });
-      copyBtn?.addEventListener("click", async () => {
-        if (!currentBlob) return;
+      modalScope.on(copyBtn, "click", async () => {
+        if (!copyBtn || !currentBlob) return;
         copyBtn.disabled = true;
         try {
           const blob = await getExportBlob();
@@ -682,6 +909,7 @@
     "src/modules/share-studio/modal-controller.ts"() {
       "use strict";
       init_modal_template();
+      init_lifecycle();
       init_preferences_and_data();
     }
   });

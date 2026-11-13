@@ -298,7 +298,221 @@
   var init_editor_sync = __esm({
     "src/modules/submissions-view/editor-sync.ts"() {
       "use strict";
+      init_checklist_and_matrix();
       init_submission_state();
+    }
+  });
+
+  // src/modules/ui-utils/lifecycle.ts
+  function createFallbackController() {
+    let aborted = false;
+    let reason;
+    const listeners = /* @__PURE__ */ new Set();
+    const signal = {
+      get aborted() {
+        return aborted;
+      },
+      get reason() {
+        return reason;
+      },
+      addEventListener(type, listener) {
+        if (type !== "abort" || typeof listener !== "function") return;
+        if (aborted) {
+          try {
+            listener({ type: "abort" });
+          } catch (_) {
+          }
+          return;
+        }
+        listeners.add(listener);
+      },
+      removeEventListener(type, listener) {
+        if (type !== "abort") return;
+        listeners.delete(listener);
+      }
+    };
+    return {
+      signal,
+      abort(nextReason) {
+        if (aborted) return;
+        aborted = true;
+        reason = nextReason;
+        const snapshot = Array.from(listeners);
+        listeners.clear();
+        for (const listener of snapshot) {
+          try {
+            listener({ type: "abort" });
+          } catch (_) {
+          }
+        }
+      }
+    };
+  }
+  function isNativeAbortSignal(signal) {
+    return typeof AbortSignal !== "undefined" && signal instanceof AbortSignal;
+  }
+  function createLifecycleScope(parentSignal) {
+    const controller = typeof AbortController !== "undefined" ? new AbortController() : createFallbackController();
+    const cleanups = /* @__PURE__ */ new Set();
+    let localAborted = false;
+    const runCleanups = () => {
+      const snapshot = Array.from(cleanups);
+      cleanups.clear();
+      for (const cleanup of snapshot) {
+        try {
+          cleanup();
+        } catch (_) {
+        }
+      }
+    };
+    const abort = (reason) => {
+      if (localAborted) return;
+      localAborted = true;
+      try {
+        controller.abort(reason);
+      } catch (_) {
+      }
+      runCleanups();
+    };
+    if (parentSignal) {
+      if (parentSignal.aborted) {
+        abort(parentSignal.reason);
+      } else if (typeof parentSignal.addEventListener === "function") {
+        const onParentAbort = () => abort(parentSignal.reason);
+        parentSignal.addEventListener("abort", onParentAbort, { once: true });
+        cleanups.add(() => {
+          try {
+            parentSignal.removeEventListener?.("abort", onParentAbort);
+          } catch (_) {
+          }
+        });
+      }
+    }
+    const scope = {
+      signal: controller.signal,
+      get aborted() {
+        return localAborted || Boolean(controller.signal?.aborted);
+      },
+      abort,
+      onAbort(fn) {
+        if (typeof fn !== "function") return () => {
+        };
+        if (scope.aborted) {
+          try {
+            fn();
+          } catch (_) {
+          }
+          return () => {
+          };
+        }
+        cleanups.add(fn);
+        return () => {
+          cleanups.delete(fn);
+        };
+      },
+      on(target, type, listener, options) {
+        if (!target || typeof target.addEventListener !== "function" || typeof listener !== "function" || scope.aborted) {
+          return () => {
+          };
+        }
+        const capture = typeof options === "boolean" ? options : Boolean(options?.capture);
+        const baseOpts = typeof options === "boolean" ? { capture: options } : options ? { ...options } : {};
+        const listenerOptions = isNativeAbortSignal(controller.signal) ? { ...baseOpts, signal: controller.signal } : typeof options === "boolean" ? options : options || void 0;
+        target.addEventListener(type, listener, listenerOptions);
+        const detach = () => {
+          cleanups.delete(detach);
+          if (typeof target.removeEventListener === "function") {
+            try {
+              target.removeEventListener(type, listener, capture);
+            } catch (_) {
+            }
+          }
+        };
+        cleanups.add(detach);
+        return detach;
+      },
+      setTimeout(fn, delay = 0) {
+        const st = globalThis.setTimeout;
+        const ct = globalThis.clearTimeout;
+        if (scope.aborted || typeof st !== "function") return 0;
+        let timerId = 0;
+        const cancel = () => {
+          cleanups.delete(cancel);
+          if (timerId && typeof ct === "function") {
+            ct(timerId);
+            timerId = 0;
+          }
+        };
+        cleanups.add(cancel);
+        timerId = st(() => {
+          cleanups.delete(cancel);
+          timerId = 0;
+          if (!scope.aborted) fn();
+        }, delay);
+        return timerId;
+      },
+      setInterval(fn, delay = 0) {
+        const si = globalThis.setInterval;
+        const ci = globalThis.clearInterval;
+        if (scope.aborted || typeof si !== "function") return 0;
+        let timerId = 0;
+        const cancel = () => {
+          cleanups.delete(cancel);
+          if (timerId && typeof ci === "function") {
+            ci(timerId);
+            timerId = 0;
+          }
+        };
+        cleanups.add(cancel);
+        timerId = si(() => {
+          if (!scope.aborted) fn();
+        }, delay);
+        return timerId;
+      },
+      raf(fn) {
+        const req = globalThis.requestAnimationFrame;
+        const can = globalThis.cancelAnimationFrame;
+        if (scope.aborted) return 0;
+        if (typeof req !== "function") {
+          return scope.setTimeout(() => fn(Date.now()), 0);
+        }
+        let rafId = 0;
+        const cancel = () => {
+          cleanups.delete(cancel);
+          if (rafId && typeof can === "function") {
+            can(rafId);
+            rafId = 0;
+          }
+        };
+        cleanups.add(cancel);
+        rafId = req((ts) => {
+          cleanups.delete(cancel);
+          rafId = 0;
+          if (!scope.aborted) fn(ts);
+        });
+        return rafId;
+      },
+      child() {
+        return createLifecycleScope(controller.signal);
+      }
+    };
+    return scope;
+  }
+  function acquireModalScope() {
+    const g2 = typeof globalThis !== "undefined" ? globalThis : typeof window !== "undefined" ? window : {};
+    if (typeof g2?.getModalLifecycleScope === "function") {
+      return g2.getModalLifecycleScope();
+    }
+    const scope = createLifecycleScope();
+    const register = g2?.registerModalCleanup || (typeof window !== "undefined" ? window.registerModalCleanup : null);
+    if (typeof register === "function") {
+      register(() => scope.abort("modal-closed"));
+    }
+    return scope;
+  }
+  var init_lifecycle = __esm({
+    "src/modules/ui-utils/lifecycle.ts"() {
+      "use strict";
     }
   });
 
@@ -316,11 +530,14 @@
     } else {
       detailPanel.scrollTop = targetTop;
     }
+    focusHighlightScope?.abort("re-focus");
+    const fScope = createLifecycleScope();
+    focusHighlightScope = fScope;
     editCenter.classList.remove("submission-edit-center-focused");
     editCenter.classList.add("submission-edit-center-focused");
-    window.setTimeout(() => editCenter.classList.remove("submission-edit-center-focused"), 2400);
+    fScope.setTimeout(() => editCenter.classList.remove("submission-edit-center-focused"), 2400);
     if (titleInput) {
-      window.requestAnimationFrame(() => {
+      fScope.raf(() => {
         try {
           titleInput.focus({ preventScroll: true });
         } catch (_) {
@@ -395,11 +612,18 @@
     const editCenter = document.getElementById("submission-entry-editor-panel");
     const status = editCenter?.querySelector("[data-submission-autosave-status]");
     if (!editCenter || !status) return;
-    let debounceTimer = null;
+    const autoSaveScope = createLifecycleScope();
+    let debounceScope = null;
+    let debouncePending = false;
     let revision = 0;
     let saveChain = Promise.resolve();
     let lastSavedSnapshot = JSON.stringify(getSubmissionEditValues("sub-edit"));
     const debounceMs = 650;
+    const clearDebounce = () => {
+      debouncePending = false;
+      debounceScope?.abort("clear-debounce");
+      debounceScope = null;
+    };
     const isHostDisposed = () => {
       const w = window;
       return Boolean(
@@ -407,18 +631,15 @@
       );
     };
     const setStatus = (state, message, detail = "") => {
-      if (!editCenter.isConnected || isHostDisposed()) return;
+      if (autoSaveScope.aborted || !editCenter.isConnected || isHostDisposed()) return;
       status.dataset.state = state;
       status.title = detail || "";
       const label = status.querySelector("[data-submission-autosave-label]");
       if (label) label.textContent = message;
     };
     const persist = () => {
-      if (debounceTimer) {
-        clearTimeout(debounceTimer);
-        debounceTimer = null;
-      }
-      if (!editCenter.isConnected || isHostDisposed()) return;
+      clearDebounce();
+      if (autoSaveScope.aborted || !editCenter.isConnected || isHostDisposed()) return;
       const requestedRevision = revision;
       const values = getSubmissionEditValues("sub-edit");
       const currentSnapshot = JSON.stringify(values);
@@ -426,7 +647,7 @@
       setStatus("saving", t("autoSaveSaving"));
       saveChain = saveChain.catch(() => {
       }).then(async () => {
-        if (!editCenter.isConnected || isHostDisposed()) return;
+        if (autoSaveScope.aborted || !editCenter.isConnected || isHostDisposed()) return;
         if (currentSnapshot === lastSavedSnapshot) {
           if (requestedRevision === revision) setStatus("saved", t("autoSaveSaved"));
           return;
@@ -442,7 +663,7 @@
             validationError = error;
           }
         }, getSubmissionEditValues);
-        if (!editCenter.isConnected || isHostDisposed()) return;
+        if (autoSaveScope.aborted || !editCenter.isConnected || isHostDisposed()) return;
         if (!saved) {
           setStatus("invalid", t("autoSaveInvalid"), validationError);
           return;
@@ -461,48 +682,56 @@
       });
     };
     const requestSave = ({ immediate = false } = {}) => {
+      if (autoSaveScope.aborted) return;
       revision += 1;
-      if (debounceTimer) clearTimeout(debounceTimer);
+      clearDebounce();
       setStatus("pending", t("autoSavePending"));
       if (immediate) persist();
-      else debounceTimer = window.setTimeout(persist, debounceMs);
+      else {
+        debouncePending = true;
+        debounceScope = autoSaveScope.child();
+        debounceScope.setTimeout(persist, debounceMs);
+      }
     };
-    editCenter.addEventListener("input", (event) => {
+    autoSaveScope.on(editCenter, "input", (event) => {
       const control = event.target;
       if (!(control instanceof HTMLInputElement || control instanceof HTMLTextAreaElement)) return;
       if (control.type === "checkbox" || control.type === "radio") return;
       requestSave();
     });
-    editCenter.addEventListener("change", (event) => {
+    autoSaveScope.on(editCenter, "change", (event) => {
       const control = event.target;
       if (!(control instanceof HTMLInputElement || control instanceof HTMLTextAreaElement || control instanceof HTMLSelectElement)) return;
       requestSave({ immediate: true });
     });
-    editCenter.addEventListener("submission-autosave-request", (event) => {
+    autoSaveScope.on(editCenter, "submission-autosave-request", (event) => {
       requestSave({ immediate: event.detail?.immediate !== false });
     });
     const flushPendingSave = () => {
-      if (debounceTimer) persist();
+      if (debouncePending) persist();
     };
     const flushWhenHidden = () => {
       if (document.visibilityState === "hidden") flushPendingSave();
     };
-    window.addEventListener("pagehide", flushPendingSave);
-    document.addEventListener("visibilitychange", flushWhenHidden);
+    autoSaveScope.on(window, "pagehide", flushPendingSave);
+    autoSaveScope.on(document, "visibilitychange", flushWhenHidden);
     const cleanupFn = () => {
       flushPendingSave();
-      window.removeEventListener("pagehide", flushPendingSave);
-      document.removeEventListener("visibilitychange", flushWhenHidden);
+      focusHighlightScope?.abort("autosave-cleanup");
+      autoSaveScope.abort("autosave-cleanup");
       setSubmissionAutoSaveCleanup(null);
     };
     setSubmissionAutoSaveCleanup(cleanupFn);
   }
+  var focusHighlightScope;
   var init_autosave_and_editor = __esm({
     "src/modules/submissions-view/autosave-and-editor.ts"() {
       "use strict";
       init_checklist_and_matrix();
       init_editor_sync();
       init_submission_state();
+      init_lifecycle();
+      focusHighlightScope = null;
     }
   });
 
@@ -512,6 +741,9 @@
     const toolsRow = document.querySelector(".submission-tools-row");
     const portalList = document.getElementById("journal-portals-list");
     if (!portalList) return;
+    portalsRenderScope?.abort("re-render");
+    const renderScope = createLifecycleScope();
+    portalsRenderScope = renderScope;
     const showPortals = typeof ZoteroBridge !== "undefined" ? ZoteroBridge.getPref("showJournalPortals", true) : db?.settings?.showJournalPortals ?? true;
     if (toolsRow) toolsRow.style.display = showPortals ? "" : "none";
     if (!showPortals) return;
@@ -558,11 +790,11 @@
         <button type="button" class="btn-delete-portal" title="${escapeHTML(t("portalDeleteTitle"))}" aria-label="${escapeHTML(t("portalDeleteTitle"))} ${escapeHTML(portal.name)}" data-id="${escapeHTML(portal.id)}">✕</button>
       </div>
     `);
-      card.querySelector(".portal-open")?.addEventListener("click", (event) => {
+      renderScope.on(card.querySelector(".portal-open"), "click", (event) => {
         if (!safeUrl) event.preventDefault();
       });
-      card.querySelector(".btn-edit-portal")?.addEventListener("click", () => openJournalPortalEditor(portal));
-      card.querySelector(".btn-delete-portal")?.addEventListener("click", async (e) => {
+      renderScope.on(card.querySelector(".btn-edit-portal"), "click", () => openJournalPortalEditor(portal));
+      renderScope.on(card.querySelector(".btn-delete-portal"), "click", async (e) => {
         e.preventDefault();
         e.stopPropagation();
         if (confirm(tf("portalDeleteConfirm", { name: portal.name }))) {
@@ -606,7 +838,8 @@
     </div>
     <button type="button" class="btn-primary w-full" id="btn-save-portal" style="margin-top:12px;">${editing ? currentLanguage === "zh" ? "保存修改" : "Save changes" : escapeHTML(t("addPortalButton"))}</button>
   `);
-    document.getElementById("btn-save-portal")?.addEventListener("click", async (event) => {
+    const modalScope = acquireModalScope();
+    modalScope.on(document.getElementById("btn-save-portal"), "click", async (event) => {
       const button = event.currentTarget;
       const name = (document.getElementById("portal-name")?.value || "").trim();
       const url = (document.getElementById("portal-url")?.value || "").trim();
@@ -638,11 +871,17 @@
     });
   }
   function setupJournalPortalListeners() {
-    document.getElementById("btn-add-portal")?.addEventListener("click", () => openJournalPortalEditor());
+    portalsButtonScope?.abort("rebind");
+    portalsButtonScope = createLifecycleScope();
+    portalsButtonScope.on(document.getElementById("btn-add-portal"), "click", () => openJournalPortalEditor());
   }
+  var portalsRenderScope, portalsButtonScope;
   var init_journal_portals = __esm({
     "src/modules/submissions-view/journal-portals.ts"() {
       "use strict";
+      init_lifecycle();
+      portalsRenderScope = null;
+      portalsButtonScope = null;
     }
   });
 
@@ -651,11 +890,17 @@
     const input = document.getElementById("submission-search");
     if (!input || input.dataset.bound) return;
     input.dataset.bound = "true";
-    input.addEventListener("input", (event) => {
+    searchSetupScope?.abort("rebind");
+    const scope = createLifecycleScope();
+    searchSetupScope = scope;
+    if (typeof window !== "undefined") {
+      scope.on(window, "unload", () => scope.abort("unload"), { once: true });
+    }
+    scope.on(input, "input", (event) => {
       if (!event.isComposing) applySubmissionSearch();
     });
-    input.addEventListener("compositionend", applySubmissionSearch);
-    document.getElementById("submission-search-status")?.addEventListener("change", applySubmissionSearch);
+    scope.on(input, "compositionend", applySubmissionSearch);
+    scope.on(document.getElementById("submission-search-status"), "change", applySubmissionSearch);
     const clear = (all = false) => {
       input.value = "";
       const statusSelect = document.getElementById("submission-search-status");
@@ -663,9 +908,9 @@
       applySubmissionSearch();
       input.focus();
     };
-    document.getElementById("submission-search-clear")?.addEventListener("click", () => clear());
-    document.getElementById("submission-search-reset")?.addEventListener("click", () => clear(true));
-    input.addEventListener("keydown", (event) => {
+    scope.on(document.getElementById("submission-search-clear"), "click", () => clear());
+    scope.on(document.getElementById("submission-search-reset"), "click", () => clear(true));
+    scope.on(input, "keydown", (event) => {
       if (event.isComposing) return;
       if (event.key === "Escape") {
         event.preventDefault();
@@ -677,7 +922,7 @@
         document.querySelector(".submission-card-item:not([hidden]) .btn-edit-submission")?.click();
       }
     });
-    document.addEventListener("keydown", (event) => {
+    scope.on(document, "keydown", (event) => {
       if (event.key !== "/" || event.ctrlKey || event.metaKey || event.altKey || event.isComposing || typeof modal !== "undefined" && modal?.classList?.contains("active")) return;
       if (event.target?.closest?.('input, textarea, select, [contenteditable="true"]')) return;
       if (document.getElementById("view-submissions")?.classList?.contains("active")) {
@@ -709,6 +954,9 @@
   function renderSubmissions({ refreshDetails = true } = {}) {
     const w = window;
     if (w.RFUI?.isViewDeferred?.("view-submissions")) return;
+    submissionsListScope?.abort("re-render");
+    const listScope = createLifecycleScope();
+    submissionsListScope = listScope;
     const container = document.getElementById("submissions-list-container");
     w.RFUI.setHTML(container, "");
     if (db.submissions.length === 0) {
@@ -772,20 +1020,20 @@
           ` : ""}
         </div>
       `);
-        card.addEventListener("click", () => openSubmissionForEditing(sub));
-        card.querySelector(".btn-edit-submission")?.addEventListener("click", (event) => {
+        listScope.on(card, "click", () => openSubmissionForEditing(sub));
+        listScope.on(card.querySelector(".btn-edit-submission"), "click", (event) => {
           event.stopPropagation();
           openSubmissionForEditing(sub, { focusEditCenter: true });
         });
-        card.querySelector(".btn-sub-card-share")?.addEventListener("click", (event) => {
+        listScope.on(card.querySelector(".btn-sub-card-share"), "click", (event) => {
           event.stopPropagation();
           const shareFn = w.openSubmissionSharePreview || w.openSubmissionShareModal;
           if (typeof shareFn === "function") shareFn(sub.id, event.currentTarget);
         });
         const cardZoteroBadge = card.querySelector(".zotero-card-badge");
-        cardZoteroBadge?.addEventListener("click", (event) => {
+        listScope.on(cardZoteroBadge, "click", (event) => {
           event.stopPropagation();
-          const key = cardZoteroBadge.getAttribute("data-item-key");
+          const key = cardZoteroBadge?.getAttribute("data-item-key");
           if (key && typeof ZoteroBridge !== "undefined") {
             const linkedMan = db.manuscripts?.find((item) => item.id === sub.manuscriptId);
             ZoteroBridge.selectItemInZotero(key, linkedMan?.zoteroLibraryID);
@@ -827,8 +1075,9 @@
       <button type="button" class="btn-primary" id="btn-confirm-submission-link" style="min-width:130px;">${escapeHTML(t("linkSubmissionConfirm"))}</button>
     </div>
   `);
-    document.getElementById("btn-cancel-link-sub")?.addEventListener("click", closeModal);
-    document.getElementById("btn-confirm-submission-link")?.addEventListener("click", async () => {
+    const modalScope = acquireModalScope();
+    modalScope.on(document.getElementById("btn-cancel-link-sub"), "click", closeModal);
+    modalScope.on(document.getElementById("btn-confirm-submission-link"), "click", async () => {
       const manuscriptId = document.getElementById("submission-link-manuscript")?.value;
       const manuscript = db.manuscripts.find((item) => item.id === manuscriptId);
       const liveSubmission = db.submissions.find((item) => item.id === submission.id);
@@ -889,12 +1138,16 @@
     return (getRebuttalEngine().openBatchReviewImportModal || (() => {
     }))(sub, reviewBox, onComplete);
   }
+  var searchSetupScope, submissionsListScope;
   var init_list_and_portals = __esm({
     "src/modules/submissions-view/list-and-portals.ts"() {
       "use strict";
       init_autosave_and_editor();
       init_journal_portals();
       init_submission_state();
+      init_lifecycle();
+      searchSetupScope = null;
+      submissionsListScope = null;
     }
   });
 
@@ -1000,19 +1253,22 @@
       }
     };
     updatePreview();
+    const modalScope = acquireModalScope();
     tabs.forEach((item) => {
-      item.el?.addEventListener("click", () => {
+      modalScope.on(item.el, "click", () => {
         currentFormat = item.id;
         updatePreview();
       });
     });
-    document.getElementById("btn-copy-rebuttal-word")?.addEventListener("click", async () => {
+    modalScope.on(document.getElementById("btn-copy-rebuttal-word"), "click", async () => {
       const activeHtml = currentFormat === "cover" ? coverHtml : wordHtml;
       const activeText = currentFormat === "cover" ? coverMd : mdCode;
       await copyRebuttalRichText(activeHtml, activeText);
-      showGlobalToast(t("copyWordSuccess") || (currentLanguage === "zh" ? "已复制 Word 富文本至剪贴板！可直接粘贴至 Word / WPS。" : "Copied rich text to clipboard! Ready to paste into Word."), "success");
+      if (!modalScope.aborted) {
+        showGlobalToast(t("copyWordSuccess") || (currentLanguage === "zh" ? "已复制 Word 富文本至剪贴板！可直接粘贴至 Word / WPS。" : "Copied rich text to clipboard! Ready to paste into Word."), "success");
+      }
     });
-    document.getElementById("btn-copy-rebuttal-code")?.addEventListener("click", () => {
+    modalScope.on(document.getElementById("btn-copy-rebuttal-code"), "click", () => {
       let codeToCopy = mdCode;
       if (currentFormat === "cover") codeToCopy = coverMd;
       else if (currentFormat === "latex") codeToCopy = latexCode;
@@ -1040,19 +1296,19 @@
       const safeId = String(sub.externalManuscriptId || sub.id).replace(/[^a-zA-Z0-9_-]/g, "_");
       return `${prefix}_${safeId}.${ext}`;
     };
-    document.getElementById("btn-download-tex")?.addEventListener("click", () => {
+    modalScope.on(document.getElementById("btn-download-tex"), "click", () => {
       const content = currentFormat === "cover" ? coverLatex : latexCode;
       const name = currentFormat === "cover" ? getExportFilename("cover_letter", "tex") : getExportFilename("rebuttal_letter", "tex");
       triggerDownload(content, name, "text/plain;charset=utf-8");
       showGlobalToast(t("latexDownloaded"), "success");
     });
-    document.getElementById("btn-download-md")?.addEventListener("click", () => {
+    modalScope.on(document.getElementById("btn-download-md"), "click", () => {
       const content = currentFormat === "cover" ? coverMd : mdCode;
       const name = currentFormat === "cover" ? getExportFilename("cover_letter", "md") : getExportFilename("rebuttal_letter", "md");
       triggerDownload(content, name, "text/markdown;charset=utf-8");
       showGlobalToast(currentLanguage === "zh" ? "已下载学术 Markdown 模版" : "Downloaded Markdown document", "success");
     });
-    document.getElementById("btn-download-doc")?.addEventListener("click", () => {
+    modalScope.on(document.getElementById("btn-download-doc"), "click", () => {
       const content = currentFormat === "cover" ? coverHtml : wordHtml;
       const name = currentFormat === "cover" ? getExportFilename("cover_letter", "doc") : getExportFilename("rebuttal_letter", "doc");
       triggerDownload(content, name, "application/msword;charset=utf-8");
@@ -1064,6 +1320,7 @@
       "use strict";
       init_list_and_portals();
       init_checklist_and_matrix();
+      init_lifecycle();
     }
   });
 
@@ -1108,8 +1365,9 @@
       <button type="button" class="btn-primary" id="btn-create-transfer-sub" style="min-width:130px;">${t("transferButton")}</button>
     </div>
   `);
-    document.getElementById("btn-cancel-transfer")?.addEventListener("click", closeModal);
-    document.getElementById("btn-create-transfer-sub")?.addEventListener("click", async () => {
+    const modalScope = acquireModalScope();
+    modalScope.on(document.getElementById("btn-cancel-transfer"), "click", closeModal);
+    modalScope.on(document.getElementById("btn-create-transfer-sub"), "click", async () => {
       const targetJournal = (document.getElementById("transfer-target-journal")?.value || "").trim();
       const rejectionDate = document.getElementById("transfer-rejection-date")?.value || today;
       const submissionDate = document.getElementById("transfer-submission-date")?.value || today;
@@ -1142,7 +1400,9 @@
     });
   }
   function bindTrackSubmissionButton() {
-    document.getElementById("btn-add-submission")?.addEventListener("click", openTrackSubmissionModal);
+    trackButtonScope?.abort("rebind");
+    trackButtonScope = createLifecycleScope();
+    trackButtonScope.on(document.getElementById("btn-add-submission"), "click", openTrackSubmissionModal);
   }
   function openTrackSubmissionModal() {
     const w = window;
@@ -1199,7 +1459,8 @@
       <button type="button" class="btn-primary" id="btn-submit-sub" style="min-width:140px;">${t("trackSubmissionButton")}</button>
     </div>
   `);
-    document.getElementById("btn-cancel-sub")?.addEventListener("click", closeModal);
+    const modalScope = acquireModalScope();
+    modalScope.on(document.getElementById("btn-cancel-sub"), "click", closeModal);
     const manuscriptSelect = document.getElementById("sub-man-select");
     const newManuscriptPanel = document.getElementById("sub-new-manuscript-panel");
     const autoFillFromManuscript = (mId) => {
@@ -1221,7 +1482,8 @@
         }
       }
     };
-    manuscriptSelect?.addEventListener("change", () => {
+    modalScope.on(manuscriptSelect, "change", () => {
+      if (!manuscriptSelect) return;
       const isNew = manuscriptSelect.value === "__new__";
       if (newManuscriptPanel) newManuscriptPanel.hidden = !isNew;
       if (isNew) document.getElementById("sub-new-man-title")?.focus();
@@ -1230,22 +1492,23 @@
     if (defaultManuscriptMode !== "__new__") {
       autoFillFromManuscript(defaultManuscriptMode);
     }
-    setupActiveItemDetection(manuscriptSelect, newManuscriptPanel);
-    setupSubmitSubmissionListener(manuscriptSelect);
+    setupActiveItemDetection(manuscriptSelect, newManuscriptPanel, modalScope);
+    setupSubmitSubmissionListener(manuscriptSelect, modalScope);
   }
-  function setupActiveItemDetection(manuscriptSelect, newManuscriptPanel) {
+  function setupActiveItemDetection(manuscriptSelect, newManuscriptPanel, modalScope) {
     const w = window;
-    setTimeout(async () => {
+    modalScope.setTimeout(async () => {
       try {
         if (typeof ZoteroBridge !== "undefined") {
           const activeItem = await ZoteroBridge.getActiveItem();
+          if (modalScope.aborted) return;
           const banner = document.getElementById("sub-zotero-active-item-banner");
           const textEl = document.getElementById("sub-zotero-active-item-text");
           const quickBindBtn = document.getElementById("btn-sub-zotero-quick-bind-active");
           if (activeItem && activeItem.title && banner && textEl) {
             w.RFUI.setHTML(textEl, `📌 <strong>${escapeHTML(currentLanguage === "zh" ? "检测到 Zotero 选中文献：" : "Active Zotero item: ")}</strong>《${escapeHTML(activeItem.title)}》`);
             banner.style.display = "flex";
-            quickBindBtn?.addEventListener("click", () => {
+            modalScope.on(quickBindBtn, "click", () => {
               const match = (db.manuscripts || []).find(
                 (m) => m.zoteroItemKey && m.zoteroItemKey === activeItem.key || m.title && m.title.trim().toLowerCase() === activeItem.title.trim().toLowerCase()
               );
@@ -1275,9 +1538,9 @@
       }
     }, 60);
   }
-  function setupSubmitSubmissionListener(manuscriptSelect) {
+  function setupSubmitSubmissionListener(manuscriptSelect, modalScope) {
     const w = window;
-    document.getElementById("btn-submit-sub")?.addEventListener("click", async () => {
+    modalScope.on(document.getElementById("btn-submit-sub"), "click", async () => {
       const createMode = w.RFUI.buildSubmissionCreateMode({
         selectedManuscriptId: manuscriptSelect?.value || "__new__",
         newManuscriptTitle: document.getElementById("sub-new-man-title")?.value || "",
@@ -1370,18 +1633,24 @@
       showGlobalToast(t("submissionAddedToast"), "success");
     });
   }
+  var trackButtonScope;
   var init_modals_and_creation = __esm({
     "src/modules/submissions-view/modals-and-creation.ts"() {
       "use strict";
       init_list_and_portals();
       init_details_renderer();
       init_submission_state();
+      init_lifecycle();
+      trackButtonScope = null;
     }
   });
 
   // src/modules/submissions-view/details-renderer.ts
   function renderSubmissionDetails(sub) {
     const w = window;
+    detailsRenderScope?.abort("re-render");
+    const detailScope = createLifecycleScope();
+    detailsRenderScope = detailScope;
     clearSubmissionAutoSave();
     sub.status = normalizeSubmissionStatus(sub.status);
     normalizeSubmissionTimeline(sub);
@@ -1464,7 +1733,7 @@
     detailPanel.dataset.rfEditorMounted = "true";
     detailPanel.dataset.currentSubmissionId = sub.id;
     detailPanel.scrollTop = 0;
-    bindSubmissionDetailListeners(sub, man);
+    bindSubmissionDetailListeners(sub, man, detailScope);
     const checklistKeys = getSubmissionChecklistKeys(sub);
     renderSubmissionChecklistEditor(sub, checklistKeys);
     renderSubmissionReviewMatrixEditor(sub, manAbstract);
@@ -1598,37 +1867,39 @@
     </div>
   `;
   }
-  function bindSubmissionDetailListeners(sub, man) {
+  function bindSubmissionDetailListeners(sub, man, detailScope) {
     const w = window;
     const journalName = getSubmissionJournalName(sub);
-    document.getElementById("btn-link-submission-manuscript")?.addEventListener("click", () => openLinkSubmissionModal(sub));
-    document.getElementById("btn-focus-edit-center")?.addEventListener("click", (e) => {
+    detailScope.on(document.getElementById("btn-link-submission-manuscript"), "click", () => openLinkSubmissionModal(sub));
+    detailScope.on(document.getElementById("btn-focus-edit-center"), "click", (e) => {
       e.preventDefault();
       focusSubmissionEditCenter();
     });
-    document.getElementById("btn-mark-sub-rejected")?.addEventListener("click", async () => {
+    detailScope.on(document.getElementById("btn-mark-sub-rejected"), "click", async () => {
       if (!confirm(t("confirmMarkRejected"))) return;
       markSubmissionRejected(sub, todayString());
       syncManuscriptStatusFromSubmission(sub);
       await w.storage.saveAll(db);
+      if (detailScope.aborted) return;
       renderDashboard();
       renderKanban();
       renderSubmissions();
       renderSubmissionDetails(sub);
       showGlobalToast(t("rejectedToast"), "success");
     });
-    document.getElementById("btn-share-sub-journey")?.addEventListener("click", (e) => {
+    detailScope.on(document.getElementById("btn-share-sub-journey"), "click", (e) => {
       e.stopPropagation();
       const shareFn = w.openSubmissionSharePreview || w.openSubmissionShareModal;
       if (typeof shareFn === "function") shareFn(sub.id, e.currentTarget);
     });
-    document.getElementById("btn-transfer-submission")?.addEventListener("click", () => openTransferSubmissionModal(sub));
-    document.getElementById("btn-delete-sub")?.addEventListener("click", async () => {
+    detailScope.on(document.getElementById("btn-transfer-submission"), "click", () => openTransferSubmissionModal(sub));
+    detailScope.on(document.getElementById("btn-delete-sub"), "click", async () => {
       if (confirm(t("confirmDeleteSubmission"))) {
         w.storage.recordEntityDeletion(db, "submissions", sub.id);
         syncManuscriptStatusesFromSubmissions(db);
         setSelectedSubmissionId(null);
         await w.storage.saveAll(db);
+        if (detailScope.aborted) return;
         renderDashboard();
         renderKanban();
         renderSubmissions();
@@ -1637,29 +1908,31 @@
       `);
       }
     });
-    document.getElementById("btn-sync-submission-to-zotero")?.addEventListener("click", async () => {
+    detailScope.on(document.getElementById("btn-sync-submission-to-zotero"), "click", async () => {
       if (typeof ZoteroBridge !== "undefined" && man?.zoteroItemKey) {
         const btn = document.getElementById("btn-sync-submission-to-zotero");
         if (btn) btn.disabled = true;
         try {
           const ok = await ZoteroBridge.syncNote(man.zoteroItemKey, man.zoteroLibraryID);
-          showGlobalToast(ok ? currentLanguage === "zh" ? "已成功同步审稿记录与修回矩阵至 Zotero 笔记" : "Successfully synced review & rebuttal matrix to Zotero note" : currentLanguage === "zh" ? "同步至 Zotero 笔记失败" : "Failed to sync to Zotero note", ok ? "success" : "error");
+          if (!detailScope.aborted) {
+            showGlobalToast(ok ? currentLanguage === "zh" ? "已成功同步审稿记录与修回矩阵至 Zotero 笔记" : "Successfully synced review & rebuttal matrix to Zotero note" : currentLanguage === "zh" ? "同步至 Zotero 笔记失败" : "Failed to sync to Zotero note", ok ? "success" : "error");
+          }
         } catch (e) {
           showGlobalToast(String(e.message || e), "error");
         }
-        setTimeout(() => {
+        detailScope.setTimeout(() => {
           if (btn) btn.disabled = false;
         }, 1200);
       }
     });
     const detailPanel = document.getElementById("submission-detail-panel");
-    detailPanel?.querySelector("#sub-detail-zotero-badge")?.addEventListener("click", () => {
+    detailScope.on(detailPanel?.querySelector("#sub-detail-zotero-badge"), "click", () => {
       if (man?.zoteroItemKey && typeof ZoteroBridge !== "undefined") ZoteroBridge.selectItemInZotero(man.zoteroItemKey, man.zoteroLibraryID);
     });
-    detailPanel?.querySelector("#sub-detail-citekey-badge")?.addEventListener("click", () => {
+    detailScope.on(detailPanel?.querySelector("#sub-detail-citekey-badge"), "click", () => {
       if (man?.citekey && typeof ZoteroBridge !== "undefined") ZoteroBridge.copyText(`[@${man.citekey}]`, currentLanguage === "zh" ? `已复制 Citation Key: [@${man.citekey}]` : `Copied Citation Key: [@${man.citekey}]`);
     });
-    detailPanel?.querySelector("#sub-detail-pdf-badge")?.addEventListener("click", () => {
+    detailScope.on(detailPanel?.querySelector("#sub-detail-pdf-badge"), "click", () => {
       if (man?.zoteroItemKey && typeof ZoteroBridge !== "undefined") ZoteroBridge.openPdf(man.zoteroItemKey, null, man.zoteroLibraryID);
     });
     const triggerSubIcs = () => {
@@ -1673,10 +1946,11 @@
         showGlobalToast(t("calendarExportedToast") || (currentLanguage === "zh" ? "修回截止日历 (.ics) 已导出！" : "Revision deadline calendar (.ics) exported."), "success");
       }
     };
-    detailPanel?.querySelector("#btn-export-submission-ics")?.addEventListener("click", triggerSubIcs);
-    detailPanel?.querySelector("#btn-editor-due-ics")?.addEventListener("click", triggerSubIcs);
-    document.getElementById("btn-export-rebuttal-table")?.addEventListener("click", () => openAcademicRebuttalExportModal(sub, man));
+    detailScope.on(detailPanel?.querySelector("#btn-export-submission-ics"), "click", triggerSubIcs);
+    detailScope.on(detailPanel?.querySelector("#btn-editor-due-ics"), "click", triggerSubIcs);
+    detailScope.on(document.getElementById("btn-export-rebuttal-table"), "click", () => openAcademicRebuttalExportModal(sub, man));
   }
+  var detailsRenderScope;
   var init_details_renderer = __esm({
     "src/modules/submissions-view/details-renderer.ts"() {
       "use strict";
@@ -1686,6 +1960,8 @@
       init_rebuttal_export_modal();
       init_modals_and_creation();
       init_submission_state();
+      init_lifecycle();
+      detailsRenderScope = null;
     }
   });
 

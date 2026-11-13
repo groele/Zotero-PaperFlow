@@ -1,6 +1,8 @@
 /**
  * Zotero PaperFlow Preferences - Button & Diagnostics Actions
  */
+import type { LifecycleScope } from '../ui-utils/lifecycle.js';
+
 declare var Zotero: any;
 
 type GetPrefFn = (key: string) => any;
@@ -16,14 +18,21 @@ function setImportStatus(doc: Document, message: string, isError = false): void 
 function bindClick(
   doc: Document,
   id: string,
-  handler: (event: Event) => void | Promise<void>
+  handler: (event: Event) => void | Promise<void>,
+  scope?: LifecycleScope
 ): void {
   const btn = doc.getElementById(id) as HTMLButtonElement | null;
-  if (!btn || (btn as any).dataset?.rfBound) return;
-  if ((btn as any).dataset) (btn as any).dataset.rfBound = 'true';
-  btn.addEventListener('click', (event) => {
+  if (!btn) return;
+  const listener = (event: Event) => {
     void handler(event);
-  });
+  };
+  if (scope) {
+    scope.on(btn, 'click', listener);
+    return;
+  }
+  if ((btn as any).dataset?.rfBound) return;
+  if ((btn as any).dataset) (btn as any).dataset.rfBound = 'true';
+  btn.addEventListener('click', listener);
 }
 
 function isZhLocale(doc: Document, getPrefValue: GetPrefFn): boolean {
@@ -35,7 +44,8 @@ export function bindPreferenceActions(
   doc: Document,
   win: Window,
   getPrefValue: GetPrefFn,
-  setPrefValue: SetPrefFn
+  setPrefValue: SetPrefFn,
+  scope?: LifecycleScope
 ): void {
   const zotero = typeof Zotero !== 'undefined' ? Zotero : (win as any).Zotero;
   const host = zotero?.ResearchFlow || zotero?.PaperFlow;
@@ -53,33 +63,34 @@ export function bindPreferenceActions(
   if (importModeSelect) {
     const savedMode = String(getPrefValue('importMode') || 'merge');
     importModeSelect.value = savedMode === 'overwrite' ? 'overwrite' : 'merge';
-    if (!(importModeSelect as any).dataset?.rfBound) {
+    const onModeChange = () => setPrefValue('importMode', importModeSelect.value);
+    if (scope) {
+      scope.on(importModeSelect, 'change', onModeChange);
+    } else if (!(importModeSelect as any).dataset?.rfBound) {
       if ((importModeSelect as any).dataset) (importModeSelect as any).dataset.rfBound = 'true';
-      importModeSelect.addEventListener('change', () => {
-        setPrefValue('importMode', importModeSelect.value);
-      });
+      importModeSelect.addEventListener('change', onModeChange);
     }
   }
 
   bindClick(doc, 'rf-btn-open-workspace', () => {
     host?.openResearchFlow?.({}, win, 'tab');
-  });
+  }, scope);
 
   bindClick(doc, 'rf-btn-open-subwindow', () => {
     host?.openStandaloneWindow?.({}, win, 'subwindow');
-  });
+  }, scope);
 
   bindClick(doc, 'rf-btn-open-window', () => {
     host?.openStandaloneWindow?.({}, win, 'window');
-  });
+  }, scope);
 
   bindClick(doc, 'rf-btn-open-cloud-settings', () => {
     host?.openResearchFlow?.({ view: 'view-settings' }, win, 'tab');
-  });
+  }, scope);
 
   bindClick(doc, 'rf-btn-conflict-recovery', () => {
     host?.openResearchFlow?.({ view: 'view-settings' }, win, 'tab');
-  });
+  }, scope);
 
   bindClick(doc, 'rf-btn-export-db', async () => {
     if (typeof host?.exportDatabaseFile !== 'function') return;
@@ -89,7 +100,7 @@ export function bindPreferenceActions(
     } else if (res?.error) {
       setImportStatus(doc, (zh ? '导出失败：' : 'Export failed: ') + res.error, true);
     }
-  });
+  }, scope);
 
   bindClick(doc, 'rf-btn-import-file', async () => {
     if (typeof host?.importDatabaseFile !== 'function') return;
@@ -100,7 +111,7 @@ export function bindPreferenceActions(
     } else if (res?.error) {
       setImportStatus(doc, (zh ? '导入失败：' : 'Import failed: ') + res.error, true);
     }
-  });
+  }, scope);
 
   bindClick(doc, 'rf-btn-restore-backup', async () => {
     if (typeof host?.restoreBackupDatabase !== 'function') return;
@@ -110,7 +121,7 @@ export function bindPreferenceActions(
     } else {
       setImportStatus(doc, zh ? '未找到可用的本地备份快照。' : 'No local backup snapshot available.', true);
     }
-  });
+  }, scope);
 
   bindClick(doc, 'rf-btn-export-diag', async () => {
     if (typeof host?.exportDiagnosticsFile !== 'function') return;
@@ -128,5 +139,5 @@ export function bindPreferenceActions(
       }
     };
     await host.exportDiagnosticsFile(report, win);
-  });
+  }, scope);
 }

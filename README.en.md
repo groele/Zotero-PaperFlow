@@ -1,4 +1,4 @@
-> **16.5.5 Toolbar Icon & Timeline Motion Fix Release**: Removed the top-level Fluent value from `researchflow-toolbar-tooltip` so Zotero preserves the toolbar SVG icon, and scoped `performance.css` `animation: none` to `prefers-reduced-motion: reduce` so active event-rail flow and pulse animations work properly. [Release notes](docs/releases/v16.5.5.md).
+> **17.0.0 Unified Zotero Flow Major Release**: Enabled strict TypeScript compiler checks (`noImplicitAny`, `verbatimModuleSyntax`, `ES2023`), introduced declarative `AbortController` lifecycle scopes across host windows and workspace modules, eliminated legacy log branding leftovers, and unified the Zotero Flow suite at `v17.0.0`. [Release notes](docs/releases/v17.0.0.md).
 
 # Zotero PaperFlow
 
@@ -11,7 +11,7 @@ Manage manuscripts, submission rounds, and review responses.
 
 [简体中文](README.md) · [English](README.en.md)
 
-[![Release](https://img.shields.io/badge/version-16.5.5-245ac7?style=flat-square)](https://github.com/groele/Zotero-PaperFlow/releases/tag/v16.5.5) · [Download XPI](https://github.com/groele/Zotero-PaperFlow/releases/download/v16.5.5/zotero-paperflow-16.5.5.xpi) · [Report an issue](https://github.com/groele/Zotero-PaperFlow/issues)
+[![Release](https://img.shields.io/badge/version-17.0.0-245ac7?style=flat-square)](https://github.com/groele/Zotero-PaperFlow/releases/tag/v17.0.0) · [Download XPI](https://github.com/groele/Zotero-PaperFlow/releases/download/v17.0.0/zotero-paperflow-17.0.0.xpi) · [Report an issue](https://github.com/groele/Zotero-PaperFlow/issues)
 
 [Overview](#overview) · [Installation and updates](#installation) · [Quick start](#quick-start) · [Key features](#features) · [Settings](#settings) · [Data, sync, and services](#data) · [Compatibility and validation](#compatibility) · [Troubleshooting](#troubleshooting) · [Development and documentation](#development) · [The Flow series](#series) · [Origin and license](#license)
 

@@ -1,8 +1,30 @@
 /**
  * Zotero PaperFlow - Workspace Navigation, Modal Lifecycle & Toast Celebrations
  */
-export const RF_OPTIONS_RENDER_VERSION = '16.5.2';
+import { createLifecycleScope, type LifecycleScope } from '../ui-utils/lifecycle.js';
+import { showGlobalToast, showAcceptanceCelebration } from './toast-and-celebration.js';
+
+export { showGlobalToast, showAcceptanceCelebration };
+
+export const RF_OPTIONS_RENDER_VERSION = '17.0.0';
 export const UI_THEME_OPTIONS = new Set(['system', 'light', 'dark']);
+
+let modalScope: LifecycleScope | null = null;
+let focusEditTimerScope: LifecycleScope | null = null;
+let workspaceNavScope: LifecycleScope | null = null;
+
+export function getModalLifecycleScope(): LifecycleScope {
+  if (!modalScope || modalScope.aborted) {
+    modalScope = createLifecycleScope();
+    const created = modalScope;
+    registerModalCleanup(() => created.abort('modal-closed'));
+  }
+  return modalScope;
+}
+
+export function getModalAbortSignal() {
+  return getModalLifecycleScope().signal;
+}
 
 const g: any = typeof globalThis !== 'undefined' ? globalThis : window;
 if (!('db' in g)) g.db = null;
@@ -19,6 +41,8 @@ if (!('previousModalFocus' in g)) g.previousModalFocus = null;
 if (!('currentModalCleanup' in g)) g.currentModalCleanup = null;
 g.RF_OPTIONS_RENDER_VERSION = RF_OPTIONS_RENDER_VERSION;
 g.UI_THEME_OPTIONS = UI_THEME_OPTIONS;
+g.getModalLifecycleScope = getModalLifecycleScope;
+g.getModalAbortSignal = getModalAbortSignal;
 
 declare var db: any;
 declare var selectedSubmissionId: string | null;
@@ -40,6 +64,8 @@ export function activateWorkspaceView(viewId: string): void {
   const views = document.querySelectorAll('.content-view');
   const g = typeof window !== 'undefined' ? (window as any) : (globalThis as any);
   if (viewId !== 'view-submissions') {
+    focusEditTimerScope?.abort('view-switch');
+    focusEditTimerScope = null;
     try { g?.submissionAutoSaveCleanup?.(); } catch (_) {}
   }
   navItems.forEach((nav: any) => {
@@ -70,7 +96,9 @@ export function focusSubmissionEditCenter(): void {
   editCenter.scrollIntoView({ behavior: 'smooth', block: 'start' });
   const titleInput = document.getElementById('sub-edit-title') as HTMLInputElement | null;
   if (titleInput) {
-    window.setTimeout(() => {
+    focusEditTimerScope?.abort('re-focus');
+    focusEditTimerScope = createLifecycleScope();
+    focusEditTimerScope.setTimeout(() => {
       titleInput.focus({ preventScroll: true });
       titleInput.select?.();
     }, 120);
@@ -121,18 +149,22 @@ export function openModal(htmlContent: string): void {
   const modal = document.getElementById('modal-overlay');
   const modalContent = document.getElementById('modal-body');
   if (!modal || !modalContent) return;
+  modalScope?.abort('open-modal');
+  modalScope = null;
   if (typeof currentModalCleanup === 'function') {
     const cleanup = currentModalCleanup;
     currentModalCleanup = null;
     cleanup();
   }
+  const activeScope = createLifecycleScope();
+  modalScope = activeScope;
   previousModalFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
   window.RFUI.setHTML(modalContent, htmlContent);
   modal.inert = false;
   modal.classList.add('active');
   modal.setAttribute('aria-hidden', 'false');
-  document.getElementById('btn-close-modal')?.addEventListener('click', closeModal);
-  setTimeout(() => {
+  activeScope.on(document.getElementById('btn-close-modal'), 'click', closeModal);
+  activeScope.setTimeout(() => {
     const firstFocusable = getModalFocusableElements()[0] || modalContent;
     firstFocusable?.focus?.({ preventScroll: true });
   }, 0);
@@ -149,12 +181,15 @@ export function registerModalCleanup(fn: () => void): void {
 export function closeModal(): void {
   const modal = document.getElementById('modal-overlay');
   const modalContent = document.getElementById('modal-body');
-  if (!modal || !modalContent) return;
+  const activeScope = modalScope;
+  modalScope = null;
+  activeScope?.abort('close-modal');
   if (typeof currentModalCleanup === 'function') {
     const cleanup = currentModalCleanup;
     currentModalCleanup = null;
     cleanup();
   }
+  if (!modal || !modalContent) return;
   modal.classList.remove('active');
   modal.inert = true;
   modal.setAttribute('aria-hidden', 'true');
@@ -166,12 +201,25 @@ export function closeModal(): void {
 }
 
 export function bindModalAndNavListeners(): void {
+  workspaceNavScope?.abort('rebind');
+  const navScope = createLifecycleScope();
+  workspaceNavScope = navScope;
+  if (typeof window !== 'undefined') {
+    navScope.on(window, 'unload', () => {
+      focusEditTimerScope?.abort('unload');
+      modalScope?.abort('unload');
+      try { g?.acceptanceCelebrationCleanup?.(); } catch (_) {}
+      try { g?.submissionAutoSaveCleanup?.(); } catch (_) {}
+      navScope.abort('unload');
+    }, { once: true });
+  }
+
   const bindNav = () => {
     const navItems = document.querySelectorAll?.('.nav-item') || [];
     navItems.forEach((item: any) => {
       if (item && !item.dataset.navBound) {
         item.dataset.navBound = 'true';
-        item.addEventListener('click', (e: Event) => {
+        navScope.on(item, 'click', (e: Event) => {
           e.preventDefault();
           const targetId = item.getAttribute('data-view');
           if (targetId) activateWorkspaceView(targetId);
@@ -182,20 +230,20 @@ export function bindModalAndNavListeners(): void {
 
   bindNav();
   if (typeof document !== 'undefined' && document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', bindNav);
+    navScope.on(document, 'DOMContentLoaded', bindNav, { once: true });
   }
 
   const modal = document.getElementById('modal-overlay');
   if (typeof modal?.addEventListener === 'function' && !modal.dataset.modalBound) {
     modal.dataset.modalBound = 'true';
-    modal.addEventListener('click', (e: any) => {
+    navScope.on(modal, 'click', (e: any) => {
       if (e.target === modal) closeModal();
     });
   }
 
   if (typeof document?.addEventListener === 'function' && !(document as any)._pfKeydownBound) {
     (document as any)._pfKeydownBound = true;
-    document.addEventListener('keydown', (event: KeyboardEvent) => {
+    navScope.on(document, 'keydown', (event: KeyboardEvent) => {
     const modalEl = document.getElementById('modal-overlay');
     if (!modalEl || !modalEl.classList.contains('active')) return;
     if (event.key === 'Escape') {
@@ -221,104 +269,4 @@ export function bindModalAndNavListeners(): void {
     }
     });
   }
-}
-
-export function showGlobalToast(message: string, type = 'info'): void {
-  const container = document.getElementById('toast-container');
-  if (!container) return;
-  const toast = document.createElement('div');
-  toast.className = `toast toast-${type}`;
-  toast.setAttribute('role', type === 'error' ? 'alert' : 'status');
-
-  let icon = 'ℹ️';
-  if (type === 'success') icon = '✅';
-  if (type === 'error') icon = '❌';
-  if (type === 'warning') icon = '⚠️';
-
-  const iconEl = document.createElement('span');
-  iconEl.textContent = icon;
-  const textEl = document.createElement('span');
-  textEl.textContent = String(message ?? '');
-  toast.append(iconEl, textEl);
-  container.appendChild(toast);
-
-  setTimeout(() => {
-    toast.classList.add('fade-out');
-    setTimeout(() => toast.remove(), 300);
-  }, 4000);
-}
-
-export function showAcceptanceCelebration(submission: any = {}): void {
-  try { ((typeof window !== 'undefined' ? window : globalThis) as any)?.acceptanceCelebrationCleanup?.(); } catch (_) {}
-  if (typeof ZoteroBridge !== 'undefined' && typeof ZoteroBridge.getPref === 'function') {
-    const enabled = ZoteroBridge.getPref('enableAcceptanceCelebration', true);
-    if (!enabled) return;
-  }
-
-  const manuscript = (db?.manuscripts || []).find((item: any) => item.id === submission.manuscriptId);
-  const title = String(manuscript?.title || submission.title || t('untitledManuscript')).trim();
-  const layer = document.createElement('div');
-  layer.className = 'acceptance-celebration';
-  layer.dataset.acceptanceCelebration = 'active';
-  layer.setAttribute('role', 'status');
-  layer.setAttribute('aria-live', 'assertive');
-  layer.setAttribute('aria-atomic', 'true');
-
-  const particles = document.createElement('div');
-  particles.className = 'acceptance-confetti-field';
-  particles.setAttribute('aria-hidden', 'true');
-
-  const reducedMotion = window.RFUI?.prefersReducedMotion?.() !== false;
-  if (!reducedMotion) {
-    const colors = ['#059669', '#10b981', '#06b6d4', '#f59e0b', '#fbbf24', '#f97316'];
-    const fragment = document.createDocumentFragment();
-    for (let index = 0; index < 54; index += 1) {
-      const particle = document.createElement('i');
-      particle.className = 'acceptance-confetti-piece';
-      particle.dataset.shape = index % 4 === 0 ? 'round' : 'strip';
-      particle.style.setProperty('--confetti-x', `${Math.random() * 100}vw`);
-      particle.style.setProperty('--confetti-drift', `${(Math.random() - 0.5) * 34}vw`);
-      particle.style.setProperty('--confetti-rotate', `${540 + Math.random() * 900}deg`);
-      particle.style.setProperty('--confetti-delay', `${Math.random() * 0.55}s`);
-      particle.style.setProperty('--confetti-duration', `${2.25 + Math.random() * 1.15}s`);
-      particle.style.setProperty('--confetti-color', colors[index % colors.length]);
-      fragment.appendChild(particle);
-    }
-    particles.appendChild(fragment);
-  }
-
-  const banner = document.createElement('div');
-  banner.className = 'acceptance-celebration-banner';
-
-  const seal = document.createElement('span');
-  seal.className = 'acceptance-celebration-seal';
-  seal.setAttribute('aria-hidden', 'true');
-  const w = window as any;
-  if (w.RFUI?.setHTML) w.RFUI.setHTML(seal, '<svg class="svg-icon" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></svg>');
-
-  const copy = document.createElement('div');
-  copy.className = 'acceptance-celebration-copy';
-  const eyebrow = document.createElement('span');
-  eyebrow.className = 'acceptance-celebration-eyebrow';
-  eyebrow.textContent = t('celebrationEyebrow') || 'Paper Accepted!';
-  const heading = document.createElement('strong');
-  heading.textContent = t('celebrationTitle') || 'Congratulations on Acceptance';
-  const desc = document.createElement('p');
-  desc.textContent = title;
-  copy.appendChild(eyebrow);
-  copy.appendChild(heading);
-  copy.appendChild(desc);
-
-  banner.appendChild(seal);
-  banner.appendChild(copy);
-  layer.appendChild(particles);
-  layer.appendChild(banner);
-  document.body?.appendChild(layer);
-
-  const cleanup = () => {
-    if (layer.parentNode) layer.parentNode.removeChild(layer);
-    acceptanceCelebrationCleanup = null;
-  };
-  acceptanceCelebrationCleanup = cleanup;
-  window.setTimeout(cleanup, 4500);
 }

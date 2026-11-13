@@ -1,6 +1,8 @@
 /**
  * Zotero PaperFlow - Database Export, Import Backup & Conflict Recovery UI
  */
+import { createLifecycleScope, acquireModalScope, type LifecycleScope } from '../ui-utils/lifecycle.js';
+
 declare var db: any;
 declare var currentLanguage: string;
 declare var pendingSubmissionSaves: number;
@@ -38,7 +40,7 @@ export function buildPrivacySafeDiagnostics(sourceDb: any): any {
   const deletedCount = (key: string) => Array.isArray(sourceDb?.deletedEntities?.[key]) ? sourceDb.deletedEntities[key].length : 0;
   return {
     app: 'Zotero PaperFlow',
-    version: '16.5.5',
+    version: '17.0.0',
     exportedAt: new Date().toISOString(),
     environment: {
       language: currentLanguage,
@@ -104,7 +106,14 @@ export function formatConflictTimestamp(value: any): string {
   return Number.isFinite(time) ? new Date(time).toLocaleString() : String(value || '');
 }
 
+let conflictListScope = createLifecycleScope();
+if (typeof window !== 'undefined' && typeof window.addEventListener === 'function') {
+  window.addEventListener('unload', () => conflictListScope.abort(), { once: true });
+}
+
 export async function refreshConflictDrafts(): Promise<void> {
+  conflictListScope.abort();
+  conflictListScope = createLifecycleScope();
   const container = document.getElementById('conflict-recovery-list');
   if (!container) return;
   if (typeof window.storage?.listConflictDrafts !== 'function') {
@@ -135,7 +144,7 @@ export async function refreshConflictDrafts(): Promise<void> {
       `;
     }).join(''));
     container.querySelectorAll('.btn-open-conflict').forEach((button: any) => {
-      button.addEventListener('click', () => openConflictRecoveryModal(button.dataset.conflictFile));
+      conflictListScope.on(button, 'click', () => openConflictRecoveryModal(button.dataset.conflictFile));
     });
   } catch (error: any) {
     window.RFUI.setHTML(container, `<p class="conflict-empty">${escapeHTML(t('recoveryFailed') + (error.message || error))}</p>`);
@@ -151,11 +160,19 @@ export async function openConflictRecoveryModal(fileName?: string): Promise<void
     const choices: Record<string, string> = {};
     unresolved.forEach((item: any) => { choices[item.id] = 'current'; });
     openModal('');
+    const modalScope = acquireModalScope();
+    let viewScope: LifecycleScope = modalScope.child();
+    const resetViewScope = () => {
+      viewScope.abort();
+      viewScope = modalScope.child();
+      return viewScope;
+    };
     const modalEl = document.getElementById('modal-overlay');
     const modalBody = document.getElementById('modal-body');
 
     const renderCompare = () => {
-      if (!modalEl?.classList.contains('active') || !modalBody) return;
+      if (modalScope.aborted || !modalEl?.classList.contains('active') || !modalBody) return;
+      const scope = resetViewScope();
       const rows = unresolved.length ? unresolved.map((item: any, idx: number) => `
         <div class="conflict-compare-item">
           <div class="conflict-item-head">
@@ -188,21 +205,22 @@ export async function openConflictRecoveryModal(fileName?: string): Promise<void
           <button class="btn-primary" id="btn-preview-recovery" type="button">${escapeHTML(t('recoveryPreview'))}</button>
         </div>
       `);
-      modalBody.querySelector('#btn-close-modal')?.addEventListener('click', closeModal);
-      modalBody.querySelector('#btn-cancel-recovery')?.addEventListener('click', closeModal);
+      scope.on(modalBody.querySelector('#btn-close-modal'), 'click', closeModal);
+      scope.on(modalBody.querySelector('#btn-cancel-recovery'), 'click', closeModal);
       modalBody.querySelectorAll('input[data-conflict-id]').forEach((input: any) => {
-        input.addEventListener('change', () => {
+        scope.on(input, 'change', () => {
           choices[input.dataset.conflictId] = input.value;
           input.closest('.conflict-choice-grid')?.querySelectorAll('.conflict-choice-card')
             .forEach((card: any) => card.classList.toggle('selected', card.contains(input)));
         });
       });
-      modalBody.querySelector('#btn-preview-recovery')?.addEventListener('click', () => renderPreview());
+      scope.on(modalBody.querySelector('#btn-preview-recovery'), 'click', () => renderPreview());
     };
 
     const renderPreview = async () => {
       const preview = await window.storage.inspectConflictDraft(fileName, choices);
-      if (!modalEl?.classList.contains('active') || !modalBody) return;
+      if (modalScope.aborted || !modalEl?.classList.contains('active') || !modalBody) return;
+      const scope = resetViewScope();
       if (preview.currentRevision !== plan.currentRevision) {
         showGlobalToast(t('recoveryInvalidated'), 'warning');
         closeModal();
@@ -234,9 +252,9 @@ export async function openConflictRecoveryModal(fileName?: string): Promise<void
           <button class="btn-primary" id="btn-apply-recovery" type="button" ${changes.length ? '' : 'disabled'}>${escapeHTML(t('recoveryApply'))}</button>
         </div>
       `);
-      modalBody.querySelector('#btn-close-modal')?.addEventListener('click', closeModal);
-      modalBody.querySelector('#btn-back-recovery')?.addEventListener('click', renderCompare);
-      modalBody.querySelector('#btn-apply-recovery')?.addEventListener('click', async (event: any) => {
+      scope.on(modalBody.querySelector('#btn-close-modal'), 'click', closeModal);
+      scope.on(modalBody.querySelector('#btn-back-recovery'), 'click', renderCompare);
+      scope.on(modalBody.querySelector('#btn-apply-recovery'), 'click', async (event: any) => {
         if (pendingSubmissionSaves > 0 || document.querySelector('[data-submission-autosave-status][data-state="pending"], [data-submission-autosave-status][data-state="saving"]')) {
           showGlobalToast(t('recoveryPending'), 'warning');
           return;

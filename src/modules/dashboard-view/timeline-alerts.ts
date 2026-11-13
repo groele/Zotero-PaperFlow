@@ -1,6 +1,10 @@
 import {
   getSubmissionJournalName,
 } from './field-helpers.js';
+import { createLifecycleScope, type LifecycleScope } from '../ui-utils/lifecycle.js';
+
+let alertsRenderScope: LifecycleScope | null = null;
+let exportAllIcsScope: LifecycleScope | null = null;
 
 declare var db: any;
 declare var currentLanguage: string;
@@ -36,6 +40,9 @@ function computeCountdown(dateStr: string): any {
 export function renderTimelineAlerts(): void {
   const reviewMilestones = document.getElementById('dashboard-pending-milestones');
   if (!reviewMilestones) return;
+  alertsRenderScope?.abort('re-render');
+  const renderScope = createLifecycleScope();
+  alertsRenderScope = renderScope;
   const w = typeof window !== 'undefined' ? (window as any) : (globalThis as any);
   w.RFUI?.setHTML?.(reviewMilestones, '');
 
@@ -192,7 +199,9 @@ export function renderTimelineAlerts(): void {
   const btnExportAllIcs = document.getElementById('btn-dashboard-export-all-ics');
   if (btnExportAllIcs && !btnExportAllIcs.dataset.listenerAttached) {
     btnExportAllIcs.dataset.listenerAttached = 'true';
-    btnExportAllIcs.addEventListener('click', () => {
+    exportAllIcsScope?.abort('rebind');
+    exportAllIcsScope = createLifecycleScope();
+    exportAllIcsScope.on(btnExportAllIcs, 'click', () => {
       const activeSubs = (db.submissions || []).filter((s: any) => s.revisionDueDate && s.status !== 'accepted' && s.status !== 'published');
       if (activeSubs.length === 0) {
         showGlobalToast(t('noDeadlinesToExport') || (currentLanguage === 'zh' ? '当前未发现已设置修回截止日期的活跃稿件。' : 'No active submissions with revision due dates found.'), 'warning');
@@ -215,7 +224,7 @@ export function renderTimelineAlerts(): void {
       item.className = 'recent-item';
       item.title = alert.manTitle;
       item.style.cursor = 'pointer';
-      item.addEventListener('click', () => {
+      renderScope.on(item, 'click', () => {
         if (typeof openStageDrawer === 'function') {
           openStageDrawer(alert.sub.id, alert.node?.id || '');
         }
@@ -264,7 +273,7 @@ export function renderTimelineAlerts(): void {
         icsBtn.style.cssText = 'font-size:11px; padding:2px 6px; border-radius:3px; margin-left:4px; height:22px;';
         icsBtn.title = t('exportCalendarIcs') || '导出修回日历 (.ics)';
         icsBtn.textContent = '📅';
-        icsBtn.addEventListener('click', (e) => {
+        renderScope.on(icsBtn, 'click', (e: Event) => {
           e.stopPropagation();
           const rfCal = (window as any).RFCalendar;
           if (rfCal?.generateSubmissionCalendarFeed && rfCal?.triggerCalendarDownload) {

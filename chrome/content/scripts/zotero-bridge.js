@@ -101,7 +101,7 @@
     },
     setupMessageListener() {
       if (typeof window === "undefined") return;
-      window.addEventListener("message", (event) => {
+      const onMessage = (event) => {
         const data = event.data;
         if (!data || typeof data !== "object") return;
         if (data.requestId && this._requestCallbacks.has(data.requestId)) {
@@ -183,7 +183,12 @@
             }
           }
         }
-      });
+      };
+      if (this._lifecycleScope) {
+        this._lifecycleScope.on(window, "message", onMessage);
+      } else {
+        window.addEventListener("message", onMessage);
+      }
     },
     sendToHost(msg) {
       if (!this.isZotero || typeof window === "undefined") return;
@@ -200,17 +205,27 @@
       }
     },
     request(type, payload = {}, timeoutMs = 6e3) {
-      if (!this.isZotero) return Promise.resolve(null);
+      if (!this.isZotero || this._lifecycleScope?.aborted) return Promise.resolve(null);
       const requestId = `rf_req_${++this._pendingRequestId}_${Date.now()}`;
       return new Promise((resolve) => {
-        const timeout = timeoutMs > 0 ? setTimeout(() => {
-          this._requestCallbacks.delete(requestId);
-          resolve(null);
-        }, timeoutMs) : null;
-        this._requestCallbacks.set(requestId, (data) => {
+        let settled = false;
+        let timeout = null;
+        let detachAbort = null;
+        const finish = (val) => {
+          if (settled) return;
+          settled = true;
           if (timeout !== null) clearTimeout(timeout);
-          resolve(data);
-        });
+          detachAbort?.();
+          this._requestCallbacks.delete(requestId);
+          resolve(val);
+        };
+        if (this._lifecycleScope) {
+          detachAbort = this._lifecycleScope.onAbort(() => finish(null));
+        }
+        if (timeoutMs > 0) {
+          timeout = setTimeout(() => finish(null), timeoutMs);
+        }
+        this._requestCallbacks.set(requestId, (data) => finish(data));
         this.sendToHost({ type, requestId, ...payload });
       });
     },
@@ -293,13 +308,213 @@
     }
   };
 
+  // src/modules/ui-utils/lifecycle.ts
+  function createFallbackController() {
+    let aborted = false;
+    let reason;
+    const listeners = /* @__PURE__ */ new Set();
+    const signal = {
+      get aborted() {
+        return aborted;
+      },
+      get reason() {
+        return reason;
+      },
+      addEventListener(type, listener) {
+        if (type !== "abort" || typeof listener !== "function") return;
+        if (aborted) {
+          try {
+            listener({ type: "abort" });
+          } catch (_) {
+          }
+          return;
+        }
+        listeners.add(listener);
+      },
+      removeEventListener(type, listener) {
+        if (type !== "abort") return;
+        listeners.delete(listener);
+      }
+    };
+    return {
+      signal,
+      abort(nextReason) {
+        if (aborted) return;
+        aborted = true;
+        reason = nextReason;
+        const snapshot = Array.from(listeners);
+        listeners.clear();
+        for (const listener of snapshot) {
+          try {
+            listener({ type: "abort" });
+          } catch (_) {
+          }
+        }
+      }
+    };
+  }
+  function isNativeAbortSignal(signal) {
+    return typeof AbortSignal !== "undefined" && signal instanceof AbortSignal;
+  }
+  function createLifecycleScope(parentSignal) {
+    const controller = typeof AbortController !== "undefined" ? new AbortController() : createFallbackController();
+    const cleanups = /* @__PURE__ */ new Set();
+    let localAborted = false;
+    const runCleanups = () => {
+      const snapshot = Array.from(cleanups);
+      cleanups.clear();
+      for (const cleanup of snapshot) {
+        try {
+          cleanup();
+        } catch (_) {
+        }
+      }
+    };
+    const abort = (reason) => {
+      if (localAborted) return;
+      localAborted = true;
+      try {
+        controller.abort(reason);
+      } catch (_) {
+      }
+      runCleanups();
+    };
+    if (parentSignal) {
+      if (parentSignal.aborted) {
+        abort(parentSignal.reason);
+      } else if (typeof parentSignal.addEventListener === "function") {
+        const onParentAbort = () => abort(parentSignal.reason);
+        parentSignal.addEventListener("abort", onParentAbort, { once: true });
+        cleanups.add(() => {
+          try {
+            parentSignal.removeEventListener?.("abort", onParentAbort);
+          } catch (_) {
+          }
+        });
+      }
+    }
+    const scope = {
+      signal: controller.signal,
+      get aborted() {
+        return localAborted || Boolean(controller.signal?.aborted);
+      },
+      abort,
+      onAbort(fn) {
+        if (typeof fn !== "function") return () => {
+        };
+        if (scope.aborted) {
+          try {
+            fn();
+          } catch (_) {
+          }
+          return () => {
+          };
+        }
+        cleanups.add(fn);
+        return () => {
+          cleanups.delete(fn);
+        };
+      },
+      on(target, type, listener, options) {
+        if (!target || typeof target.addEventListener !== "function" || typeof listener !== "function" || scope.aborted) {
+          return () => {
+          };
+        }
+        const capture = typeof options === "boolean" ? options : Boolean(options?.capture);
+        const baseOpts = typeof options === "boolean" ? { capture: options } : options ? { ...options } : {};
+        const listenerOptions = isNativeAbortSignal(controller.signal) ? { ...baseOpts, signal: controller.signal } : typeof options === "boolean" ? options : options || void 0;
+        target.addEventListener(type, listener, listenerOptions);
+        const detach = () => {
+          cleanups.delete(detach);
+          if (typeof target.removeEventListener === "function") {
+            try {
+              target.removeEventListener(type, listener, capture);
+            } catch (_) {
+            }
+          }
+        };
+        cleanups.add(detach);
+        return detach;
+      },
+      setTimeout(fn, delay = 0) {
+        const st = globalThis.setTimeout;
+        const ct = globalThis.clearTimeout;
+        if (scope.aborted || typeof st !== "function") return 0;
+        let timerId = 0;
+        const cancel = () => {
+          cleanups.delete(cancel);
+          if (timerId && typeof ct === "function") {
+            ct(timerId);
+            timerId = 0;
+          }
+        };
+        cleanups.add(cancel);
+        timerId = st(() => {
+          cleanups.delete(cancel);
+          timerId = 0;
+          if (!scope.aborted) fn();
+        }, delay);
+        return timerId;
+      },
+      setInterval(fn, delay = 0) {
+        const si = globalThis.setInterval;
+        const ci = globalThis.clearInterval;
+        if (scope.aborted || typeof si !== "function") return 0;
+        let timerId = 0;
+        const cancel = () => {
+          cleanups.delete(cancel);
+          if (timerId && typeof ci === "function") {
+            ci(timerId);
+            timerId = 0;
+          }
+        };
+        cleanups.add(cancel);
+        timerId = si(() => {
+          if (!scope.aborted) fn();
+        }, delay);
+        return timerId;
+      },
+      raf(fn) {
+        const req = globalThis.requestAnimationFrame;
+        const can = globalThis.cancelAnimationFrame;
+        if (scope.aborted) return 0;
+        if (typeof req !== "function") {
+          return scope.setTimeout(() => fn(Date.now()), 0);
+        }
+        let rafId = 0;
+        const cancel = () => {
+          cleanups.delete(cancel);
+          if (rafId && typeof can === "function") {
+            can(rafId);
+            rafId = 0;
+          }
+        };
+        cleanups.add(cancel);
+        rafId = req((ts) => {
+          cleanups.delete(cancel);
+          rafId = 0;
+          if (!scope.aborted) fn(ts);
+        });
+        return rafId;
+      },
+      child() {
+        return createLifecycleScope(controller.signal);
+      }
+    };
+    return scope;
+  }
+
   // src/modules/zotero-bridge/navigation-handler.ts
+  var pendingNavigationScope = null;
   function handleHostNavigation(options) {
     if (!options || typeof options !== "object" || typeof window === "undefined") return;
     if (!window._researchflowWorkspaceReady) {
       this._pendingNavigation = options;
       return;
     }
+    pendingNavigationScope?.abort("superseded");
+    pendingNavigationScope = createLifecycleScope(this._lifecycleScope?.signal);
+    const navScope = pendingNavigationScope;
     if (options.view && typeof document !== "undefined") {
       const navBtn = document.querySelector(`.nav-item[data-view="${options.view}"]`);
       if (navBtn) navBtn.click();
@@ -308,7 +523,7 @@
       const item = options.item;
       const kanbanBtn = document.querySelector('.nav-item[data-view="view-manuscripts"]');
       if (kanbanBtn) kanbanBtn.click();
-      setTimeout(() => {
+      navScope.setTimeout(() => {
         if (typeof window.openManuscriptModal === "function") {
           window.openManuscriptModal(null, {
             title: item.title || "",
@@ -337,7 +552,7 @@
       const item = options.item;
       const kanbanBtn = document.querySelector('.nav-item[data-view="view-manuscripts"]');
       if (kanbanBtn) kanbanBtn.click();
-      setTimeout(() => {
+      navScope.setTimeout(() => {
         if (typeof window.showLinkManuscriptModal === "function") {
           window.showLinkManuscriptModal(item);
         }
@@ -345,7 +560,7 @@
     } else if (options.action === "reader_excerpt" && typeof document !== "undefined") {
       const kanbanBtn = document.querySelector('.nav-item[data-view="view-manuscripts"]');
       if (kanbanBtn) kanbanBtn.click();
-      setTimeout(() => {
+      navScope.setTimeout(() => {
         if (typeof window.openManuscriptModal === "function") {
           const excerptText = options.excerpt ? `【PDF 第 ${options.page || 1} 页原文摘录】
 ${options.excerpt}
@@ -375,7 +590,7 @@ ${options.excerpt}
     } else if (options.action === "create_from_collection" && typeof document !== "undefined") {
       const kanbanBtn = document.querySelector('.nav-item[data-view="view-manuscripts"]');
       if (kanbanBtn) kanbanBtn.click();
-      setTimeout(() => {
+      navScope.setTimeout(() => {
         if (typeof window.openManuscriptModal === "function") {
           const colItems = options.items || [];
           const summary = colItems.slice(0, 5).map((it, idx) => `${idx + 1}. ${it.title} (${it.authors || ""} ${it.year || ""})`.trim()).join("\n");
@@ -400,12 +615,12 @@ ${summary}${colItems.length > 5 ? "\n…" : ""}`,
     } else if (options.manuscriptId && typeof document !== "undefined") {
       const kanbanBtn = document.querySelector('.nav-item[data-view="view-manuscripts"]');
       if (kanbanBtn) kanbanBtn.click();
-      setTimeout(() => {
+      navScope.setTimeout(() => {
         const card = document.querySelector(`[data-manuscript-id="${options.manuscriptId}"]`) || document.querySelector(`[data-id="${options.manuscriptId}"]`);
         if (card) {
           card.scrollIntoView({ behavior: "smooth", block: "center" });
           card.classList.add("highlight-pulse");
-          setTimeout(() => card.classList.remove("highlight-pulse"), 2500);
+          navScope.setTimeout(() => card.classList.remove("highlight-pulse"), 2500);
         }
       }, 300);
     }
@@ -717,12 +932,22 @@ ${summary}${colItems.length > 5 ? "\n…" : ""}`,
     _requestCallbacks: /* @__PURE__ */ new Map(),
     _pendingNavigation: null,
     _directPrefObserverSymbol: null,
+    _lifecycleScope: null,
+    destroy() {
+      this._lifecycleScope?.abort("bridge-destroy");
+      this._lifecycleScope = null;
+      this._requestCallbacks.clear();
+    },
     init() {
+      this.destroy();
+      const scope = createLifecycleScope();
+      this._lifecycleScope = scope;
       this.detectEnvironment();
       this.setupMessageListener();
       this.initDirectPrefObserver();
       if (typeof window !== "undefined") {
-        window.addEventListener("researchflow-workspace-ready", () => {
+        scope.on(window, "unload", () => this.destroy(), { once: true });
+        scope.on(window, "researchflow-workspace-ready", () => {
           if (this._pendingNavigation) {
             const options = this._pendingNavigation;
             this._pendingNavigation = null;
@@ -734,8 +959,7 @@ ${summary}${colItems.length > 5 ? "\n…" : ""}`,
         document.documentElement.classList.add("zotero-env");
         document.body?.classList?.add("zotero-env");
         this.sendToHost({ type: "RESEARCHFLOW_READY" });
-        console.log("[ResearchFlow] Running in Zotero environment");
-        document.addEventListener("click", (e) => {
+        scope.on(document, "click", (e) => {
           const link = e.target?.closest?.('a[href^="http"]');
           if (link && !link.dataset.internal) {
             e.preventDefault();
@@ -755,7 +979,7 @@ ${summary}${colItems.length > 5 ? "\n…" : ""}`,
   };
   if (typeof document !== "undefined") {
     if (document.readyState === "loading") {
-      document.addEventListener("DOMContentLoaded", () => ZoteroBridge.init());
+      document.addEventListener("DOMContentLoaded", () => ZoteroBridge.init(), { once: true });
     } else {
       ZoteroBridge.init();
     }

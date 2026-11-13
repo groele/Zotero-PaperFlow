@@ -1,13 +1,19 @@
 import { type ZoteroModalBindState, bindZoteroReadingAssetsDrawer, bindZoteroLiveSearchDropdown } from './zotero-drawer';
+import { acquireModalScope, type LifecycleScope } from '../ui-utils/lifecycle.js';
 
 declare const currentLanguage: string;
 declare const ZoteroBridge: any;
 declare function escapeHTML(str: any): string;
 declare function showGlobalToast(message: string, type?: string, duration?: number): void;
 
-export function setupZoteroModalBindings(state: ZoteroModalBindState): void {
+export function setupZoteroModalBindings(state: ZoteroModalBindState, parentScope?: LifecycleScope): void {
   const w = window as any;
+  const modalScope = parentScope || acquireModalScope();
+  let bindUiScope = modalScope.child();
+
   const updateZoteroBindUI = (item: any) => {
+    bindUiScope.abort('refresh-bind-ui');
+    bindUiScope = modalScope.child();
     const statusEl = document.getElementById('zotero-bind-status');
     const pdfBtn = document.getElementById('btn-zotero-open-pdf');
     const syncBtn = document.getElementById('btn-zotero-sync-note');
@@ -34,7 +40,7 @@ export function setupZoteroModalBindings(state: ZoteroModalBindState): void {
           citeEl.className = 'zotero-citekey-badge';
           citeEl.textContent = `[@${state.currentCiteKey}]`;
           citeEl.title = '点击复制 Citation Key';
-          citeEl.addEventListener('click', (e) => {
+          bindUiScope.on(citeEl, 'click', (e: Event) => {
             e.stopPropagation();
             if (typeof ZoteroBridge !== 'undefined') ZoteroBridge.copyText(`[@${state.currentCiteKey}]`, `已复制 Citation Key: [@${state.currentCiteKey}]`);
           });
@@ -58,7 +64,7 @@ export function setupZoteroModalBindings(state: ZoteroModalBindState): void {
           chip.className = 'zotero-related-chip';
           chip.textContent = `${(r.title || '').slice(0, 16)}… (${r.year || ''})`;
           chip.title = `${r.title} - ${r.authors} (点击在文献库定位)`;
-          chip.addEventListener('click', () => { if (typeof ZoteroBridge !== 'undefined') ZoteroBridge.selectItemInZotero(r.key); });
+          bindUiScope.on(chip, 'click', () => { if (typeof ZoteroBridge !== 'undefined') ZoteroBridge.selectItemInZotero(r.key); });
           relChips.appendChild(chip);
         });
         relPanel.style.display = 'block';
@@ -89,16 +95,17 @@ export function setupZoteroModalBindings(state: ZoteroModalBindState): void {
     if (typeof ZoteroBridge !== 'undefined') ZoteroBridge.showNativeToast('文献已关联', item.title, 'success');
   };
 
-  setTimeout(async () => {
+  modalScope.setTimeout(async () => {
     try {
       if (typeof ZoteroBridge !== 'undefined' && !state.currentZoteroItemKey && ZoteroBridge.getPref('autoLinkSelectedPaper', true)) {
         const activeItem = await ZoteroBridge.getActiveItem();
+        if (modalScope.aborted) return;
         const banner = document.getElementById('zotero-active-item-banner');
         const textEl = document.getElementById('zotero-active-item-text');
         if (activeItem?.title && banner && textEl) {
           w.RFUI.setHTML(textEl, `📌 <strong>检测到 Zotero 选中文献：</strong>《${escapeHTML(activeItem.title)}》`);
           banner.style.display = 'flex';
-          document.getElementById('btn-zotero-quick-bind-active')?.addEventListener('click', () => {
+          modalScope.on(document.getElementById('btn-zotero-quick-bind-active'), 'click', () => {
             applyItemToForm(activeItem);
             banner.style.display = 'none';
           });
@@ -107,36 +114,38 @@ export function setupZoteroModalBindings(state: ZoteroModalBindState): void {
     } catch (_) {}
   }, 60);
 
-  document.getElementById('zotero-bind-status')?.addEventListener('click', () => {
+  modalScope.on(document.getElementById('zotero-bind-status'), 'click', () => {
     const sc = document.getElementById('zotero-search-container');
     if (sc) { sc.style.display = 'block'; (document.getElementById('ipt-zotero-live-search') as HTMLElement | null)?.focus(); }
   });
-  document.getElementById('btn-zotero-toggle-search')?.addEventListener('click', () => {
+  modalScope.on(document.getElementById('btn-zotero-toggle-search'), 'click', () => {
     const sc = document.getElementById('zotero-search-container');
     if (sc) { sc.style.display = sc.style.display === 'none' ? 'block' : 'none'; if (sc.style.display === 'block') (document.getElementById('ipt-zotero-live-search') as HTMLElement | null)?.focus(); }
   });
-  document.getElementById('zotero-modal-citekey')?.addEventListener('click', (e) => {
+  modalScope.on(document.getElementById('zotero-modal-citekey'), 'click', (e: Event) => {
     e.stopPropagation();
     if (state.currentCiteKey && typeof ZoteroBridge !== 'undefined') ZoteroBridge.copyText(`[@${state.currentCiteKey}]`, `已复制 Citation Key: [@${state.currentCiteKey}]`);
   });
-  document.getElementById('btn-zotero-copy-bib')?.addEventListener('click', () => { if (state.currentBibtex && typeof ZoteroBridge !== 'undefined') ZoteroBridge.copyText(state.currentBibtex, '已复制 BibTeX 引用条目'); });
-  document.getElementById('btn-zotero-copy-apa')?.addEventListener('click', () => { if (state.currentCitationApa && typeof ZoteroBridge !== 'undefined') ZoteroBridge.copyText(state.currentCitationApa, '已复制标准引用 (APA)'); });
+  modalScope.on(document.getElementById('btn-zotero-copy-bib'), 'click', () => { if (state.currentBibtex && typeof ZoteroBridge !== 'undefined') ZoteroBridge.copyText(state.currentBibtex, '已复制 BibTeX 引用条目'); });
+  modalScope.on(document.getElementById('btn-zotero-copy-apa'), 'click', () => { if (state.currentCitationApa && typeof ZoteroBridge !== 'undefined') ZoteroBridge.copyText(state.currentCitationApa, '已复制标准引用 (APA)'); });
 
-  bindZoteroReadingAssetsDrawer(state);
-  bindZoteroLiveSearchDropdown(applyItemToForm);
+  bindZoteroReadingAssetsDrawer(state, modalScope);
+  bindZoteroLiveSearchDropdown(applyItemToForm, modalScope);
 
-  document.getElementById('btn-zotero-fetch-active')?.addEventListener('click', async () => {
+  modalScope.on(document.getElementById('btn-zotero-fetch-active'), 'click', async () => {
     const activeItem = typeof ZoteroBridge !== 'undefined' ? await ZoteroBridge.getActiveItem() : null;
+    if (modalScope.aborted) return;
     if (activeItem) applyItemToForm(activeItem);
     else showGlobalToast('未在 Zotero 中检测到选中条目，请在文献库中单击选中目标论文。', 'warning');
   });
-  document.getElementById('btn-zotero-open-pdf')?.addEventListener('click', () => { if (state.currentZoteroItemKey && typeof ZoteroBridge !== 'undefined') ZoteroBridge.openPdf(state.currentZoteroItemKey, null, state.currentZoteroLibraryID); });
-  document.getElementById('btn-zotero-sync-note')?.addEventListener('click', async () => {
+  modalScope.on(document.getElementById('btn-zotero-open-pdf'), 'click', () => { if (state.currentZoteroItemKey && typeof ZoteroBridge !== 'undefined') ZoteroBridge.openPdf(state.currentZoteroItemKey, null, state.currentZoteroLibraryID); });
+  modalScope.on(document.getElementById('btn-zotero-sync-note'), 'click', async () => {
     if (state.currentZoteroItemKey && typeof ZoteroBridge !== 'undefined') {
       const ok = await ZoteroBridge.syncNote(state.currentZoteroItemKey, state.currentZoteroLibraryID);
+      if (modalScope.aborted) return;
       showGlobalToast(ok ? '已同步审稿进展至 Zotero 云端笔记！' : '同步失败，请检查条目是否存在', ok ? 'success' : 'error');
     }
   });
-  document.getElementById('btn-zotero-locate')?.addEventListener('click', () => { if (state.currentZoteroItemKey && typeof ZoteroBridge !== 'undefined') ZoteroBridge.selectItemInZotero(state.currentZoteroItemKey, state.currentZoteroLibraryID); });
-  document.getElementById('btn-zotero-unlink')?.addEventListener('click', () => { updateZoteroBindUI(null); showGlobalToast('已解除 Zotero 文献绑定', 'info'); });
+  modalScope.on(document.getElementById('btn-zotero-locate'), 'click', () => { if (state.currentZoteroItemKey && typeof ZoteroBridge !== 'undefined') ZoteroBridge.selectItemInZotero(state.currentZoteroItemKey, state.currentZoteroLibraryID); });
+  modalScope.on(document.getElementById('btn-zotero-unlink'), 'click', () => { updateZoteroBindUI(null); showGlobalToast('已解除 Zotero 文献绑定', 'info'); });
 }

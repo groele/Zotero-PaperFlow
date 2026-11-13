@@ -2,13 +2,16 @@
  * Zotero PaperFlow - Host Toolbar UI and Standalone Window Launchers
  */
 import { CHROME_ROOT } from '../config.js';
+import { createLifecycleScope, type LifecycleScope } from '../modules/ui-utils/lifecycle.js';
+import { windowScopes } from './window-lifecycle.js';
 
 declare var Zotero: any;
 declare var Services: any;
 
 export const hostWindowUiMethods = {
-  ensureToolbarButton(this: any, window: any, windowElements: any[], retryCount = 0) {
-    if (!window || !window.document) return;
+  ensureToolbarButton(this: any, window: any, windowElements: any[], retryCount = 0, scope?: LifecycleScope) {
+    const winScope = scope || windowScopes.get(window);
+    if (this._disposed || winScope?.aborted || !window || !window.document) return;
     const doc = window.document;
 
     const toolbar =
@@ -18,9 +21,14 @@ export const hostWindowUiMethods = {
 
     if (!toolbar) {
       if (retryCount < 5) {
-        const retryTimer = window.setTimeout(() => this.ensureToolbarButton(window, windowElements, retryCount + 1), 500);
-        if (windowElements) {
-          windowElements.push({ remove: () => window.clearTimeout(retryTimer) });
+        const retryTimer = window.setTimeout(() => {
+          if (this._disposed || winScope?.aborted) return;
+          this.ensureToolbarButton(window, windowElements, retryCount + 1, winScope);
+        }, 500);
+        if (winScope) {
+          winScope.onAbort(() => window.clearTimeout?.(retryTimer));
+        } else if (windowElements) {
+          windowElements.push({ remove: () => window.clearTimeout?.(retryTimer) });
         }
       }
       return;
@@ -52,19 +60,25 @@ export const hostWindowUiMethods = {
         'style',
         'cursor: pointer; margin: 0 4px; width: 28px; height: 28px; min-width: 28px; max-width: 28px; max-height: 28px; display: inline-flex; align-items: center; justify-content: center; overflow: hidden;'
       );
-      btn.addEventListener('command', (e: any) => {
+      const onToolbarCommand = (e: any) => {
         if (e) {
           e.preventDefault?.();
           e.stopPropagation?.();
         }
         this.triggerResearchFlowOpen(window);
-      });
+      };
+      if (winScope) {
+        winScope.on(btn, 'command', onToolbarCommand);
+      } else {
+        btn.addEventListener('command', onToolbarCommand);
+      }
     }
 
     btn.setAttribute('label', '');
     btn.setAttribute('aria-label', 'Zotero PaperFlow');
 
     const constrainIcon = () => {
+      if (this._disposed || winScope?.aborted) return;
       try {
         const img = btn?.querySelector('.toolbarbutton-icon') || btn?.querySelector('image') || btn?.querySelector('img');
         if (img) {
@@ -80,10 +94,15 @@ export const hostWindowUiMethods = {
     constrainIcon();
     const t1 = window.setTimeout(constrainIcon, 150);
     const t2 = window.setTimeout(constrainIcon, 800);
-    if (windowElements) {
+    if (winScope) {
+      winScope.onAbort(() => {
+        window.clearTimeout?.(t1);
+        window.clearTimeout?.(t2);
+      });
+    } else if (windowElements) {
       windowElements.push(
-        { remove: () => window.clearTimeout(t1) },
-        { remove: () => window.clearTimeout(t2) }
+        { remove: () => window.clearTimeout?.(t1) },
+        { remove: () => window.clearTimeout?.(t2) }
       );
     }
 
@@ -169,18 +188,32 @@ export const hostWindowUiMethods = {
         { Zotero, options: { ...options, currentWindowType: windowType } }
       );
       if (win) {
+        const ac = typeof AbortController !== 'undefined' ? new AbortController() : null;
+        if (ac) {
+          if (!this._windowControllers) this._windowControllers = new Map();
+          this._windowControllers.set(win, ac);
+        }
         const attachHost = () => {
+          if (this._disposed || ac?.signal?.aborted) return;
           const page = win.wrappedJSObject || win;
           page.Zotero = Zotero;
           page._researchflowPending = { ...options, currentWindowType: windowType };
         };
         attachHost();
-        win.addEventListener('DOMContentLoaded', attachHost, { once: true, capture: true });
+        win.addEventListener('DOMContentLoaded', attachHost, ac ? { once: true, capture: true, signal: ac.signal } : { once: true, capture: true });
         if (!this._standaloneWindows) this._standaloneWindows = new Set();
         this._standaloneWindows.add(win);
         win.addEventListener('unload', () => {
-          mainWin.setTimeout(() => { if (win.closed) this._standaloneWindows?.delete(win); }, 0);
-        });
+          const mainAc = mainWin && this._windowControllers ? this._windowControllers.get(mainWin) : null;
+          const timerId = mainWin?.setTimeout?.(() => {
+            if (!this._disposed && win.closed) this._standaloneWindows?.delete(win);
+          }, 0);
+          if (timerId && mainAc?.signal) {
+            mainAc.signal.addEventListener('abort', () => mainWin?.clearTimeout?.(timerId), { once: true });
+          }
+          try { ac?.abort('standalone-unload'); } catch (_) {}
+          this._windowControllers?.delete(win);
+        }, ac ? { once: true, signal: ac.signal } : { once: true });
       }
       if (win && win.focus) win.focus();
     } catch (err) {

@@ -8,6 +8,214 @@
  */
 "use strict";
 (() => {
+  // src/modules/ui-utils/lifecycle.ts
+  function createFallbackController() {
+    let aborted = false;
+    let reason;
+    const listeners = /* @__PURE__ */ new Set();
+    const signal = {
+      get aborted() {
+        return aborted;
+      },
+      get reason() {
+        return reason;
+      },
+      addEventListener(type, listener) {
+        if (type !== "abort" || typeof listener !== "function") return;
+        if (aborted) {
+          try {
+            listener({ type: "abort" });
+          } catch (_) {
+          }
+          return;
+        }
+        listeners.add(listener);
+      },
+      removeEventListener(type, listener) {
+        if (type !== "abort") return;
+        listeners.delete(listener);
+      }
+    };
+    return {
+      signal,
+      abort(nextReason) {
+        if (aborted) return;
+        aborted = true;
+        reason = nextReason;
+        const snapshot = Array.from(listeners);
+        listeners.clear();
+        for (const listener of snapshot) {
+          try {
+            listener({ type: "abort" });
+          } catch (_) {
+          }
+        }
+      }
+    };
+  }
+  function isNativeAbortSignal(signal) {
+    return typeof AbortSignal !== "undefined" && signal instanceof AbortSignal;
+  }
+  function createLifecycleScope(parentSignal) {
+    const controller = typeof AbortController !== "undefined" ? new AbortController() : createFallbackController();
+    const cleanups = /* @__PURE__ */ new Set();
+    let localAborted = false;
+    const runCleanups = () => {
+      const snapshot = Array.from(cleanups);
+      cleanups.clear();
+      for (const cleanup of snapshot) {
+        try {
+          cleanup();
+        } catch (_) {
+        }
+      }
+    };
+    const abort = (reason) => {
+      if (localAborted) return;
+      localAborted = true;
+      try {
+        controller.abort(reason);
+      } catch (_) {
+      }
+      runCleanups();
+    };
+    if (parentSignal) {
+      if (parentSignal.aborted) {
+        abort(parentSignal.reason);
+      } else if (typeof parentSignal.addEventListener === "function") {
+        const onParentAbort = () => abort(parentSignal.reason);
+        parentSignal.addEventListener("abort", onParentAbort, { once: true });
+        cleanups.add(() => {
+          try {
+            parentSignal.removeEventListener?.("abort", onParentAbort);
+          } catch (_) {
+          }
+        });
+      }
+    }
+    const scope = {
+      signal: controller.signal,
+      get aborted() {
+        return localAborted || Boolean(controller.signal?.aborted);
+      },
+      abort,
+      onAbort(fn) {
+        if (typeof fn !== "function") return () => {
+        };
+        if (scope.aborted) {
+          try {
+            fn();
+          } catch (_) {
+          }
+          return () => {
+          };
+        }
+        cleanups.add(fn);
+        return () => {
+          cleanups.delete(fn);
+        };
+      },
+      on(target, type, listener, options) {
+        if (!target || typeof target.addEventListener !== "function" || typeof listener !== "function" || scope.aborted) {
+          return () => {
+          };
+        }
+        const capture = typeof options === "boolean" ? options : Boolean(options?.capture);
+        const baseOpts = typeof options === "boolean" ? { capture: options } : options ? { ...options } : {};
+        const listenerOptions = isNativeAbortSignal(controller.signal) ? { ...baseOpts, signal: controller.signal } : typeof options === "boolean" ? options : options || void 0;
+        target.addEventListener(type, listener, listenerOptions);
+        const detach = () => {
+          cleanups.delete(detach);
+          if (typeof target.removeEventListener === "function") {
+            try {
+              target.removeEventListener(type, listener, capture);
+            } catch (_) {
+            }
+          }
+        };
+        cleanups.add(detach);
+        return detach;
+      },
+      setTimeout(fn, delay = 0) {
+        const st = globalThis.setTimeout;
+        const ct = globalThis.clearTimeout;
+        if (scope.aborted || typeof st !== "function") return 0;
+        let timerId = 0;
+        const cancel = () => {
+          cleanups.delete(cancel);
+          if (timerId && typeof ct === "function") {
+            ct(timerId);
+            timerId = 0;
+          }
+        };
+        cleanups.add(cancel);
+        timerId = st(() => {
+          cleanups.delete(cancel);
+          timerId = 0;
+          if (!scope.aborted) fn();
+        }, delay);
+        return timerId;
+      },
+      setInterval(fn, delay = 0) {
+        const si = globalThis.setInterval;
+        const ci = globalThis.clearInterval;
+        if (scope.aborted || typeof si !== "function") return 0;
+        let timerId = 0;
+        const cancel = () => {
+          cleanups.delete(cancel);
+          if (timerId && typeof ci === "function") {
+            ci(timerId);
+            timerId = 0;
+          }
+        };
+        cleanups.add(cancel);
+        timerId = si(() => {
+          if (!scope.aborted) fn();
+        }, delay);
+        return timerId;
+      },
+      raf(fn) {
+        const req = globalThis.requestAnimationFrame;
+        const can = globalThis.cancelAnimationFrame;
+        if (scope.aborted) return 0;
+        if (typeof req !== "function") {
+          return scope.setTimeout(() => fn(Date.now()), 0);
+        }
+        let rafId = 0;
+        const cancel = () => {
+          cleanups.delete(cancel);
+          if (rafId && typeof can === "function") {
+            can(rafId);
+            rafId = 0;
+          }
+        };
+        cleanups.add(cancel);
+        rafId = req((ts) => {
+          cleanups.delete(cancel);
+          rafId = 0;
+          if (!scope.aborted) fn(ts);
+        });
+        return rafId;
+      },
+      child() {
+        return createLifecycleScope(controller.signal);
+      }
+    };
+    return scope;
+  }
+  function acquireModalScope() {
+    const g = typeof globalThis !== "undefined" ? globalThis : typeof window !== "undefined" ? window : {};
+    if (typeof g?.getModalLifecycleScope === "function") {
+      return g.getModalLifecycleScope();
+    }
+    const scope = createLifecycleScope();
+    const register = g?.registerModalCleanup || (typeof window !== "undefined" ? window.registerModalCleanup : null);
+    if (typeof register === "function") {
+      register(() => scope.abort("modal-closed"));
+    }
+    return scope;
+  }
+
   // src/modules/settings-view/sync-routing.ts
   function getDeviceSyncSecretsFromInputs() {
     const webdavPass = document.getElementById("webdav-pass")?.value ?? "";
@@ -124,25 +332,31 @@
       showGlobalToast("Cloud Sync Configuration Saved! Active on next data write.", "success");
     }
   }
+  var routingScope = createLifecycleScope();
+  if (typeof window !== "undefined" && typeof window.addEventListener === "function") {
+    window.addEventListener("unload", () => routingScope.abort(), { once: true });
+  }
   function bindSettingsRoutingListeners() {
-    document.getElementById("settings-language")?.addEventListener("change", async () => {
+    routingScope.abort();
+    routingScope = createLifecycleScope();
+    routingScope.on(document.getElementById("settings-language"), "change", async () => {
       await saveSettingsFromInputs({ showToast: false });
       showGlobalToast(t("languageSaved"), "success");
     });
-    document.getElementById("settings-theme")?.addEventListener("change", async () => {
+    routingScope.on(document.getElementById("settings-theme"), "change", async () => {
       await saveSettingsFromInputs({ showToast: false });
       showGlobalToast(t("appearanceSaved"), "success");
     });
-    document.getElementById("route-db")?.addEventListener("change", () => {
+    routingScope.on(document.getElementById("route-db"), "change", () => {
       updateSyncRouteNotice();
     });
-    document.getElementById("settings-auto-sync")?.addEventListener("change", async () => {
+    routingScope.on(document.getElementById("settings-auto-sync"), "change", async () => {
       await saveSettingsFromInputs({ showToast: false });
     });
-    document.getElementById("btn-save-mappings")?.addEventListener("click", async () => {
+    routingScope.on(document.getElementById("btn-save-mappings"), "click", async () => {
       await saveSettingsFromInputs({ showToast: true });
     });
-    document.getElementById("btn-test-webdav")?.addEventListener("click", async () => {
+    routingScope.on(document.getElementById("btn-test-webdav"), "click", async () => {
       const url = document.getElementById("webdav-url")?.value.trim() || "";
       const user = document.getElementById("webdav-user")?.value.trim() || "";
       const pass = document.getElementById("webdav-pass")?.value.trim() || "";
@@ -165,7 +379,7 @@
         statusEl.style.color = "hsl(var(--status-danger))";
       }
     });
-    document.getElementById("btn-test-github")?.addEventListener("click", async () => {
+    routingScope.on(document.getElementById("btn-test-github"), "click", async () => {
       const pat = document.getElementById("github-pat")?.value.trim() || "";
       const repo = document.getElementById("github-repo")?.value.trim() || "";
       const branch = document.getElementById("github-branch")?.value.trim() || "main";
@@ -210,7 +424,7 @@
     const deletedCount = (key) => Array.isArray(sourceDb?.deletedEntities?.[key]) ? sourceDb.deletedEntities[key].length : 0;
     return {
       app: "Zotero PaperFlow",
-      version: "16.5.5",
+      version: "17.0.0",
       exportedAt: (/* @__PURE__ */ new Date()).toISOString(),
       environment: {
         language: currentLanguage,
@@ -268,7 +482,13 @@
     const time = Date.parse(value || "");
     return Number.isFinite(time) ? new Date(time).toLocaleString() : String(value || "");
   }
+  var conflictListScope = createLifecycleScope();
+  if (typeof window !== "undefined" && typeof window.addEventListener === "function") {
+    window.addEventListener("unload", () => conflictListScope.abort(), { once: true });
+  }
   async function refreshConflictDrafts2() {
+    conflictListScope.abort();
+    conflictListScope = createLifecycleScope();
     const container = document.getElementById("conflict-recovery-list");
     if (!container) return;
     if (typeof window.storage?.listConflictDrafts !== "function") {
@@ -299,7 +519,7 @@
       `;
       }).join(""));
       container.querySelectorAll(".btn-open-conflict").forEach((button) => {
-        button.addEventListener("click", () => openConflictRecoveryModal(button.dataset.conflictFile));
+        conflictListScope.on(button, "click", () => openConflictRecoveryModal(button.dataset.conflictFile));
       });
     } catch (error) {
       window.RFUI.setHTML(container, `<p class="conflict-empty">${escapeHTML(t("recoveryFailed") + (error.message || error))}</p>`);
@@ -316,10 +536,18 @@
         choices[item.id] = "current";
       });
       openModal("");
+      const modalScope = acquireModalScope();
+      let viewScope = modalScope.child();
+      const resetViewScope = () => {
+        viewScope.abort();
+        viewScope = modalScope.child();
+        return viewScope;
+      };
       const modalEl = document.getElementById("modal-overlay");
       const modalBody = document.getElementById("modal-body");
       const renderCompare = () => {
-        if (!modalEl?.classList.contains("active") || !modalBody) return;
+        if (modalScope.aborted || !modalEl?.classList.contains("active") || !modalBody) return;
+        const scope = resetViewScope();
         const rows = unresolved.length ? unresolved.map((item, idx) => `
         <div class="conflict-compare-item">
           <div class="conflict-item-head">
@@ -351,19 +579,20 @@
           <button class="btn-primary" id="btn-preview-recovery" type="button">${escapeHTML(t("recoveryPreview"))}</button>
         </div>
       `);
-        modalBody.querySelector("#btn-close-modal")?.addEventListener("click", closeModal);
-        modalBody.querySelector("#btn-cancel-recovery")?.addEventListener("click", closeModal);
+        scope.on(modalBody.querySelector("#btn-close-modal"), "click", closeModal);
+        scope.on(modalBody.querySelector("#btn-cancel-recovery"), "click", closeModal);
         modalBody.querySelectorAll("input[data-conflict-id]").forEach((input) => {
-          input.addEventListener("change", () => {
+          scope.on(input, "change", () => {
             choices[input.dataset.conflictId] = input.value;
             input.closest(".conflict-choice-grid")?.querySelectorAll(".conflict-choice-card").forEach((card) => card.classList.toggle("selected", card.contains(input)));
           });
         });
-        modalBody.querySelector("#btn-preview-recovery")?.addEventListener("click", () => renderPreview());
+        scope.on(modalBody.querySelector("#btn-preview-recovery"), "click", () => renderPreview());
       };
       const renderPreview = async () => {
         const preview = await window.storage.inspectConflictDraft(fileName, choices);
-        if (!modalEl?.classList.contains("active") || !modalBody) return;
+        if (modalScope.aborted || !modalEl?.classList.contains("active") || !modalBody) return;
+        const scope = resetViewScope();
         if (preview.currentRevision !== plan.currentRevision) {
           showGlobalToast(t("recoveryInvalidated"), "warning");
           closeModal();
@@ -394,9 +623,9 @@
           <button class="btn-primary" id="btn-apply-recovery" type="button" ${changes.length ? "" : "disabled"}>${escapeHTML(t("recoveryApply"))}</button>
         </div>
       `);
-        modalBody.querySelector("#btn-close-modal")?.addEventListener("click", closeModal);
-        modalBody.querySelector("#btn-back-recovery")?.addEventListener("click", renderCompare);
-        modalBody.querySelector("#btn-apply-recovery")?.addEventListener("click", async (event) => {
+        scope.on(modalBody.querySelector("#btn-close-modal"), "click", closeModal);
+        scope.on(modalBody.querySelector("#btn-back-recovery"), "click", renderCompare);
+        scope.on(modalBody.querySelector("#btn-apply-recovery"), "click", async (event) => {
           if (pendingSubmissionSaves > 0 || document.querySelector('[data-submission-autosave-status][data-state="pending"], [data-submission-autosave-status][data-state="saving"]')) {
             showGlobalToast(t("recoveryPending"), "warning");
             return;
@@ -433,11 +662,18 @@
   }
 
   // src/modules/settings-view.ts
+  var settingsViewScope = createLifecycleScope();
+  var settingsListenersScope = settingsViewScope.child();
+  if (typeof window !== "undefined" && typeof window.addEventListener === "function") {
+    window.addEventListener("unload", () => settingsViewScope.abort(), { once: true });
+  }
   bindSettingsRoutingListeners();
   function setupSettingsListeners() {
+    settingsListenersScope.abort();
+    settingsListenersScope = settingsViewScope.child();
     const languageSelect = document.getElementById("ui-language");
     if (languageSelect) {
-      languageSelect.addEventListener("change", async () => {
+      settingsListenersScope.on(languageSelect, "change", async () => {
         currentLanguage = languageSelect.value;
         document.documentElement.lang = currentLanguage === "zh" ? "zh-CN" : "en";
         db.settings = db.settings || {};
@@ -456,7 +692,7 @@
     }
     const themeSelect = document.getElementById("ui-theme");
     if (themeSelect) {
-      themeSelect.addEventListener("change", async () => {
+      settingsListenersScope.on(themeSelect, "change", async () => {
         const previousTheme = typeof normalizeThemePreference === "function" ? normalizeThemePreference(db.settings?.profile?.theme) : "";
         const nextTheme = typeof applyThemePreference === "function" ? applyThemePreference(themeSelect.value) : themeSelect.value;
         db.settings = db.settings || {};
@@ -475,7 +711,7 @@
     }
   }
   setupSettingsListeners();
-  document.getElementById("btn-export-db")?.addEventListener("click", () => {
+  settingsViewScope.on(document.getElementById("btn-export-db"), "click", () => {
     const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(stripCredentialsForExport(db), null, 2));
     const dlAnchorElem = document.createElement("a");
     dlAnchorElem.setAttribute("href", dataStr);
@@ -483,7 +719,7 @@
     dlAnchorElem.click();
     showGlobalToast(t("databaseExported"), "success");
   });
-  document.getElementById("btn-export-diagnostics")?.addEventListener("click", () => {
+  settingsViewScope.on(document.getElementById("btn-export-diagnostics"), "click", () => {
     const report = buildPrivacySafeDiagnostics(db);
     const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(report, null, 2));
     const dlAnchorElem = document.createElement("a");
@@ -511,7 +747,7 @@
         }
         showGlobalToast(res?.error || t("invalidBackup"), "error");
       } catch (e) {
-        console.error("[ResearchFlow] Zotero native import failed:", e);
+        console.error("[PaperFlow] Zotero native import failed:", e);
         showGlobalToast(e.message || t("invalidBackup"), "error");
       }
       return;
@@ -539,7 +775,7 @@
         }
         showGlobalToast(t("invalidBackup"), "error");
       } catch (e) {
-        console.error("[ResearchFlow] Zotero restore failed:", e);
+        console.error("[PaperFlow] Zotero restore failed:", e);
         showGlobalToast(e.message || t("invalidBackup"), "error");
       }
       return;
@@ -569,7 +805,7 @@
     }
   });
     // Handle Imported JSON File
-  document.getElementById("import-db-file")?.addEventListener("change", (e) => {
+  settingsViewScope.on(document.getElementById("import-db-file"), "change", (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
     if (file.size > MAX_IMPORT_DATABASE_BYTES) {
@@ -605,7 +841,7 @@
     reader.readAsText(file);
     e.target.value = "";
   });
-  document.getElementById("btn-refresh-conflicts")?.addEventListener("click", () => {
+  settingsViewScope.on(document.getElementById("btn-refresh-conflicts"), "click", () => {
     refreshConflictDrafts2();
   });
   var settingsViewExports = {

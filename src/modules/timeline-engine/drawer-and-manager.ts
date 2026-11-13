@@ -1,6 +1,8 @@
 /**
  * Zotero PaperFlow - Timeline Stage Drawer, Event Manager & Node Deletion
  */
+import { acquireModalScope } from '../ui-utils/lifecycle.js';
+
 declare var db: any;
 declare var modalContent: HTMLElement;
 declare function t(key: string): string;
@@ -186,28 +188,30 @@ export function openStageDrawer(subId: string, nodeId: string): void {
     </div>
   `);
 
-  document.getElementById('quick-plan-today')?.addEventListener('click', () => {
+  const modalScope = acquireModalScope();
+
+  modalScope.on(document.getElementById('quick-plan-today'), 'click', () => {
     (document.getElementById('drawer-date') as HTMLInputElement).value = todayString();
   });
-  document.getElementById('quick-due-14')?.addEventListener('click', () => {
+  modalScope.on(document.getElementById('quick-due-14'), 'click', () => {
     const base = (document.getElementById('drawer-date') as HTMLInputElement).value || todayString();
     (document.getElementById('drawer-deadline') as HTMLInputElement).value = addDays(base, 14);
     (document.getElementById('drawer-type') as HTMLSelectElement).value = 'review';
     (document.getElementById('drawer-status') as HTMLSelectElement).value = 'active';
   });
-  document.getElementById('quick-active')?.addEventListener('click', () => {
+  modalScope.on(document.getElementById('quick-active'), 'click', () => {
     (document.getElementById('drawer-status') as HTMLSelectElement).value = 'active';
   });
-  document.getElementById('quick-done-today')?.addEventListener('click', () => {
+  modalScope.on(document.getElementById('quick-done-today'), 'click', () => {
     (document.getElementById('drawer-date') as HTMLInputElement).value = todayString();
     (document.getElementById('drawer-status') as HTMLSelectElement).value = 'completed';
   });
-  document.getElementById('quick-clear-dates')?.addEventListener('click', () => {
+  modalScope.on(document.getElementById('quick-clear-dates'), 'click', () => {
     (document.getElementById('drawer-date') as HTMLInputElement).value = '';
     (document.getElementById('drawer-deadline') as HTMLInputElement).value = '';
   });
 
-  document.getElementById('btn-save-stage')?.addEventListener('click', async () => {
+  modalScope.on(document.getElementById('btn-save-stage'), 'click', async () => {
     const latestSub = db.submissions.find((s: any) => s.id === subId);
     const latestNode = latestSub?.timelineNodes?.find((n: any) => n.id === nodeId);
     if (!latestSub || !latestNode) {
@@ -265,7 +269,7 @@ export function openStageDrawer(subId: string, nodeId: string): void {
     showGlobalToast(tf('eventSavedToast', { name: getTimelineNodeDisplayName(latestNode) }), 'success');
   });
 
-  document.getElementById('btn-delete-stage')?.addEventListener('click', async () => {
+  modalScope.on(document.getElementById('btn-delete-stage'), 'click', async () => {
     const latestSub = db.submissions.find((s: any) => s.id === subId);
     const latestNode = latestSub?.timelineNodes?.find((n: any) => n.id === nodeId);
     if (!latestSub || !latestNode) {

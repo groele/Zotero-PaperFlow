@@ -542,6 +542,214 @@ Sincerely,
   `;
   }
 
+  // src/modules/ui-utils/lifecycle.ts
+  function createFallbackController() {
+    let aborted = false;
+    let reason;
+    const listeners = /* @__PURE__ */ new Set();
+    const signal = {
+      get aborted() {
+        return aborted;
+      },
+      get reason() {
+        return reason;
+      },
+      addEventListener(type, listener) {
+        if (type !== "abort" || typeof listener !== "function") return;
+        if (aborted) {
+          try {
+            listener({ type: "abort" });
+          } catch (_) {
+          }
+          return;
+        }
+        listeners.add(listener);
+      },
+      removeEventListener(type, listener) {
+        if (type !== "abort") return;
+        listeners.delete(listener);
+      }
+    };
+    return {
+      signal,
+      abort(nextReason) {
+        if (aborted) return;
+        aborted = true;
+        reason = nextReason;
+        const snapshot = Array.from(listeners);
+        listeners.clear();
+        for (const listener of snapshot) {
+          try {
+            listener({ type: "abort" });
+          } catch (_) {
+          }
+        }
+      }
+    };
+  }
+  function isNativeAbortSignal(signal) {
+    return typeof AbortSignal !== "undefined" && signal instanceof AbortSignal;
+  }
+  function createLifecycleScope(parentSignal) {
+    const controller = typeof AbortController !== "undefined" ? new AbortController() : createFallbackController();
+    const cleanups = /* @__PURE__ */ new Set();
+    let localAborted = false;
+    const runCleanups = () => {
+      const snapshot = Array.from(cleanups);
+      cleanups.clear();
+      for (const cleanup of snapshot) {
+        try {
+          cleanup();
+        } catch (_) {
+        }
+      }
+    };
+    const abort = (reason) => {
+      if (localAborted) return;
+      localAborted = true;
+      try {
+        controller.abort(reason);
+      } catch (_) {
+      }
+      runCleanups();
+    };
+    if (parentSignal) {
+      if (parentSignal.aborted) {
+        abort(parentSignal.reason);
+      } else if (typeof parentSignal.addEventListener === "function") {
+        const onParentAbort = () => abort(parentSignal.reason);
+        parentSignal.addEventListener("abort", onParentAbort, { once: true });
+        cleanups.add(() => {
+          try {
+            parentSignal.removeEventListener?.("abort", onParentAbort);
+          } catch (_) {
+          }
+        });
+      }
+    }
+    const scope = {
+      signal: controller.signal,
+      get aborted() {
+        return localAborted || Boolean(controller.signal?.aborted);
+      },
+      abort,
+      onAbort(fn) {
+        if (typeof fn !== "function") return () => {
+        };
+        if (scope.aborted) {
+          try {
+            fn();
+          } catch (_) {
+          }
+          return () => {
+          };
+        }
+        cleanups.add(fn);
+        return () => {
+          cleanups.delete(fn);
+        };
+      },
+      on(target, type, listener, options) {
+        if (!target || typeof target.addEventListener !== "function" || typeof listener !== "function" || scope.aborted) {
+          return () => {
+          };
+        }
+        const capture = typeof options === "boolean" ? options : Boolean(options?.capture);
+        const baseOpts = typeof options === "boolean" ? { capture: options } : options ? { ...options } : {};
+        const listenerOptions = isNativeAbortSignal(controller.signal) ? { ...baseOpts, signal: controller.signal } : typeof options === "boolean" ? options : options || void 0;
+        target.addEventListener(type, listener, listenerOptions);
+        const detach = () => {
+          cleanups.delete(detach);
+          if (typeof target.removeEventListener === "function") {
+            try {
+              target.removeEventListener(type, listener, capture);
+            } catch (_) {
+            }
+          }
+        };
+        cleanups.add(detach);
+        return detach;
+      },
+      setTimeout(fn, delay = 0) {
+        const st = globalThis.setTimeout;
+        const ct = globalThis.clearTimeout;
+        if (scope.aborted || typeof st !== "function") return 0;
+        let timerId = 0;
+        const cancel = () => {
+          cleanups.delete(cancel);
+          if (timerId && typeof ct === "function") {
+            ct(timerId);
+            timerId = 0;
+          }
+        };
+        cleanups.add(cancel);
+        timerId = st(() => {
+          cleanups.delete(cancel);
+          timerId = 0;
+          if (!scope.aborted) fn();
+        }, delay);
+        return timerId;
+      },
+      setInterval(fn, delay = 0) {
+        const si = globalThis.setInterval;
+        const ci = globalThis.clearInterval;
+        if (scope.aborted || typeof si !== "function") return 0;
+        let timerId = 0;
+        const cancel = () => {
+          cleanups.delete(cancel);
+          if (timerId && typeof ci === "function") {
+            ci(timerId);
+            timerId = 0;
+          }
+        };
+        cleanups.add(cancel);
+        timerId = si(() => {
+          if (!scope.aborted) fn();
+        }, delay);
+        return timerId;
+      },
+      raf(fn) {
+        const req = globalThis.requestAnimationFrame;
+        const can = globalThis.cancelAnimationFrame;
+        if (scope.aborted) return 0;
+        if (typeof req !== "function") {
+          return scope.setTimeout(() => fn(Date.now()), 0);
+        }
+        let rafId = 0;
+        const cancel = () => {
+          cleanups.delete(cancel);
+          if (rafId && typeof can === "function") {
+            can(rafId);
+            rafId = 0;
+          }
+        };
+        cleanups.add(cancel);
+        rafId = req((ts) => {
+          cleanups.delete(cancel);
+          rafId = 0;
+          if (!scope.aborted) fn(ts);
+        });
+        return rafId;
+      },
+      child() {
+        return createLifecycleScope(controller.signal);
+      }
+    };
+    return scope;
+  }
+  function acquireModalScope() {
+    const g = typeof globalThis !== "undefined" ? globalThis : typeof window !== "undefined" ? window : {};
+    if (typeof g?.getModalLifecycleScope === "function") {
+      return g.getModalLifecycleScope();
+    }
+    const scope = createLifecycleScope();
+    const register = g?.registerModalCleanup || (typeof window !== "undefined" ? window.registerModalCleanup : null);
+    if (typeof register === "function") {
+      register(() => scope.abort("modal-closed"));
+    }
+    return scope;
+  }
+
   // src/modules/academic-exporter/batch-modal.ts
   function openBatchReviewImportModal(sub, reviewBox, onComplete) {
     if (typeof openModal !== "function") return;
@@ -587,6 +795,7 @@ Sincerely,
       </div>
     </div>
   `);
+    const modalScope = acquireModalScope();
     const textarea = document.getElementById("batch-import-textarea");
     const defaultRevSelect = document.getElementById("batch-import-default-rev");
     const previewContainer = document.getElementById("batch-import-preview-container");
@@ -616,8 +825,8 @@ Sincerely,
       </div>
     `).join("");
     }
-    textarea?.addEventListener("input", updatePreview);
-    defaultRevSelect?.addEventListener("change", updatePreview);
+    modalScope.on(textarea, "input", updatePreview);
+    modalScope.on(defaultRevSelect, "change", updatePreview);
     function executeImport(mode) {
       if (!currentParsed || currentParsed.length === 0) {
         if (typeof showGlobalToast === "function") showGlobalToast(tr("batchImportEmptyToast") || "请先粘贴待解析的审稿文本", "warning");
@@ -649,8 +858,8 @@ Sincerely,
         showGlobalToast(trf("batchImportSuccessToast", { count: currentParsed.length }) || (curLang === "zh" ? `成功解析并导入 ${currentParsed.length} 条审稿意见！` : `Successfully imported ${currentParsed.length} comments.`), "success");
       }
     }
-    document.getElementById("btn-batch-do-append")?.addEventListener("click", () => executeImport("append"));
-    document.getElementById("btn-batch-do-replace")?.addEventListener("click", () => executeImport("replace"));
+    modalScope.on(document.getElementById("btn-batch-do-append"), "click", () => executeImport("append"));
+    modalScope.on(document.getElementById("btn-batch-do-replace"), "click", () => executeImport("replace"));
   }
 
   // src/modules/academic-exporter.ts

@@ -1,6 +1,8 @@
 /**
  * Zotero PaperFlow - Share Journey Preferences, Persistence & Card Data Builder
  */
+import { createLifecycleScope } from '../ui-utils/lifecycle.js';
+
 declare var db: any;
 declare var currentLanguage: string;
 declare var sharePreferenceWrites: Promise<any>;
@@ -23,6 +25,11 @@ const g: any = typeof globalThis !== 'undefined' ? globalThis : window;
 if (!('sharePreferenceWrites' in g)) g.sharePreferenceWrites = Promise.resolve();
 if (!('activeSharePreviewUrl' in g)) g.activeSharePreviewUrl = null;
 if (!('activeSharePreviewCleanup' in g)) g.activeSharePreviewCleanup = null;
+
+const blobRevokeScope = createLifecycleScope();
+if (typeof window !== 'undefined' && typeof window.addEventListener === 'function') {
+  blobRevokeScope.on(window, 'unload', () => blobRevokeScope.abort(), { once: true });
+}
 
 export const SHARE_THEME_DEFAULT = 'estuary';
 export const SHARE_SIZE_DEFAULT = 'portrait';
@@ -277,7 +284,7 @@ export async function savePngBlobWithPath(blob: Blob, filename: string): Promise
     link.remove();
     return { cancelled: false, path: filename };
   } finally {
-    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    blobRevokeScope.setTimeout(() => URL.revokeObjectURL(url), 1000);
   }
 }
 

@@ -1,3 +1,5 @@
+import { acquireModalScope } from '../ui-utils/lifecycle.js';
+
 declare var db: any;
 declare var modalContent: HTMLElement;
 declare function t(key: string): string;
@@ -151,13 +153,13 @@ export function openTimelineEventManager(subId: string): void {
     </div>
   `);
 
+  const modalScope = acquireModalScope();
   const modalEl = document.getElementById('modal-body') || (typeof modalContent !== 'undefined' ? modalContent : null);
   modalEl?.classList?.add('event-manager-modal-card');
-  const regCleanup = g.registerModalCleanup || (typeof registerModalCleanup === 'function' ? registerModalCleanup : null);
-  if (regCleanup) regCleanup(() => modalEl?.classList?.remove('event-manager-modal-card'));
+  modalScope.onAbort(() => modalEl?.classList?.remove('event-manager-modal-card'));
 
-  document.getElementById('btn-footer-close-events')?.addEventListener('click', closeModalFn);
-  document.getElementById('btn-modal-add-event')?.addEventListener('click', () => {
+  modalScope.on(document.getElementById('btn-footer-close-events'), 'click', closeModalFn);
+  modalScope.on(document.getElementById('btn-modal-add-event'), 'click', () => {
     closeModalFn();
     const dashboardView = document.getElementById('view-dashboard');
     const activateFn = g.activateWorkspaceView || (typeof activateWorkspaceView === 'function' ? activateWorkspaceView : null);
@@ -181,7 +183,7 @@ export function openTimelineEventManager(subId: string): void {
   });
 
   modalEl?.querySelectorAll('.btn-event-edit').forEach((btn: any) => {
-    btn.addEventListener('click', () => {
+    modalScope.on(btn, 'click', () => {
       closeModalFn();
       const drawerFn = g.openStageDrawer || (typeof openStageDrawer === 'function' ? openStageDrawer : null);
       if (drawerFn) drawerFn(btn.getAttribute('data-sub-id'), btn.getAttribute('data-node-id'));
@@ -189,7 +191,7 @@ export function openTimelineEventManager(subId: string): void {
   });
 
   modalEl?.querySelectorAll('.btn-event-delete').forEach((btn: any) => {
-    btn.addEventListener('click', async () => {
+    modalScope.on(btn, 'click', async () => {
       const latestDb = g.db || (typeof db !== 'undefined' ? db : null) || database;
       const latestSub = (latestDb.submissions || []).find((s: any) => s.id === btn.getAttribute('data-sub-id'));
       const nodeId = btn.getAttribute('data-node-id');

@@ -20,7 +20,7 @@
           listener(message, {}, () => {
           });
         } catch (error) {
-          console.error("[ResearchFlow] UI listener failed:", error);
+          console.error("[PaperFlow] UI listener failed:", error);
         }
       }
     };
@@ -49,7 +49,7 @@
         callback(value);
         return value;
       }, (error) => {
-        console.error("[ResearchFlow] Zotero compatibility operation failed:", error);
+        console.error("[PaperFlow] Zotero compatibility operation failed:", error);
         globalThis.RFPlatform.runtime.lastError = { message: String(error?.message || error) };
         try {
           callback(void 0);

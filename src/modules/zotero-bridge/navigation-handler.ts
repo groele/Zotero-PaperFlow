@@ -1,6 +1,9 @@
 /**
  * Zotero PaperFlow - Bridge Host Navigation Handler
  */
+import { createLifecycleScope, type LifecycleScope } from '../ui-utils/lifecycle.js';
+
+let pendingNavigationScope: LifecycleScope | null = null;
 
 export function handleHostNavigation(this: any, options: any): void {
   if (!options || typeof options !== 'object' || typeof window === 'undefined') return;
@@ -8,6 +11,10 @@ export function handleHostNavigation(this: any, options: any): void {
     this._pendingNavigation = options;
     return;
   }
+
+  pendingNavigationScope?.abort('superseded');
+  pendingNavigationScope = createLifecycleScope(this._lifecycleScope?.signal);
+  const navScope = pendingNavigationScope;
 
   if (options.view && typeof document !== 'undefined') {
     const navBtn: HTMLElement | null = document.querySelector(`.nav-item[data-view="${options.view}"]`);
@@ -19,7 +26,7 @@ export function handleHostNavigation(this: any, options: any): void {
     const kanbanBtn: HTMLElement | null = document.querySelector('.nav-item[data-view="view-manuscripts"]');
     if (kanbanBtn) kanbanBtn.click();
 
-    setTimeout(() => {
+    navScope.setTimeout(() => {
       if (typeof (window as any).openManuscriptModal === 'function') {
         (window as any).openManuscriptModal(null, {
           title: item.title || '',
@@ -49,7 +56,7 @@ export function handleHostNavigation(this: any, options: any): void {
     const kanbanBtn: HTMLElement | null = document.querySelector('.nav-item[data-view="view-manuscripts"]');
     if (kanbanBtn) kanbanBtn.click();
 
-    setTimeout(() => {
+    navScope.setTimeout(() => {
       if (typeof (window as any).showLinkManuscriptModal === 'function') {
         (window as any).showLinkManuscriptModal(item);
       }
@@ -58,7 +65,7 @@ export function handleHostNavigation(this: any, options: any): void {
     const kanbanBtn: HTMLElement | null = document.querySelector('.nav-item[data-view="view-manuscripts"]');
     if (kanbanBtn) kanbanBtn.click();
 
-    setTimeout(() => {
+    navScope.setTimeout(() => {
       if (typeof (window as any).openManuscriptModal === 'function') {
         const excerptText = options.excerpt
           ? `【PDF 第 ${options.page || 1} 页原文摘录】\n${options.excerpt}\n\n[📖 在 Zotero 阅读器中查看原文](${options.pdfLink || ''})`
@@ -88,7 +95,7 @@ export function handleHostNavigation(this: any, options: any): void {
     const kanbanBtn: HTMLElement | null = document.querySelector('.nav-item[data-view="view-manuscripts"]');
     if (kanbanBtn) kanbanBtn.click();
 
-    setTimeout(() => {
+    navScope.setTimeout(() => {
       if (typeof (window as any).openManuscriptModal === 'function') {
         const colItems = options.items || [];
         const summary = colItems.slice(0, 5).map((it: any, idx: number) => `${idx + 1}. ${it.title} (${it.authors || ''} ${it.year || ''})`.trim()).join('\n');
@@ -111,13 +118,13 @@ export function handleHostNavigation(this: any, options: any): void {
   } else if (options.manuscriptId && typeof document !== 'undefined') {
     const kanbanBtn: HTMLElement | null = document.querySelector('.nav-item[data-view="view-manuscripts"]');
     if (kanbanBtn) kanbanBtn.click();
-    setTimeout(() => {
+    navScope.setTimeout(() => {
       const card: HTMLElement | null = document.querySelector(`[data-manuscript-id="${options.manuscriptId}"]`) ||
         document.querySelector(`[data-id="${options.manuscriptId}"]`);
       if (card) {
         card.scrollIntoView({ behavior: 'smooth', block: 'center' });
         card.classList.add('highlight-pulse');
-        setTimeout(() => card.classList.remove('highlight-pulse'), 2500);
+        navScope.setTimeout(() => card.classList.remove('highlight-pulse'), 2500);
       }
     }, 300);
   }

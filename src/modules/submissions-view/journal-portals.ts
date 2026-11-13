@@ -1,3 +1,5 @@
+import { createLifecycleScope, acquireModalScope, type LifecycleScope } from '../ui-utils/lifecycle.js';
+
 declare var db: any;
 declare const currentLanguage: string;
 declare const ZoteroBridge: any;
@@ -8,11 +10,17 @@ declare function openModal(html: string): void;
 declare function closeModal(): void;
 declare function showGlobalToast(message: string, type?: string, duration?: number): void;
 
+let portalsRenderScope: LifecycleScope | null = null;
+let portalsButtonScope: LifecycleScope | null = null;
+
 export function renderJournalPortals(): void {
   const w = window as any;
   const toolsRow = document.querySelector('.submission-tools-row') as HTMLElement | null;
   const portalList = document.getElementById('journal-portals-list');
   if (!portalList) return;
+  portalsRenderScope?.abort('re-render');
+  const renderScope = createLifecycleScope();
+  portalsRenderScope = renderScope;
 
   const showPortals = typeof ZoteroBridge !== 'undefined'
     ? ZoteroBridge.getPref('showJournalPortals', true)
@@ -63,9 +71,9 @@ export function renderJournalPortals(): void {
       </div>
     `);
 
-    card.querySelector('.portal-open')?.addEventListener('click', (event) => { if (!safeUrl) event.preventDefault(); });
-    card.querySelector('.btn-edit-portal')?.addEventListener('click', () => openJournalPortalEditor(portal));
-    card.querySelector('.btn-delete-portal')?.addEventListener('click', async (e) => {
+    renderScope.on(card.querySelector('.portal-open'), 'click', (event: Event) => { if (!safeUrl) event.preventDefault(); });
+    renderScope.on(card.querySelector('.btn-edit-portal'), 'click', () => openJournalPortalEditor(portal));
+    renderScope.on(card.querySelector('.btn-delete-portal'), 'click', async (e: Event) => {
       e.preventDefault();
       e.stopPropagation();
       if (confirm(tf('portalDeleteConfirm', { name: portal.name }))) {
@@ -111,7 +119,8 @@ export function openJournalPortalEditor(portal: any = null): void {
     <button type="button" class="btn-primary w-full" id="btn-save-portal" style="margin-top:12px;">${editing ? (currentLanguage === 'zh' ? '保存修改' : 'Save changes') : escapeHTML(t('addPortalButton'))}</button>
   `);
 
-  document.getElementById('btn-save-portal')?.addEventListener('click', async (event: any) => {
+  const modalScope = acquireModalScope();
+  modalScope.on(document.getElementById('btn-save-portal'), 'click', async (event: any) => {
     const button = event.currentTarget as HTMLButtonElement;
     const name = ((document.getElementById('portal-name') as HTMLInputElement | null)?.value || '').trim();
     const url = ((document.getElementById('portal-url') as HTMLInputElement | null)?.value || '').trim();
@@ -141,5 +150,7 @@ export function openJournalPortalEditor(portal: any = null): void {
 }
 
 export function setupJournalPortalListeners(): void {
-  document.getElementById('btn-add-portal')?.addEventListener('click', () => openJournalPortalEditor());
+  portalsButtonScope?.abort('rebind');
+  portalsButtonScope = createLifecycleScope();
+  portalsButtonScope.on(document.getElementById('btn-add-portal'), 'click', () => openJournalPortalEditor());
 }

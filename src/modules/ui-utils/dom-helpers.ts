@@ -162,6 +162,15 @@ export function captureElementRects(container: any, selector: string, keyAttr: s
   return rects;
 }
 
+const activeFlipTimers = new WeakMap<object, { transformTimer?: ReturnType<typeof setTimeout>; highlightTimer?: ReturnType<typeof setTimeout> }>();
+const allFlipTimers = new Set<ReturnType<typeof setTimeout>>();
+if (typeof window !== 'undefined' && typeof window.addEventListener === 'function') {
+  window.addEventListener('unload', () => {
+    allFlipTimers.forEach((id) => clearTimeout(id));
+    allFlipTimers.clear();
+  }, { once: true });
+}
+
 export function playFlipAnimation(
   container: any,
   selector: string,
@@ -180,24 +189,47 @@ export function playFlipAnimation(
       const dx = (first.left || 0) - (last.left || 0);
       const dy = (first.top || 0) - (last.top || 0);
       if (Math.abs(dx) < 1 && Math.abs(dy) < 1) return;
+      let timers = activeFlipTimers.get(el);
+      if (!timers) {
+        timers = {};
+        activeFlipTimers.set(el, timers);
+      }
       if (el.style) {
+        if (timers.transformTimer !== undefined) {
+          clearTimeout(timers.transformTimer);
+          allFlipTimers.delete(timers.transformTimer);
+        }
         el.style.transition = 'none';
         el.style.transform = `translate(${dx}px, ${dy}px)`;
         void el.offsetWidth;
         el.style.transition = 'transform 240ms cubic-bezier(0.22, 1, 0.36, 1)';
         el.style.transform = 'translate(0, 0)';
-        setTimeout(() => {
+        const tId = setTimeout(() => {
+          allFlipTimers.delete(tId);
+          if (timers) timers.transformTimer = undefined;
           if (el.style) {
             el.style.transition = '';
             el.style.transform = '';
           }
         }, 260);
+        timers.transformTimer = tId;
+        allFlipTimers.add(tId);
       }
       if (highlightClass && el.classList?.add) {
+        if (timers.highlightTimer !== undefined) {
+          clearTimeout(timers.highlightTimer);
+          allFlipTimers.delete(timers.highlightTimer);
+        }
         el.classList.remove(highlightClass);
         void el.offsetWidth;
         el.classList.add(highlightClass);
-        setTimeout(() => el.classList?.remove?.(highlightClass), 700);
+        const hId = setTimeout(() => {
+          allFlipTimers.delete(hId);
+          if (timers) timers.highlightTimer = undefined;
+          el.classList?.remove?.(highlightClass);
+        }, 700);
+        timers.highlightTimer = hId;
+        allFlipTimers.add(hId);
       }
     });
   } catch (_) {}

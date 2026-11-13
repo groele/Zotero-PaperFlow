@@ -25,6 +25,219 @@
     }
   };
 
+  // src/modules/ui-utils/lifecycle.ts
+  function createFallbackController() {
+    let aborted = false;
+    let reason;
+    const listeners = /* @__PURE__ */ new Set();
+    const signal = {
+      get aborted() {
+        return aborted;
+      },
+      get reason() {
+        return reason;
+      },
+      addEventListener(type, listener) {
+        if (type !== "abort" || typeof listener !== "function") return;
+        if (aborted) {
+          try {
+            listener({ type: "abort" });
+          } catch (_) {
+          }
+          return;
+        }
+        listeners.add(listener);
+      },
+      removeEventListener(type, listener) {
+        if (type !== "abort") return;
+        listeners.delete(listener);
+      }
+    };
+    return {
+      signal,
+      abort(nextReason) {
+        if (aborted) return;
+        aborted = true;
+        reason = nextReason;
+        const snapshot = Array.from(listeners);
+        listeners.clear();
+        for (const listener of snapshot) {
+          try {
+            listener({ type: "abort" });
+          } catch (_) {
+          }
+        }
+      }
+    };
+  }
+  function isNativeAbortSignal(signal) {
+    return typeof AbortSignal !== "undefined" && signal instanceof AbortSignal;
+  }
+  function createLifecycleScope(parentSignal) {
+    const controller = typeof AbortController !== "undefined" ? new AbortController() : createFallbackController();
+    const cleanups = /* @__PURE__ */ new Set();
+    let localAborted = false;
+    const runCleanups = () => {
+      const snapshot = Array.from(cleanups);
+      cleanups.clear();
+      for (const cleanup of snapshot) {
+        try {
+          cleanup();
+        } catch (_) {
+        }
+      }
+    };
+    const abort = (reason) => {
+      if (localAborted) return;
+      localAborted = true;
+      try {
+        controller.abort(reason);
+      } catch (_) {
+      }
+      runCleanups();
+    };
+    if (parentSignal) {
+      if (parentSignal.aborted) {
+        abort(parentSignal.reason);
+      } else if (typeof parentSignal.addEventListener === "function") {
+        const onParentAbort = () => abort(parentSignal.reason);
+        parentSignal.addEventListener("abort", onParentAbort, { once: true });
+        cleanups.add(() => {
+          try {
+            parentSignal.removeEventListener?.("abort", onParentAbort);
+          } catch (_) {
+          }
+        });
+      }
+    }
+    const scope = {
+      signal: controller.signal,
+      get aborted() {
+        return localAborted || Boolean(controller.signal?.aborted);
+      },
+      abort,
+      onAbort(fn) {
+        if (typeof fn !== "function") return () => {
+        };
+        if (scope.aborted) {
+          try {
+            fn();
+          } catch (_) {
+          }
+          return () => {
+          };
+        }
+        cleanups.add(fn);
+        return () => {
+          cleanups.delete(fn);
+        };
+      },
+      on(target, type, listener, options) {
+        if (!target || typeof target.addEventListener !== "function" || typeof listener !== "function" || scope.aborted) {
+          return () => {
+          };
+        }
+        const capture = typeof options === "boolean" ? options : Boolean(options?.capture);
+        const baseOpts = typeof options === "boolean" ? { capture: options } : options ? { ...options } : {};
+        const listenerOptions = isNativeAbortSignal(controller.signal) ? { ...baseOpts, signal: controller.signal } : typeof options === "boolean" ? options : options || void 0;
+        target.addEventListener(type, listener, listenerOptions);
+        const detach = () => {
+          cleanups.delete(detach);
+          if (typeof target.removeEventListener === "function") {
+            try {
+              target.removeEventListener(type, listener, capture);
+            } catch (_) {
+            }
+          }
+        };
+        cleanups.add(detach);
+        return detach;
+      },
+      setTimeout(fn, delay = 0) {
+        const st = globalThis.setTimeout;
+        const ct = globalThis.clearTimeout;
+        if (scope.aborted || typeof st !== "function") return 0;
+        let timerId = 0;
+        const cancel = () => {
+          cleanups.delete(cancel);
+          if (timerId && typeof ct === "function") {
+            ct(timerId);
+            timerId = 0;
+          }
+        };
+        cleanups.add(cancel);
+        timerId = st(() => {
+          cleanups.delete(cancel);
+          timerId = 0;
+          if (!scope.aborted) fn();
+        }, delay);
+        return timerId;
+      },
+      setInterval(fn, delay = 0) {
+        const si = globalThis.setInterval;
+        const ci = globalThis.clearInterval;
+        if (scope.aborted || typeof si !== "function") return 0;
+        let timerId = 0;
+        const cancel = () => {
+          cleanups.delete(cancel);
+          if (timerId && typeof ci === "function") {
+            ci(timerId);
+            timerId = 0;
+          }
+        };
+        cleanups.add(cancel);
+        timerId = si(() => {
+          if (!scope.aborted) fn();
+        }, delay);
+        return timerId;
+      },
+      raf(fn) {
+        const req = globalThis.requestAnimationFrame;
+        const can = globalThis.cancelAnimationFrame;
+        if (scope.aborted) return 0;
+        if (typeof req !== "function") {
+          return scope.setTimeout(() => fn(Date.now()), 0);
+        }
+        let rafId = 0;
+        const cancel = () => {
+          cleanups.delete(cancel);
+          if (rafId && typeof can === "function") {
+            can(rafId);
+            rafId = 0;
+          }
+        };
+        cleanups.add(cancel);
+        rafId = req((ts) => {
+          cleanups.delete(cancel);
+          rafId = 0;
+          if (!scope.aborted) fn(ts);
+        });
+        return rafId;
+      },
+      child() {
+        return createLifecycleScope(controller.signal);
+      }
+    };
+    return scope;
+  }
+  function acquireModalScope() {
+    const g2 = typeof globalThis !== "undefined" ? globalThis : typeof window !== "undefined" ? window : {};
+    if (typeof g2?.getModalLifecycleScope === "function") {
+      return g2.getModalLifecycleScope();
+    }
+    const scope = createLifecycleScope();
+    const register = g2?.registerModalCleanup || (typeof window !== "undefined" ? window.registerModalCleanup : null);
+    if (typeof register === "function") {
+      register(() => scope.abort("modal-closed"));
+    }
+    return scope;
+  }
+  var init_lifecycle = __esm({
+    "src/modules/ui-utils/lifecycle.ts"() {
+      "use strict";
+    }
+  });
+
   // src/modules/timeline-engine/event-manager.ts
   function buildTimelineEventManager(sub, { inModal = false } = {}) {
     const sortedNodes = autoSortNodes(sub.timelineNodes || []);
@@ -134,12 +347,12 @@
       <button type="button" class="btn-secondary" id="btn-footer-close-events">${escapeHTML(t("close") || "关闭")}</button>
     </div>
   `);
+    const modalScope = acquireModalScope();
     const modalEl = document.getElementById("modal-body") || (typeof modalContent !== "undefined" ? modalContent : null);
     modalEl?.classList?.add("event-manager-modal-card");
-    const regCleanup = g2.registerModalCleanup || (typeof registerModalCleanup === "function" ? registerModalCleanup : null);
-    if (regCleanup) regCleanup(() => modalEl?.classList?.remove("event-manager-modal-card"));
-    document.getElementById("btn-footer-close-events")?.addEventListener("click", closeModalFn);
-    document.getElementById("btn-modal-add-event")?.addEventListener("click", () => {
+    modalScope.onAbort(() => modalEl?.classList?.remove("event-manager-modal-card"));
+    modalScope.on(document.getElementById("btn-footer-close-events"), "click", closeModalFn);
+    modalScope.on(document.getElementById("btn-modal-add-event"), "click", () => {
       closeModalFn();
       const dashboardView = document.getElementById("view-dashboard");
       const activateFn = g2.activateWorkspaceView || (typeof activateWorkspaceView === "function" ? activateWorkspaceView : null);
@@ -162,14 +375,14 @@
       }
     });
     modalEl?.querySelectorAll(".btn-event-edit").forEach((btn) => {
-      btn.addEventListener("click", () => {
+      modalScope.on(btn, "click", () => {
         closeModalFn();
         const drawerFn = g2.openStageDrawer || (typeof openStageDrawer === "function" ? openStageDrawer : null);
         if (drawerFn) drawerFn(btn.getAttribute("data-sub-id"), btn.getAttribute("data-node-id"));
       });
     });
     modalEl?.querySelectorAll(".btn-event-delete").forEach((btn) => {
-      btn.addEventListener("click", async () => {
+      modalScope.on(btn, "click", async () => {
         const latestDb = g2.db || (typeof db !== "undefined" ? db : null) || database;
         const latestSub = (latestDb.submissions || []).find((s) => s.id === btn.getAttribute("data-sub-id"));
         const nodeId = btn.getAttribute("data-node-id");
@@ -227,6 +440,7 @@
   var init_event_manager = __esm({
     "src/modules/timeline-engine/event-manager.ts"() {
       "use strict";
+      init_lifecycle();
     }
   });
 
@@ -365,27 +579,28 @@
       <button class="btn-primary" id="btn-save-stage" type="button" style="flex:1; margin-top:0;">${t("saveChanges")}</button>
     </div>
   `);
-    document.getElementById("quick-plan-today")?.addEventListener("click", () => {
+    const modalScope = acquireModalScope();
+    modalScope.on(document.getElementById("quick-plan-today"), "click", () => {
       document.getElementById("drawer-date").value = todayString();
     });
-    document.getElementById("quick-due-14")?.addEventListener("click", () => {
+    modalScope.on(document.getElementById("quick-due-14"), "click", () => {
       const base = document.getElementById("drawer-date").value || todayString();
       document.getElementById("drawer-deadline").value = addDays(base, 14);
       document.getElementById("drawer-type").value = "review";
       document.getElementById("drawer-status").value = "active";
     });
-    document.getElementById("quick-active")?.addEventListener("click", () => {
+    modalScope.on(document.getElementById("quick-active"), "click", () => {
       document.getElementById("drawer-status").value = "active";
     });
-    document.getElementById("quick-done-today")?.addEventListener("click", () => {
+    modalScope.on(document.getElementById("quick-done-today"), "click", () => {
       document.getElementById("drawer-date").value = todayString();
       document.getElementById("drawer-status").value = "completed";
     });
-    document.getElementById("quick-clear-dates")?.addEventListener("click", () => {
+    modalScope.on(document.getElementById("quick-clear-dates"), "click", () => {
       document.getElementById("drawer-date").value = "";
       document.getElementById("drawer-deadline").value = "";
     });
-    document.getElementById("btn-save-stage")?.addEventListener("click", async () => {
+    modalScope.on(document.getElementById("btn-save-stage"), "click", async () => {
       const latestSub = db.submissions.find((s) => s.id === subId);
       const latestNode = latestSub?.timelineNodes?.find((n) => n.id === nodeId);
       if (!latestSub || !latestNode) {
@@ -438,7 +653,7 @@
       renderSubmissions();
       showGlobalToast(tf("eventSavedToast", { name: getTimelineNodeDisplayName(latestNode) }), "success");
     });
-    document.getElementById("btn-delete-stage")?.addEventListener("click", async () => {
+    modalScope.on(document.getElementById("btn-delete-stage"), "click", async () => {
       const latestSub = db.submissions.find((s) => s.id === subId);
       const latestNode = latestSub?.timelineNodes?.find((n) => n.id === nodeId);
       if (!latestSub || !latestNode) {
@@ -462,6 +677,7 @@
   var init_drawer_and_manager = __esm({
     "src/modules/timeline-engine/drawer-and-manager.ts"() {
       "use strict";
+      init_lifecycle();
       init_event_manager();
       g = typeof globalThis !== "undefined" ? globalThis : window;
       typeMeta2 = {

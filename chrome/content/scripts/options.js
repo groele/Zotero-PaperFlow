@@ -6,7 +6,7 @@
  * Target runtime: Gecko 153+ / Firefox 140+ (minify: false for Error Console audit)
  * ----------------------------------------------------------------------------------
  */
-const RF_OPTIONS_RENDER_VERSION = '16.5.5';
+const RF_OPTIONS_RENDER_VERSION = '17.0.0';
 "use strict";
 (() => {
   var __getOwnPropNames = Object.getOwnPropertyNames;
@@ -26,193 +26,224 @@ const RF_OPTIONS_RENDER_VERSION = '16.5.5';
     }
   };
 
-  // src/modules/options/navigation-and-modal.ts
-  function activateWorkspaceView(viewId) {
-    const navItems = document.querySelectorAll(".nav-item");
-    const views = document.querySelectorAll(".content-view");
-    const g2 = typeof window !== "undefined" ? window : globalThis;
-    if (viewId !== "view-submissions") {
-      try {
-        g2?.submissionAutoSaveCleanup?.();
-      } catch (_) {
+  // src/modules/ui-utils/lifecycle.ts
+  function createFallbackController() {
+    let aborted = false;
+    let reason;
+    const listeners = /* @__PURE__ */ new Set();
+    const signal = {
+      get aborted() {
+        return aborted;
+      },
+      get reason() {
+        return reason;
+      },
+      addEventListener(type, listener) {
+        if (type !== "abort" || typeof listener !== "function") return;
+        if (aborted) {
+          try {
+            listener({ type: "abort" });
+          } catch (_) {
+          }
+          return;
+        }
+        listeners.add(listener);
+      },
+      removeEventListener(type, listener) {
+        if (type !== "abort") return;
+        listeners.delete(listener);
       }
-    }
-    navItems.forEach((nav) => {
-      nav.classList.toggle("active", nav.getAttribute("data-view") === viewId);
-    });
-    views.forEach((view) => {
-      view.classList.toggle("active", view.id === viewId);
-    });
-    const dirtyViews = window.RFUI?.getDirtyViewsSet?.();
-    dirtyViews?.delete(viewId);
-    try {
-      if (viewId === "view-dashboard" && typeof renderDashboard === "function") renderDashboard();
-      else if (viewId === "view-manuscripts" && typeof renderKanban === "function") renderKanban();
-      else if (viewId === "view-submissions" && typeof renderSubmissions === "function") renderSubmissions();
-      else if (viewId === "view-settings" && typeof renderSettings === "function") renderSettings();
-    } catch (err) {
-      console.error("[PaperFlow] View render error:", err);
-    }
-  }
-  function focusSubmissionEditCenter() {
-    const editCenter = document.getElementById("submission-entry-editor-panel");
-    if (!editCenter) return;
-    editCenter.classList.remove("submission-edit-center-focus");
-    void editCenter.offsetWidth;
-    editCenter.classList.add("submission-edit-center-focus");
-    editCenter.scrollIntoView({ behavior: "smooth", block: "start" });
-    const titleInput = document.getElementById("sub-edit-title");
-    if (titleInput) {
-      window.setTimeout(() => {
-        titleInput.focus({ preventScroll: true });
-        titleInput.select?.();
-      }, 120);
-    }
-  }
-  function openSubmissionForEditing(subOrId, options = {}) {
-    const g2 = typeof window !== "undefined" ? window : globalThis;
-    const database = g2?.db || (typeof db !== "undefined" ? db : null);
-    const sub = typeof subOrId === "string" ? (database?.submissions || []).find((item) => item.id === subOrId) : subOrId;
-    if (!sub) {
-      showGlobalToast(t("submissionNotFound"), "error");
-      return;
-    }
-    try {
-      g2?.submissionAutoSaveCleanup?.();
-    } catch (_) {
-    }
-    if (g2) g2.selectedSubmissionId = sub.id;
-    if (options.switchView) {
-      activateWorkspaceView("view-submissions");
-    }
-    renderSubmissions({ refreshDetails: false });
-    renderSubmissionDetails(sub);
-    if (options.focusEditCenter) {
-      focusSubmissionEditCenter();
-    }
-  }
-  function getModalFocusableElements() {
-    const modal = document.getElementById("modal-overlay");
-    const modalContent = document.getElementById("modal-body");
-    if (!modal || !modal.classList.contains("active") || !modalContent) return [];
-    const selector = [
-      "a[href]",
-      "button:not([disabled])",
-      'input:not([disabled]):not([type="hidden"])',
-      "select:not([disabled])",
-      "textarea:not([disabled])",
-      '[tabindex]:not([tabindex="-1"])'
-    ].join(", ");
-    return Array.from(modalContent.querySelectorAll(selector)).filter((el) => el instanceof HTMLElement && !el.hidden && el.offsetParent !== null);
-  }
-  function openModal(htmlContent) {
-    const modal = document.getElementById("modal-overlay");
-    const modalContent = document.getElementById("modal-body");
-    if (!modal || !modalContent) return;
-    if (typeof currentModalCleanup === "function") {
-      const cleanup = currentModalCleanup;
-      currentModalCleanup = null;
-      cleanup();
-    }
-    previousModalFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
-    window.RFUI.setHTML(modalContent, htmlContent);
-    modal.inert = false;
-    modal.classList.add("active");
-    modal.setAttribute("aria-hidden", "false");
-    document.getElementById("btn-close-modal")?.addEventListener("click", closeModal);
-    setTimeout(() => {
-      const firstFocusable = getModalFocusableElements()[0] || modalContent;
-      firstFocusable?.focus?.({ preventScroll: true });
-    }, 0);
-  }
-  function registerModalCleanup(fn) {
-    const prev = currentModalCleanup;
-    currentModalCleanup = () => {
-      try {
-        if (typeof prev === "function") prev();
-      } catch (_) {
-      }
-      try {
-        if (typeof fn === "function") fn();
-      } catch (_) {
+    };
+    return {
+      signal,
+      abort(nextReason) {
+        if (aborted) return;
+        aborted = true;
+        reason = nextReason;
+        const snapshot = Array.from(listeners);
+        listeners.clear();
+        for (const listener of snapshot) {
+          try {
+            listener({ type: "abort" });
+          } catch (_) {
+          }
+        }
       }
     };
   }
-  function closeModal() {
-    const modal = document.getElementById("modal-overlay");
-    const modalContent = document.getElementById("modal-body");
-    if (!modal || !modalContent) return;
-    if (typeof currentModalCleanup === "function") {
-      const cleanup = currentModalCleanup;
-      currentModalCleanup = null;
-      cleanup();
-    }
-    modal.classList.remove("active");
-    modal.inert = true;
-    modal.setAttribute("aria-hidden", "true");
-    window.RFUI.setHTML(modalContent, "");
-    if (previousModalFocus && typeof previousModalFocus.focus === "function" && previousModalFocus.isConnected) {
-      previousModalFocus.focus({ preventScroll: true });
-    }
-    previousModalFocus = null;
+  function isNativeAbortSignal(signal) {
+    return typeof AbortSignal !== "undefined" && signal instanceof AbortSignal;
   }
-  function bindModalAndNavListeners() {
-    const bindNav = () => {
-      const navItems = document.querySelectorAll?.(".nav-item") || [];
-      navItems.forEach((item) => {
-        if (item && !item.dataset.navBound) {
-          item.dataset.navBound = "true";
-          item.addEventListener("click", (e) => {
-            e.preventDefault();
-            const targetId = item.getAttribute("data-view");
-            if (targetId) activateWorkspaceView(targetId);
-          });
+  function createLifecycleScope(parentSignal) {
+    const controller = typeof AbortController !== "undefined" ? new AbortController() : createFallbackController();
+    const cleanups = /* @__PURE__ */ new Set();
+    let localAborted = false;
+    const runCleanups = () => {
+      const snapshot = Array.from(cleanups);
+      cleanups.clear();
+      for (const cleanup of snapshot) {
+        try {
+          cleanup();
+        } catch (_) {
         }
-      });
+      }
     };
-    bindNav();
-    if (typeof document !== "undefined" && document.readyState === "loading") {
-      document.addEventListener("DOMContentLoaded", bindNav);
+    const abort = (reason) => {
+      if (localAborted) return;
+      localAborted = true;
+      try {
+        controller.abort(reason);
+      } catch (_) {
+      }
+      runCleanups();
+    };
+    if (parentSignal) {
+      if (parentSignal.aborted) {
+        abort(parentSignal.reason);
+      } else if (typeof parentSignal.addEventListener === "function") {
+        const onParentAbort = () => abort(parentSignal.reason);
+        parentSignal.addEventListener("abort", onParentAbort, { once: true });
+        cleanups.add(() => {
+          try {
+            parentSignal.removeEventListener?.("abort", onParentAbort);
+          } catch (_) {
+          }
+        });
+      }
     }
-    const modal = document.getElementById("modal-overlay");
-    if (typeof modal?.addEventListener === "function" && !modal.dataset.modalBound) {
-      modal.dataset.modalBound = "true";
-      modal.addEventListener("click", (e) => {
-        if (e.target === modal) closeModal();
-      });
+    const scope = {
+      signal: controller.signal,
+      get aborted() {
+        return localAborted || Boolean(controller.signal?.aborted);
+      },
+      abort,
+      onAbort(fn) {
+        if (typeof fn !== "function") return () => {
+        };
+        if (scope.aborted) {
+          try {
+            fn();
+          } catch (_) {
+          }
+          return () => {
+          };
+        }
+        cleanups.add(fn);
+        return () => {
+          cleanups.delete(fn);
+        };
+      },
+      on(target, type, listener, options) {
+        if (!target || typeof target.addEventListener !== "function" || typeof listener !== "function" || scope.aborted) {
+          return () => {
+          };
+        }
+        const capture = typeof options === "boolean" ? options : Boolean(options?.capture);
+        const baseOpts = typeof options === "boolean" ? { capture: options } : options ? { ...options } : {};
+        const listenerOptions = isNativeAbortSignal(controller.signal) ? { ...baseOpts, signal: controller.signal } : typeof options === "boolean" ? options : options || void 0;
+        target.addEventListener(type, listener, listenerOptions);
+        const detach = () => {
+          cleanups.delete(detach);
+          if (typeof target.removeEventListener === "function") {
+            try {
+              target.removeEventListener(type, listener, capture);
+            } catch (_) {
+            }
+          }
+        };
+        cleanups.add(detach);
+        return detach;
+      },
+      setTimeout(fn, delay = 0) {
+        const st = globalThis.setTimeout;
+        const ct = globalThis.clearTimeout;
+        if (scope.aborted || typeof st !== "function") return 0;
+        let timerId = 0;
+        const cancel = () => {
+          cleanups.delete(cancel);
+          if (timerId && typeof ct === "function") {
+            ct(timerId);
+            timerId = 0;
+          }
+        };
+        cleanups.add(cancel);
+        timerId = st(() => {
+          cleanups.delete(cancel);
+          timerId = 0;
+          if (!scope.aborted) fn();
+        }, delay);
+        return timerId;
+      },
+      setInterval(fn, delay = 0) {
+        const si = globalThis.setInterval;
+        const ci = globalThis.clearInterval;
+        if (scope.aborted || typeof si !== "function") return 0;
+        let timerId = 0;
+        const cancel = () => {
+          cleanups.delete(cancel);
+          if (timerId && typeof ci === "function") {
+            ci(timerId);
+            timerId = 0;
+          }
+        };
+        cleanups.add(cancel);
+        timerId = si(() => {
+          if (!scope.aborted) fn();
+        }, delay);
+        return timerId;
+      },
+      raf(fn) {
+        const req = globalThis.requestAnimationFrame;
+        const can = globalThis.cancelAnimationFrame;
+        if (scope.aborted) return 0;
+        if (typeof req !== "function") {
+          return scope.setTimeout(() => fn(Date.now()), 0);
+        }
+        let rafId = 0;
+        const cancel = () => {
+          cleanups.delete(cancel);
+          if (rafId && typeof can === "function") {
+            can(rafId);
+            rafId = 0;
+          }
+        };
+        cleanups.add(cancel);
+        rafId = req((ts) => {
+          cleanups.delete(cancel);
+          rafId = 0;
+          if (!scope.aborted) fn(ts);
+        });
+        return rafId;
+      },
+      child() {
+        return createLifecycleScope(controller.signal);
+      }
+    };
+    return scope;
+  }
+  var init_lifecycle = __esm({
+    "src/modules/ui-utils/lifecycle.ts"() {
+      "use strict";
     }
-    if (typeof document?.addEventListener === "function" && !document._pfKeydownBound) {
-      document._pfKeydownBound = true;
-      document.addEventListener("keydown", (event) => {
-        const modalEl = document.getElementById("modal-overlay");
-        if (!modalEl || !modalEl.classList.contains("active")) return;
-        if (event.key === "Escape") {
-          event.preventDefault();
-          closeModal();
-          return;
-        }
-        if (event.key !== "Tab") return;
-        const focusables = getModalFocusableElements();
-        if (focusables.length === 0) {
-          event.preventDefault();
-          document.getElementById("modal-body")?.focus?.({ preventScroll: true });
-          return;
-        }
-        const first = focusables[0];
-        const last = focusables[focusables.length - 1];
-        if (event.shiftKey && (document.activeElement === first || !modalEl.contains(document.activeElement))) {
-          event.preventDefault();
-          last.focus();
-        } else if (!event.shiftKey && document.activeElement === last) {
-          event.preventDefault();
-          first.focus();
-        }
-      });
+  });
+
+  // src/modules/options/toast-and-celebration.ts
+  function ensureToastScope() {
+    if (!toastScope || toastScope.aborted) {
+      toastScope = createLifecycleScope();
+      if (typeof window !== "undefined") {
+        toastScope.on(window, "unload", () => {
+          toastScope?.abort("unload");
+          celebrationScope?.abort("unload");
+        }, { once: true });
+      }
     }
+    return toastScope;
   }
   function showGlobalToast(message, type = "info") {
     const container = document.getElementById("toast-container");
     if (!container) return;
+    const scope = ensureToastScope();
     const toast = document.createElement("div");
     toast.className = `toast toast-${type}`;
     toast.setAttribute("role", type === "error" ? "alert" : "status");
@@ -226,9 +257,9 @@ const RF_OPTIONS_RENDER_VERSION = '16.5.5';
     textEl.textContent = String(message ?? "");
     toast.append(iconEl, textEl);
     container.appendChild(toast);
-    setTimeout(() => {
+    scope.setTimeout(() => {
       toast.classList.add("fade-out");
-      setTimeout(() => toast.remove(), 300);
+      scope.setTimeout(() => toast.remove(), 300);
     }, 4e3);
   }
   function showAcceptanceCelebration(submission = {}) {
@@ -293,19 +324,263 @@ const RF_OPTIONS_RENDER_VERSION = '16.5.5';
     layer.appendChild(particles);
     layer.appendChild(banner);
     document.body?.appendChild(layer);
+    const scope = ensureToastScope();
     const cleanup = () => {
+      celebrationScope?.abort("celebration-cleanup");
+      celebrationScope = null;
       if (layer.parentNode) layer.parentNode.removeChild(layer);
       acceptanceCelebrationCleanup = null;
     };
+    celebrationScope?.abort("replace-celebration");
+    celebrationScope = scope.child();
     acceptanceCelebrationCleanup = cleanup;
-    window.setTimeout(cleanup, 4500);
+    celebrationScope.setTimeout(cleanup, 4500);
   }
-  var RF_OPTIONS_RENDER_VERSION, UI_THEME_OPTIONS, g;
+  var celebrationScope, toastScope;
+  var init_toast_and_celebration = __esm({
+    "src/modules/options/toast-and-celebration.ts"() {
+      "use strict";
+      init_lifecycle();
+      celebrationScope = null;
+      toastScope = null;
+    }
+  });
+
+  // src/modules/options/navigation-and-modal.ts
+  function getModalLifecycleScope() {
+    if (!modalScope || modalScope.aborted) {
+      modalScope = createLifecycleScope();
+      const created = modalScope;
+      registerModalCleanup(() => created.abort("modal-closed"));
+    }
+    return modalScope;
+  }
+  function getModalAbortSignal() {
+    return getModalLifecycleScope().signal;
+  }
+  function activateWorkspaceView(viewId) {
+    const navItems = document.querySelectorAll(".nav-item");
+    const views = document.querySelectorAll(".content-view");
+    const g2 = typeof window !== "undefined" ? window : globalThis;
+    if (viewId !== "view-submissions") {
+      focusEditTimerScope?.abort("view-switch");
+      focusEditTimerScope = null;
+      try {
+        g2?.submissionAutoSaveCleanup?.();
+      } catch (_) {
+      }
+    }
+    navItems.forEach((nav) => {
+      nav.classList.toggle("active", nav.getAttribute("data-view") === viewId);
+    });
+    views.forEach((view) => {
+      view.classList.toggle("active", view.id === viewId);
+    });
+    const dirtyViews = window.RFUI?.getDirtyViewsSet?.();
+    dirtyViews?.delete(viewId);
+    try {
+      if (viewId === "view-dashboard" && typeof renderDashboard === "function") renderDashboard();
+      else if (viewId === "view-manuscripts" && typeof renderKanban === "function") renderKanban();
+      else if (viewId === "view-submissions" && typeof renderSubmissions === "function") renderSubmissions();
+      else if (viewId === "view-settings" && typeof renderSettings === "function") renderSettings();
+    } catch (err) {
+      console.error("[PaperFlow] View render error:", err);
+    }
+  }
+  function focusSubmissionEditCenter() {
+    const editCenter = document.getElementById("submission-entry-editor-panel");
+    if (!editCenter) return;
+    editCenter.classList.remove("submission-edit-center-focus");
+    void editCenter.offsetWidth;
+    editCenter.classList.add("submission-edit-center-focus");
+    editCenter.scrollIntoView({ behavior: "smooth", block: "start" });
+    const titleInput = document.getElementById("sub-edit-title");
+    if (titleInput) {
+      focusEditTimerScope?.abort("re-focus");
+      focusEditTimerScope = createLifecycleScope();
+      focusEditTimerScope.setTimeout(() => {
+        titleInput.focus({ preventScroll: true });
+        titleInput.select?.();
+      }, 120);
+    }
+  }
+  function openSubmissionForEditing(subOrId, options = {}) {
+    const g2 = typeof window !== "undefined" ? window : globalThis;
+    const database = g2?.db || (typeof db !== "undefined" ? db : null);
+    const sub = typeof subOrId === "string" ? (database?.submissions || []).find((item) => item.id === subOrId) : subOrId;
+    if (!sub) {
+      showGlobalToast(t("submissionNotFound"), "error");
+      return;
+    }
+    try {
+      g2?.submissionAutoSaveCleanup?.();
+    } catch (_) {
+    }
+    if (g2) g2.selectedSubmissionId = sub.id;
+    if (options.switchView) {
+      activateWorkspaceView("view-submissions");
+    }
+    renderSubmissions({ refreshDetails: false });
+    renderSubmissionDetails(sub);
+    if (options.focusEditCenter) {
+      focusSubmissionEditCenter();
+    }
+  }
+  function getModalFocusableElements() {
+    const modal = document.getElementById("modal-overlay");
+    const modalContent = document.getElementById("modal-body");
+    if (!modal || !modal.classList.contains("active") || !modalContent) return [];
+    const selector = [
+      "a[href]",
+      "button:not([disabled])",
+      'input:not([disabled]):not([type="hidden"])',
+      "select:not([disabled])",
+      "textarea:not([disabled])",
+      '[tabindex]:not([tabindex="-1"])'
+    ].join(", ");
+    return Array.from(modalContent.querySelectorAll(selector)).filter((el) => el instanceof HTMLElement && !el.hidden && el.offsetParent !== null);
+  }
+  function openModal(htmlContent) {
+    const modal = document.getElementById("modal-overlay");
+    const modalContent = document.getElementById("modal-body");
+    if (!modal || !modalContent) return;
+    modalScope?.abort("open-modal");
+    modalScope = null;
+    if (typeof currentModalCleanup === "function") {
+      const cleanup = currentModalCleanup;
+      currentModalCleanup = null;
+      cleanup();
+    }
+    const activeScope = createLifecycleScope();
+    modalScope = activeScope;
+    previousModalFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    window.RFUI.setHTML(modalContent, htmlContent);
+    modal.inert = false;
+    modal.classList.add("active");
+    modal.setAttribute("aria-hidden", "false");
+    activeScope.on(document.getElementById("btn-close-modal"), "click", closeModal);
+    activeScope.setTimeout(() => {
+      const firstFocusable = getModalFocusableElements()[0] || modalContent;
+      firstFocusable?.focus?.({ preventScroll: true });
+    }, 0);
+  }
+  function registerModalCleanup(fn) {
+    const prev = currentModalCleanup;
+    currentModalCleanup = () => {
+      try {
+        if (typeof prev === "function") prev();
+      } catch (_) {
+      }
+      try {
+        if (typeof fn === "function") fn();
+      } catch (_) {
+      }
+    };
+  }
+  function closeModal() {
+    const modal = document.getElementById("modal-overlay");
+    const modalContent = document.getElementById("modal-body");
+    const activeScope = modalScope;
+    modalScope = null;
+    activeScope?.abort("close-modal");
+    if (typeof currentModalCleanup === "function") {
+      const cleanup = currentModalCleanup;
+      currentModalCleanup = null;
+      cleanup();
+    }
+    if (!modal || !modalContent) return;
+    modal.classList.remove("active");
+    modal.inert = true;
+    modal.setAttribute("aria-hidden", "true");
+    window.RFUI.setHTML(modalContent, "");
+    if (previousModalFocus && typeof previousModalFocus.focus === "function" && previousModalFocus.isConnected) {
+      previousModalFocus.focus({ preventScroll: true });
+    }
+    previousModalFocus = null;
+  }
+  function bindModalAndNavListeners() {
+    workspaceNavScope?.abort("rebind");
+    const navScope = createLifecycleScope();
+    workspaceNavScope = navScope;
+    if (typeof window !== "undefined") {
+      navScope.on(window, "unload", () => {
+        focusEditTimerScope?.abort("unload");
+        modalScope?.abort("unload");
+        try {
+          g?.acceptanceCelebrationCleanup?.();
+        } catch (_) {
+        }
+        try {
+          g?.submissionAutoSaveCleanup?.();
+        } catch (_) {
+        }
+        navScope.abort("unload");
+      }, { once: true });
+    }
+    const bindNav = () => {
+      const navItems = document.querySelectorAll?.(".nav-item") || [];
+      navItems.forEach((item) => {
+        if (item && !item.dataset.navBound) {
+          item.dataset.navBound = "true";
+          navScope.on(item, "click", (e) => {
+            e.preventDefault();
+            const targetId = item.getAttribute("data-view");
+            if (targetId) activateWorkspaceView(targetId);
+          });
+        }
+      });
+    };
+    bindNav();
+    if (typeof document !== "undefined" && document.readyState === "loading") {
+      navScope.on(document, "DOMContentLoaded", bindNav, { once: true });
+    }
+    const modal = document.getElementById("modal-overlay");
+    if (typeof modal?.addEventListener === "function" && !modal.dataset.modalBound) {
+      modal.dataset.modalBound = "true";
+      navScope.on(modal, "click", (e) => {
+        if (e.target === modal) closeModal();
+      });
+    }
+    if (typeof document?.addEventListener === "function" && !document._pfKeydownBound) {
+      document._pfKeydownBound = true;
+      navScope.on(document, "keydown", (event) => {
+        const modalEl = document.getElementById("modal-overlay");
+        if (!modalEl || !modalEl.classList.contains("active")) return;
+        if (event.key === "Escape") {
+          event.preventDefault();
+          closeModal();
+          return;
+        }
+        if (event.key !== "Tab") return;
+        const focusables = getModalFocusableElements();
+        if (focusables.length === 0) {
+          event.preventDefault();
+          document.getElementById("modal-body")?.focus?.({ preventScroll: true });
+          return;
+        }
+        const first = focusables[0];
+        const last = focusables[focusables.length - 1];
+        if (event.shiftKey && (document.activeElement === first || !modalEl.contains(document.activeElement))) {
+          event.preventDefault();
+          last.focus();
+        } else if (!event.shiftKey && document.activeElement === last) {
+          event.preventDefault();
+          first.focus();
+        }
+      });
+    }
+  }
+  var RF_OPTIONS_RENDER_VERSION, UI_THEME_OPTIONS, modalScope, focusEditTimerScope, workspaceNavScope, g;
   var init_navigation_and_modal = __esm({
     "src/modules/options/navigation-and-modal.ts"() {
       "use strict";
-      RF_OPTIONS_RENDER_VERSION = "16.5.2";
+      init_lifecycle();
+      init_toast_and_celebration();
+      RF_OPTIONS_RENDER_VERSION = "17.0.0";
       UI_THEME_OPTIONS = /* @__PURE__ */ new Set(["system", "light", "dark"]);
+      modalScope = null;
+      focusEditTimerScope = null;
+      workspaceNavScope = null;
       g = typeof globalThis !== "undefined" ? globalThis : window;
       if (!("db" in g)) g.db = null;
       if (!("currentLanguage" in g)) g.currentLanguage = "zh";
@@ -321,12 +596,22 @@ const RF_OPTIONS_RENDER_VERSION = '16.5.5';
       if (!("currentModalCleanup" in g)) g.currentModalCleanup = null;
       g.RF_OPTIONS_RENDER_VERSION = RF_OPTIONS_RENDER_VERSION;
       g.UI_THEME_OPTIONS = UI_THEME_OPTIONS;
+      g.getModalLifecycleScope = getModalLifecycleScope;
+      g.getModalAbortSignal = getModalAbortSignal;
     }
   });
 
   // src/modules/options/bootstrap-and-actions.ts
   function bindZoteroActionListeners() {
-    window.addEventListener("researchflow:action", (e) => {
+    actionScope?.abort("rebind");
+    const scope = createLifecycleScope();
+    actionScope = scope;
+    scope.on(window, "unload", () => {
+      pendingActionTimerScope?.abort("unload");
+      bootstrapScope?.abort("unload");
+      scope.abort("unload");
+    }, { once: true });
+    scope.on(window, "researchflow:action", (e) => {
       const detail = e.detail;
       if (!detail) return;
       if (detail.view) {
@@ -336,7 +621,9 @@ const RF_OPTIONS_RENDER_VERSION = '16.5.5';
       if (detail.action === "create_manuscript_from_item" && detail.item) {
         const navBtn = document.querySelector('.nav-item[data-view="view-manuscripts"]');
         if (navBtn) navBtn.click();
-        setTimeout(() => {
+        pendingActionTimerScope?.abort("superseded");
+        pendingActionTimerScope = scope.child();
+        pendingActionTimerScope.setTimeout(() => {
           if (typeof openManuscriptModal === "function") {
             openManuscriptModal(null, {
               title: detail.item.title,
@@ -360,7 +647,9 @@ const RF_OPTIONS_RENDER_VERSION = '16.5.5';
       } else if (detail.action === "create_submission_from_item" && detail.item) {
         const navBtn = document.querySelector('.nav-item[data-view="view-submissions"]');
         if (navBtn) navBtn.click();
-        setTimeout(() => {
+        pendingActionTimerScope?.abort("superseded");
+        pendingActionTimerScope = scope.child();
+        pendingActionTimerScope.setTimeout(() => {
           const existingMan = (db?.manuscripts || []).find(
             (m) => m.zoteroItemKey && m.zoteroItemKey === detail.item.key || detail.item.doi && m.doi && m.doi.toLowerCase() === detail.item.doi.toLowerCase()
           );
@@ -380,7 +669,7 @@ const RF_OPTIONS_RENDER_VERSION = '16.5.5';
         if (typeof renderKanban === "function") renderKanban();
       }
     });
-    window.addEventListener("researchflow:data-updated", (e) => {
+    scope.on(window, "researchflow:data-updated", (e) => {
       if (e.detail) {
         db = e.detail;
         const activeView = document.querySelector(".content-view.active")?.id || "view-dashboard";
@@ -393,7 +682,7 @@ const RF_OPTIONS_RENDER_VERSION = '16.5.5';
         else if (activeView === "view-submissions" && typeof renderSubmissions === "function") renderSubmissions();
       }
     });
-    window.addEventListener("researchflow:prefs-updated", (e) => {
+    scope.on(window, "researchflow:prefs-updated", (e) => {
       if (!e.detail) return;
       if (e.detail.language && (e.detail.language === "zh" || e.detail.language === "en")) {
         currentLanguage = e.detail.language;
@@ -414,6 +703,9 @@ const RF_OPTIONS_RENDER_VERSION = '16.5.5';
       console.error("Storage engine not loaded!");
       return;
     }
+    bootstrapScope?.abort("reinit");
+    const scope = createLifecycleScope();
+    bootstrapScope = scope;
     db = await window.storage.loadAll();
     const normalizedStatuses = normalizeSubmissionStatuses(db);
     const cleanedPublicationLinks = clearUnacceptedPublicationLinks(db);
@@ -432,7 +724,7 @@ const RF_OPTIONS_RENDER_VERSION = '16.5.5';
         }
       };
       if (typeof darkScheme.addEventListener === "function") {
-        darkScheme.addEventListener("change", handleSystemThemeChange);
+        scope.on(darkScheme, "change", handleSystemThemeChange);
       }
     }
     const defaultTab = typeof ZoteroBridge !== "undefined" ? ZoteroBridge.getPref("defaultWorkspaceTab", "view-dashboard") : "view-dashboard";
@@ -455,7 +747,7 @@ const RF_OPTIONS_RENDER_VERSION = '16.5.5';
     await renderSettings();
     setupSubmissionSearch();
     setupJournalPortalListeners();
-    document.getElementById("btn-force-sync")?.addEventListener("click", async () => {
+    scope.on(document.getElementById("btn-force-sync"), "click", async () => {
       const provider = document.getElementById("route-db")?.value || db?.settings?.syncProviders?.metadata?.provider || "local";
       if (provider === "local") {
         showGlobalToast(t("localSyncSummary"), "info");
@@ -467,6 +759,7 @@ const RF_OPTIONS_RENDER_VERSION = '16.5.5';
       btn.textContent = "⏳ Syncing...";
       btn.disabled = true;
       const result = await window.storage.syncNow();
+      if (scope.aborted) return;
       if (result?.success) {
         db = await window.storage.loadAll();
         renderDashboard();
@@ -479,16 +772,21 @@ const RF_OPTIONS_RENDER_VERSION = '16.5.5';
         btn.textContent = "❌ Sync Failed";
         showGlobalToast(result?.message || "Cloud sync failed. Check your provider settings.", "error");
       }
-      setTimeout(() => {
+      scope.setTimeout(() => {
         btn.replaceChildren(...origNodes);
         btn.disabled = false;
       }, 2e3);
     });
   }
+  var actionScope, pendingActionTimerScope, bootstrapScope;
   var init_bootstrap_and_actions = __esm({
     "src/modules/options/bootstrap-and-actions.ts"() {
       "use strict";
       init_navigation_and_modal();
+      init_lifecycle();
+      actionScope = null;
+      pendingActionTimerScope = null;
+      bootstrapScope = null;
     }
   });
 

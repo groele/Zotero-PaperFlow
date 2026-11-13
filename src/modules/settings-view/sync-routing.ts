@@ -1,6 +1,8 @@
 /**
  * Zotero PaperFlow - Multi-Cloud Sync Routing, Credentials & Interface Settings
  */
+import { createLifecycleScope } from '../ui-utils/lifecycle.js';
+
 declare var db: any;
 declare var currentLanguage: string;
 declare function t(key: string): string;
@@ -146,30 +148,38 @@ export async function saveSettingsFromInputs({ showToast = true } = {}): Promise
   }
 }
 
+let routingScope = createLifecycleScope();
+if (typeof window !== 'undefined' && typeof window.addEventListener === 'function') {
+  window.addEventListener('unload', () => routingScope.abort(), { once: true });
+}
+
 export function bindSettingsRoutingListeners(): void {
-  document.getElementById('settings-language')?.addEventListener('change', async () => {
+  routingScope.abort();
+  routingScope = createLifecycleScope();
+
+  routingScope.on(document.getElementById('settings-language'), 'change', async () => {
     await saveSettingsFromInputs({ showToast: false });
     showGlobalToast(t('languageSaved'), 'success');
   });
 
-  document.getElementById('settings-theme')?.addEventListener('change', async () => {
+  routingScope.on(document.getElementById('settings-theme'), 'change', async () => {
     await saveSettingsFromInputs({ showToast: false });
     showGlobalToast(t('appearanceSaved'), 'success');
   });
 
-  document.getElementById('route-db')?.addEventListener('change', () => {
+  routingScope.on(document.getElementById('route-db'), 'change', () => {
     updateSyncRouteNotice();
   });
 
-  document.getElementById('settings-auto-sync')?.addEventListener('change', async () => {
+  routingScope.on(document.getElementById('settings-auto-sync'), 'change', async () => {
     await saveSettingsFromInputs({ showToast: false });
   });
 
-  document.getElementById('btn-save-mappings')?.addEventListener('click', async () => {
+  routingScope.on(document.getElementById('btn-save-mappings'), 'click', async () => {
     await saveSettingsFromInputs({ showToast: true });
   });
 
-  document.getElementById('btn-test-webdav')?.addEventListener('click', async () => {
+  routingScope.on(document.getElementById('btn-test-webdav'), 'click', async () => {
     const url = (document.getElementById('webdav-url') as HTMLInputElement | null)?.value.trim() || '';
     const user = (document.getElementById('webdav-user') as HTMLInputElement | null)?.value.trim() || '';
     const pass = (document.getElementById('webdav-pass') as HTMLInputElement | null)?.value.trim() || '';
@@ -196,7 +206,7 @@ export function bindSettingsRoutingListeners(): void {
     }
   });
 
-  document.getElementById('btn-test-github')?.addEventListener('click', async () => {
+  routingScope.on(document.getElementById('btn-test-github'), 'click', async () => {
     const pat = (document.getElementById('github-pat') as HTMLInputElement | null)?.value.trim() || '';
     const repo = (document.getElementById('github-repo') as HTMLInputElement | null)?.value.trim() || '';
     const branch = (document.getElementById('github-branch') as HTMLInputElement | null)?.value.trim() || 'main';

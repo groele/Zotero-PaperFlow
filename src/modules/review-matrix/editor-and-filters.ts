@@ -9,6 +9,9 @@ import {
   applyReviewMatrixFilter,
   autoResizeReviewTextarea,
 } from './filter-and-progress.js';
+import { createLifecycleScope, type LifecycleScope } from '../ui-utils/lifecycle.js';
+
+let matrixEditorScope: LifecycleScope | null = null;
 
 export {
   collectSubmissionReviewMatrixFromEditor,
@@ -39,6 +42,11 @@ export function getSubmissionReviewMatrixRows(sub: any, initialDraft = ''): any[
 export function renderSubmissionReviewMatrixEditor(sub: any, initialDraft = ''): void {
   const reviewBox = document.getElementById('sub-edit-review-matrix-container');
   if (!reviewBox) return;
+  matrixEditorScope?.abort('re-render');
+  const editorScope = createLifecycleScope();
+  matrixEditorScope = editorScope;
+  let rowsScope = editorScope.child();
+  let progressScope = editorScope.child();
 
   const requestMatrixAutoSave = (immediate = true) => {
     updateSubmissionRebuttalProgress(sub);
@@ -47,23 +55,16 @@ export function renderSubmissionReviewMatrixEditor(sub: any, initialDraft = ''):
     }));
   };
 
-  let rafProgressId: number | null = null;
   const scheduleLiveProgressRefresh = (targetTextarea?: any) => {
     if (targetTextarea) autoResizeReviewTextarea(targetTextarea);
-    if (typeof requestAnimationFrame === 'function') {
-      if (rafProgressId != null && typeof cancelAnimationFrame === 'function') {
-        cancelAnimationFrame(rafProgressId);
-      }
-      rafProgressId = requestAnimationFrame(() => {
-        rafProgressId = null;
-        updateSubmissionRebuttalProgress(sub);
-      });
-    } else {
-      updateSubmissionRebuttalProgress(sub);
-    }
+    progressScope.abort('reschedule');
+    progressScope = editorScope.child();
+    progressScope.raf(() => updateSubmissionRebuttalProgress(sub));
   };
 
   const renderRows = (rows: any[], flipRects?: Map<string, any>, flashRowId?: string) => {
+    rowsScope.abort('re-render-rows');
+    rowsScope = editorScope.child();
     sub.reviewMatrix = rows;
     updateSubmissionRebuttalProgress(sub);
     if (!rows.length) {
@@ -150,15 +151,15 @@ export function renderSubmissionReviewMatrixEditor(sub: any, initialDraft = ''):
     `;
     }).join(''));
 
-    reviewBox.querySelector('#review-matrix-filter-status')?.addEventListener('change', (e: any) => {
+    rowsScope.on(reviewBox.querySelector('#review-matrix-filter-status'), 'change', (e: any) => {
       g._reviewMatrixFilterState.status = e.target.value;
       applyReviewMatrixFilter(reviewBox);
     });
-    reviewBox.querySelector('#review-matrix-filter-reviewer')?.addEventListener('change', (e: any) => {
+    rowsScope.on(reviewBox.querySelector('#review-matrix-filter-reviewer'), 'change', (e: any) => {
       g._reviewMatrixFilterState.reviewer = e.target.value;
       applyReviewMatrixFilter(reviewBox);
     });
-    reviewBox.querySelector('#btn-collapse-addressed-reviews')?.addEventListener('click', () => {
+    rowsScope.on(reviewBox.querySelector('#btn-collapse-addressed-reviews'), 'click', () => {
       g._reviewMatrixFilterState.collapseAddressed = !g._reviewMatrixFilterState.collapseAddressed;
       reviewBox.querySelectorAll?.('[data-review-row]').forEach((r: any) => {
         if (r.dataset) {
@@ -171,7 +172,7 @@ export function renderSubmissionReviewMatrixEditor(sub: any, initialDraft = ''):
 
     reviewBox.querySelectorAll('[data-review-row]').forEach((rowEl: any, idx: number) => {
       const statusSel = rowEl.querySelector('.sub-edit-review-status');
-      statusSel?.addEventListener('change', () => {
+      rowsScope.on(statusSel, 'change', () => {
         const nextSt = statusSel.value;
         rowEl.setAttribute('data-status', nextSt);
         rowEl.className = `submission-edit-review-row status-${nextSt}${rowEl.classList?.contains('is-collapsed') ? ' is-collapsed' : ''}`;
@@ -181,7 +182,7 @@ export function renderSubmissionReviewMatrixEditor(sub: any, initialDraft = ''):
       });
 
       const collapseRowBtn = rowEl.querySelector('.btn-toggle-review-collapse');
-      collapseRowBtn?.addEventListener('click', () => {
+      rowsScope.on(collapseRowBtn, 'click', () => {
         const nextCollapsed = !rowEl.classList?.contains?.('is-collapsed');
         rowEl.classList?.toggle?.('is-collapsed', nextCollapsed);
         if (rowEl.dataset) {
@@ -197,11 +198,11 @@ export function renderSubmissionReviewMatrixEditor(sub: any, initialDraft = ''):
 
       rowEl.querySelectorAll?.('.sub-edit-review-comment, .sub-edit-review-response').forEach((ta: any) => {
         autoResizeReviewTextarea(ta);
-        ta.addEventListener?.('input', () => scheduleLiveProgressRefresh(ta));
+        rowsScope.on(ta, 'input', () => scheduleLiveProgressRefresh(ta));
       });
 
       const moveUpBtn = rowEl.querySelector('.btn-move-review-up');
-      moveUpBtn?.addEventListener('click', () => {
+      rowsScope.on(moveUpBtn, 'click', () => {
         const current = collectSubmissionReviewMatrixFromEditor();
         if (idx > 0) {
           const prevRects = window.RFUI.captureElementRects(reviewBox, '[data-review-row]', 'data-review-id');
@@ -215,7 +216,7 @@ export function renderSubmissionReviewMatrixEditor(sub: any, initialDraft = ''):
       });
 
       const moveDownBtn = rowEl.querySelector('.btn-move-review-down');
-      moveDownBtn?.addEventListener('click', () => {
+      rowsScope.on(moveDownBtn, 'click', () => {
         const current = collectSubmissionReviewMatrixFromEditor();
         if (idx < current.length - 1) {
           const prevRects = window.RFUI.captureElementRects(reviewBox, '[data-review-row]', 'data-review-id');
@@ -229,7 +230,7 @@ export function renderSubmissionReviewMatrixEditor(sub: any, initialDraft = ''):
       });
 
       const copyQaBtn = rowEl.querySelector('.btn-copy-full-qa');
-      copyQaBtn?.addEventListener('click', () => {
+      rowsScope.on(copyQaBtn, 'click', () => {
         const rev = rowEl.querySelector('.sub-edit-review-reviewer')?.value || 'Reviewer';
         const cmt = rowEl.querySelector('.sub-edit-review-comment')?.value || '';
         const rsp = rowEl.querySelector('.sub-edit-review-response')?.value || '';
@@ -240,14 +241,14 @@ export function renderSubmissionReviewMatrixEditor(sub: any, initialDraft = ''):
       });
 
       const copyBtn = rowEl.querySelector('.btn-copy-review-response');
-      copyBtn?.addEventListener('click', () => {
+      rowsScope.on(copyBtn, 'click', () => {
         const val = rowEl.querySelector('.sub-edit-review-response')?.value || '';
         navigator.clipboard?.writeText(val);
         showGlobalToast(currentLanguage === 'zh' ? '已复制回复内容！' : 'Response copied to clipboard!', 'success');
       });
 
       const deleteBtn = rowEl.querySelector('.btn-delete-review-row');
-      deleteBtn?.addEventListener('click', () => {
+      rowsScope.on(deleteBtn, 'click', () => {
         const nextRows = collectSubmissionReviewMatrixFromEditor()
           .filter((_: any, rowIndex: number) => rowIndex !== idx);
         renderRows(nextRows);
@@ -266,30 +267,24 @@ export function renderSubmissionReviewMatrixEditor(sub: any, initialDraft = ''):
 
   renderRows(getSubmissionReviewMatrixRows(sub, initialDraft));
 
-  const addButton = document.getElementById('btn-add-review-comment');
-  if (addButton) {
-    addButton.onclick = () => {
-      const existing = collectSubmissionReviewMatrixFromEditor();
-      const lastReviewer = existing.length > 0 ? existing[existing.length - 1].reviewer : 'Reviewer #1';
-      renderRows([
-        ...existing,
-        { id: `rev_${Date.now()}`, reviewer: lastReviewer, status: 'pending', comment: '', response: '', changes: '' }
-      ]);
-      const comments = reviewBox.querySelectorAll('.sub-edit-review-comment');
-      (comments[comments.length - 1] as HTMLElement | undefined)?.focus?.();
-      requestMatrixAutoSave(false);
-    };
-  }
+  editorScope.on(document.getElementById('btn-add-review-comment'), 'click', () => {
+    const existing = collectSubmissionReviewMatrixFromEditor();
+    const lastReviewer = existing.length > 0 ? existing[existing.length - 1].reviewer : 'Reviewer #1';
+    renderRows([
+      ...existing,
+      { id: `rev_${Date.now()}`, reviewer: lastReviewer, status: 'pending', comment: '', response: '', changes: '' }
+    ]);
+    const comments = reviewBox.querySelectorAll('.sub-edit-review-comment');
+    (comments[comments.length - 1] as HTMLElement | undefined)?.focus?.();
+    requestMatrixAutoSave(false);
+  });
 
-  const batchImportButton = document.getElementById('btn-batch-import-reviews');
-  if (batchImportButton) {
-    batchImportButton.onclick = () => {
-      openBatchReviewImportModal(sub, reviewBox, () => {
-        renderRows(sub.reviewMatrix || []);
-        requestMatrixAutoSave(true);
-      });
-    };
-  }
+  editorScope.on(document.getElementById('btn-batch-import-reviews'), 'click', () => {
+    openBatchReviewImportModal(sub, reviewBox, () => {
+      renderRows(sub.reviewMatrix || []);
+      requestMatrixAutoSave(true);
+    });
+  });
 }
 
 export function renderSubmissionReviewPreview(sub: any, checklistKeys = getSubmissionChecklistKeys(sub)): void {

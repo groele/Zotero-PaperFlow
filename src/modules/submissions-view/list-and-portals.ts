@@ -11,6 +11,10 @@ export {
   setupJournalPortalListeners,
 };
 import { selectedSubmissionId, setSelectedSubmissionId } from './submission-state';
+import { createLifecycleScope, acquireModalScope, type LifecycleScope } from '../ui-utils/lifecycle.js';
+
+let searchSetupScope: LifecycleScope | null = null;
+let submissionsListScope: LifecycleScope | null = null;
 
 declare var db: any;
 declare const currentLanguage: string;
@@ -35,9 +39,15 @@ export function setupSubmissionSearch(): void {
   const input = document.getElementById('submission-search') as HTMLInputElement | null;
   if (!input || input.dataset.bound) return;
   input.dataset.bound = 'true';
-  input.addEventListener('input', (event: any) => { if (!event.isComposing) applySubmissionSearch(); });
-  input.addEventListener('compositionend', applySubmissionSearch);
-  document.getElementById('submission-search-status')?.addEventListener('change', applySubmissionSearch);
+  searchSetupScope?.abort('rebind');
+  const scope = createLifecycleScope();
+  searchSetupScope = scope;
+  if (typeof window !== 'undefined') {
+    scope.on(window, 'unload', () => scope.abort('unload'), { once: true });
+  }
+  scope.on(input, 'input', (event: any) => { if (!event.isComposing) applySubmissionSearch(); });
+  scope.on(input, 'compositionend', applySubmissionSearch);
+  scope.on(document.getElementById('submission-search-status'), 'change', applySubmissionSearch);
   const clear = (all = false) => {
     input.value = '';
     const statusSelect = document.getElementById('submission-search-status') as HTMLSelectElement | null;
@@ -45,9 +55,9 @@ export function setupSubmissionSearch(): void {
     applySubmissionSearch();
     input.focus();
   };
-  document.getElementById('submission-search-clear')?.addEventListener('click', () => clear());
-  document.getElementById('submission-search-reset')?.addEventListener('click', () => clear(true));
-  input.addEventListener('keydown', (event: KeyboardEvent) => {
+  scope.on(document.getElementById('submission-search-clear'), 'click', () => clear());
+  scope.on(document.getElementById('submission-search-reset'), 'click', () => clear(true));
+  scope.on(input, 'keydown', (event: KeyboardEvent) => {
     if (event.isComposing) return;
     if (event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); clear(); }
     if (event.key === 'Enter') {
@@ -55,7 +65,7 @@ export function setupSubmissionSearch(): void {
       (document.querySelector('.submission-card-item:not([hidden]) .btn-edit-submission') as HTMLElement | null)?.click();
     }
   });
-  document.addEventListener('keydown', (event: any) => {
+  scope.on(document, 'keydown', (event: any) => {
     if (event.key !== '/' || event.ctrlKey || event.metaKey || event.altKey || event.isComposing || (typeof modal !== 'undefined' && modal?.classList?.contains('active'))) return;
     if (event.target?.closest?.('input, textarea, select, [contenteditable="true"]')) return;
     if (document.getElementById('view-submissions')?.classList?.contains('active')) {
@@ -89,6 +99,10 @@ export function applySubmissionSearch(): void {
 export function renderSubmissions({ refreshDetails = true } = {}): void {
   const w = window as any;
   if (w.RFUI?.isViewDeferred?.('view-submissions')) return;
+
+  submissionsListScope?.abort('re-render');
+  const listScope = createLifecycleScope();
+  submissionsListScope = listScope;
 
   const container = document.getElementById('submissions-list-container');
   w.RFUI.setHTML(container, '');
@@ -160,22 +174,22 @@ export function renderSubmissions({ refreshDetails = true } = {}): void {
         </div>
       `);
 
-      card.addEventListener('click', () => openSubmissionForEditing(sub));
-      card.querySelector('.btn-edit-submission')?.addEventListener('click', (event) => {
+      listScope.on(card, 'click', () => openSubmissionForEditing(sub));
+      listScope.on(card.querySelector('.btn-edit-submission'), 'click', (event: Event) => {
         event.stopPropagation();
         openSubmissionForEditing(sub, { focusEditCenter: true });
       });
 
-      card.querySelector('.btn-sub-card-share')?.addEventListener('click', (event: any) => {
+      listScope.on(card.querySelector('.btn-sub-card-share'), 'click', (event: any) => {
         event.stopPropagation();
         const shareFn = (w as any).openSubmissionSharePreview || (w as any).openSubmissionShareModal;
         if (typeof shareFn === 'function') shareFn(sub.id, event.currentTarget);
       });
 
       const cardZoteroBadge = card.querySelector('.zotero-card-badge');
-      cardZoteroBadge?.addEventListener('click', (event) => {
+      listScope.on(cardZoteroBadge, 'click', (event: Event) => {
         event.stopPropagation();
-        const key = cardZoteroBadge.getAttribute('data-item-key');
+        const key = cardZoteroBadge?.getAttribute('data-item-key');
         if (key && typeof ZoteroBridge !== 'undefined') {
           const linkedMan = db.manuscripts?.find((item: any) => item.id === sub.manuscriptId);
           ZoteroBridge.selectItemInZotero(key, linkedMan?.zoteroLibraryID);
@@ -227,8 +241,9 @@ export function openLinkSubmissionModal(submission: any): void {
     </div>
   `);
 
-  document.getElementById('btn-cancel-link-sub')?.addEventListener('click', closeModal);
-  document.getElementById('btn-confirm-submission-link')?.addEventListener('click', async () => {
+  const modalScope = acquireModalScope();
+  modalScope.on(document.getElementById('btn-cancel-link-sub'), 'click', closeModal);
+  modalScope.on(document.getElementById('btn-confirm-submission-link'), 'click', async () => {
     const manuscriptId = (document.getElementById('submission-link-manuscript') as HTMLSelectElement | null)?.value;
     const manuscript = db.manuscripts.find((item: any) => item.id === manuscriptId);
     const liveSubmission = db.submissions.find((item: any) => item.id === submission.id);

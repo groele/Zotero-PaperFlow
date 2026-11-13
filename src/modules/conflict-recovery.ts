@@ -3,6 +3,7 @@
  * Encapsulates draft inspection, 3-way conflict comparison, preview generation,
  * and conflict draft application.
  */
+import { createLifecycleScope } from './ui-utils/lifecycle.js';
 
 declare var t: (key: string) => string;
 declare var db: any;
@@ -12,6 +13,9 @@ declare var applyDatabaseUpdate: (data: any) => void;
 
 export function initConflictRecovery(): void {
   if (typeof document === 'undefined') return;
+  const rootScope = createLifecycleScope();
+  let listScope = rootScope.child();
+  let editorScope = rootScope.child();
   let root: HTMLElement, list: HTMLElement, editor: HTMLElement, status: HTMLElement, refresh: HTMLButtonElement;
   let generation = 0, busy = false, inspection: any = null, preview: any = null, choices: Record<string, string> = {};
   const tr = (key: string) => typeof t === 'function' ? t(key) : key;
@@ -56,7 +60,9 @@ export function initConflictRecovery(): void {
   }
   async function loadList(version: number) {
     const result = await ZoteroBridge.conflictRecovery('list');
-    if (version !== generation) return;
+    if (version !== generation || rootScope.aborted) return;
+    listScope.abort();
+    listScope = rootScope.child();
     list.replaceChildren();
     if (!result.entries.length) list.append(localized('p', 'recoveryEmpty', 'rf-recovery-help'));
     for (const item of result.entries) {
@@ -67,7 +73,7 @@ export function initConflictRecovery(): void {
       if (item.resolved) row.append(localized('span', 'recoveryResolved', 'rf-recovery-meta'));
       else {
         const open = localized('button', 'recoveryOpen'); open.type = 'button';
-        open.addEventListener('click', () => inspect(item.id)); row.append(open);
+        listScope.on(open, 'click', () => inspect(item.id)); row.append(open);
       }
       list.append(row);
     }
@@ -82,6 +88,8 @@ export function initConflictRecovery(): void {
     return wrap;
   }
   function compare() {
+    editorScope.abort();
+    editorScope = rootScope.child();
     preview = null; editor.replaceChildren();
     editor.append(localized('h4', 'recoveryCompareTitle'), element('p', 'rf-recovery-meta', tr('recoveryRevision') + inspection.revision),
       localized('p', 'recoveryAutomatic', 'rf-recovery-help'));
@@ -94,14 +102,14 @@ export function initConflictRecovery(): void {
         const label = element('label', 'rf-recovery-value');
         const input = element('input'); input.type = 'radio'; input.name = `rf-recovery-field-${index}`; input.value = side;
         input.checked = choices[row.key] === side;
-        input.addEventListener('change', () => { choices[row.key] = side; preview = null; setBusy(false); });
+        editorScope.on(input, 'change', () => { choices[row.key] = side; preview = null; setBusy(false); });
         label.append(input, localized('span', key), valueNode(row[side])); columns.append(label);
       }
       field.append(columns); editor.append(field);
     });
     const actions = element('div', 'rf-recovery-actions');
     const next = localized('button', 'recoveryPreview'); next.type = 'button'; next.dataset.recoveryPreview = '';
-    next.addEventListener('click', () => run(async version => {
+    editorScope.on(next, 'click', () => run(async version => {
       const result = await ZoteroBridge.conflictRecovery('preview', { token: inspection.token, choices: { ...choices } });
       if (version !== generation) return;
       preview = result; showPreview(); message(result.changes.length ? 'recoveryPreviewTitle' : 'recoveryNoChanges');
@@ -109,6 +117,8 @@ export function initConflictRecovery(): void {
     actions.append(next); editor.append(actions); setBusy(busy);
   }
   function showPreview() {
+    editorScope.abort();
+    editorScope = rootScope.child();
     editor.replaceChildren(localized('h4', 'recoveryPreviewTitle'));
     preview.changes.forEach((row: any) => {
       const field = element('fieldset', 'rf-recovery-row'); field.append(element('legend', '', row.path));
@@ -119,9 +129,9 @@ export function initConflictRecovery(): void {
       field.append(columns); editor.append(field);
     });
     const actions = element('div', 'rf-recovery-actions');
-    const back = localized('button', 'recoveryBack'); back.type = 'button'; back.addEventListener('click', () => { compare(); message('recoveryCompareTitle'); });
+    const back = localized('button', 'recoveryBack'); back.type = 'button'; editorScope.on(back, 'click', () => { compare(); message('recoveryCompareTitle'); });
     const apply = localized('button', 'recoveryApply'); apply.type = 'button'; apply.dataset.recoveryApply = '';
-    apply.addEventListener('click', () => {
+    editorScope.on(apply, 'click', () => {
       if (pendingEdits()) { message('recoveryPending', true); return; }
       run(async version => {
         const result = await ZoteroBridge.conflictRecovery('apply', { token: preview.token });
@@ -156,20 +166,25 @@ export function initConflictRecovery(): void {
     header.append(title, refresh); root.append(header, localized('p', 'recoveryHelp', 'rf-recovery-help'));
     status = element('div', 'rf-recovery-status'); status.setAttribute('role', 'status'); status.setAttribute('aria-live', 'polite'); status.tabIndex = -1;
     list = element('div'); editor = element('div', 'rf-recovery-editor'); root.append(status, list, editor); anchor.after(root);
-    refresh.addEventListener('click', () => run(async version => {
+    rootScope.on(refresh, 'click', () => run(async version => {
       inspection = null; preview = null; choices = {}; editor.replaceChildren(); await loadList(version); status.textContent = ''; delete status.dataset.key;
       if (location.hash === '#paperflow-recovery') root.scrollIntoView({ block: 'start' });
     }));
     if (!ZoteroBridge?.isZotero) { refresh.disabled = true; message('recoveryUnavailable'); return; }
     refresh.click();
-    window.addEventListener('message', (event: any) => {
+    rootScope.on(window, 'message', (event: any) => {
       if (event.data?.type !== 'RESEARCHFLOW_DATA_UPDATED' || busy || !inspection) return;
       inspection = null; preview = null; choices = {}; editor.replaceChildren(); message('recoveryInvalidated', true);
     });
-    window.addEventListener('unload', () => { generation++; inspection = null; preview = null; }, { once: true });
+    rootScope.on(window, 'unload', () => {
+      generation++;
+      inspection = null;
+      preview = null;
+      rootScope.abort();
+    }, { once: true });
   }
   (window as any).PaperFlowRecovery = { translate };
-  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init, { once: true }); else init();
+  if (document.readyState === 'loading') rootScope.on(document, 'DOMContentLoaded', init, { once: true }); else init();
 }
 
 export const RFConflictRecovery = {

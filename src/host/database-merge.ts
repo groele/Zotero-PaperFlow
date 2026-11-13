@@ -46,7 +46,7 @@ export const hostDatabaseMergeMethods = {
         return result;
       }
       if (identified(edited) && identified(latest) && (identified(before) || before === missing)) {
-        const map = (values: any) => new Map((values === missing ? [] : values).map(item => [String(item.id), item]));
+        const map = (values: any): Map<string, any> => new Map((values === missing ? [] : values).map((item: any) => [String(item.id), item]));
         const old = map(before), ours = map(edited), theirs = map(latest);
         const common = new Set([...old.keys()].filter(id => ours.has(id) && theirs.has(id)));
         const order = (records: any) => [...records.keys()].filter(id => common.has(id));

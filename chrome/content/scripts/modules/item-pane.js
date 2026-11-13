@@ -8,6 +8,202 @@
  */
 "use strict";
 (() => {
+  // src/modules/ui-utils/lifecycle.ts
+  function createFallbackController() {
+    let aborted = false;
+    let reason;
+    const listeners = /* @__PURE__ */ new Set();
+    const signal = {
+      get aborted() {
+        return aborted;
+      },
+      get reason() {
+        return reason;
+      },
+      addEventListener(type, listener) {
+        if (type !== "abort" || typeof listener !== "function") return;
+        if (aborted) {
+          try {
+            listener({ type: "abort" });
+          } catch (_) {
+          }
+          return;
+        }
+        listeners.add(listener);
+      },
+      removeEventListener(type, listener) {
+        if (type !== "abort") return;
+        listeners.delete(listener);
+      }
+    };
+    return {
+      signal,
+      abort(nextReason) {
+        if (aborted) return;
+        aborted = true;
+        reason = nextReason;
+        const snapshot = Array.from(listeners);
+        listeners.clear();
+        for (const listener of snapshot) {
+          try {
+            listener({ type: "abort" });
+          } catch (_) {
+          }
+        }
+      }
+    };
+  }
+  function isNativeAbortSignal(signal) {
+    return typeof AbortSignal !== "undefined" && signal instanceof AbortSignal;
+  }
+  function createLifecycleScope(parentSignal) {
+    const controller = typeof AbortController !== "undefined" ? new AbortController() : createFallbackController();
+    const cleanups = /* @__PURE__ */ new Set();
+    let localAborted = false;
+    const runCleanups = () => {
+      const snapshot = Array.from(cleanups);
+      cleanups.clear();
+      for (const cleanup of snapshot) {
+        try {
+          cleanup();
+        } catch (_) {
+        }
+      }
+    };
+    const abort = (reason) => {
+      if (localAborted) return;
+      localAborted = true;
+      try {
+        controller.abort(reason);
+      } catch (_) {
+      }
+      runCleanups();
+    };
+    if (parentSignal) {
+      if (parentSignal.aborted) {
+        abort(parentSignal.reason);
+      } else if (typeof parentSignal.addEventListener === "function") {
+        const onParentAbort = () => abort(parentSignal.reason);
+        parentSignal.addEventListener("abort", onParentAbort, { once: true });
+        cleanups.add(() => {
+          try {
+            parentSignal.removeEventListener?.("abort", onParentAbort);
+          } catch (_) {
+          }
+        });
+      }
+    }
+    const scope = {
+      signal: controller.signal,
+      get aborted() {
+        return localAborted || Boolean(controller.signal?.aborted);
+      },
+      abort,
+      onAbort(fn) {
+        if (typeof fn !== "function") return () => {
+        };
+        if (scope.aborted) {
+          try {
+            fn();
+          } catch (_) {
+          }
+          return () => {
+          };
+        }
+        cleanups.add(fn);
+        return () => {
+          cleanups.delete(fn);
+        };
+      },
+      on(target, type, listener, options) {
+        if (!target || typeof target.addEventListener !== "function" || typeof listener !== "function" || scope.aborted) {
+          return () => {
+          };
+        }
+        const capture = typeof options === "boolean" ? options : Boolean(options?.capture);
+        const baseOpts = typeof options === "boolean" ? { capture: options } : options ? { ...options } : {};
+        const listenerOptions = isNativeAbortSignal(controller.signal) ? { ...baseOpts, signal: controller.signal } : typeof options === "boolean" ? options : options || void 0;
+        target.addEventListener(type, listener, listenerOptions);
+        const detach = () => {
+          cleanups.delete(detach);
+          if (typeof target.removeEventListener === "function") {
+            try {
+              target.removeEventListener(type, listener, capture);
+            } catch (_) {
+            }
+          }
+        };
+        cleanups.add(detach);
+        return detach;
+      },
+      setTimeout(fn, delay = 0) {
+        const st = globalThis.setTimeout;
+        const ct = globalThis.clearTimeout;
+        if (scope.aborted || typeof st !== "function") return 0;
+        let timerId = 0;
+        const cancel = () => {
+          cleanups.delete(cancel);
+          if (timerId && typeof ct === "function") {
+            ct(timerId);
+            timerId = 0;
+          }
+        };
+        cleanups.add(cancel);
+        timerId = st(() => {
+          cleanups.delete(cancel);
+          timerId = 0;
+          if (!scope.aborted) fn();
+        }, delay);
+        return timerId;
+      },
+      setInterval(fn, delay = 0) {
+        const si = globalThis.setInterval;
+        const ci = globalThis.clearInterval;
+        if (scope.aborted || typeof si !== "function") return 0;
+        let timerId = 0;
+        const cancel = () => {
+          cleanups.delete(cancel);
+          if (timerId && typeof ci === "function") {
+            ci(timerId);
+            timerId = 0;
+          }
+        };
+        cleanups.add(cancel);
+        timerId = si(() => {
+          if (!scope.aborted) fn();
+        }, delay);
+        return timerId;
+      },
+      raf(fn) {
+        const req = globalThis.requestAnimationFrame;
+        const can = globalThis.cancelAnimationFrame;
+        if (scope.aborted) return 0;
+        if (typeof req !== "function") {
+          return scope.setTimeout(() => fn(Date.now()), 0);
+        }
+        let rafId = 0;
+        const cancel = () => {
+          cleanups.delete(cancel);
+          if (rafId && typeof can === "function") {
+            can(rafId);
+            rafId = 0;
+          }
+        };
+        cleanups.add(cancel);
+        rafId = req((ts) => {
+          cleanups.delete(cancel);
+          rafId = 0;
+          if (!scope.aborted) fn(ts);
+        });
+        return rafId;
+      },
+      child() {
+        return createLifecycleScope(controller.signal);
+      }
+    };
+    return scope;
+  }
+
   // src/modules/item-pane.ts
   function copyToClipboard(text) {
     if (!text) return;
@@ -44,10 +240,14 @@
             host.ensureLocalization?.(document);
           }
           const target = host.getLiteratureItem?.(item) || item;
+          const paneScope = createLifecycleScope();
           const state = {
             itemKey: target?.key || null,
             refresh,
+            paneScope,
+            renderScope: null,
             onDataChanged: () => {
+              if (paneScope.aborted) return;
               Promise.resolve(refresh?.()).catch((err) => {
                 if (typeof Zotero !== "undefined") Zotero.logError?.("[PaperFlow] ItemPane refresh failed: " + err);
               });
@@ -58,6 +258,8 @@
         },
         onDestroy: ({ body }) => {
           const state = sectionStates.get(body);
+          state?.renderScope?.abort("pane-destroy");
+          state?.paneScope?.abort("pane-destroy");
           if (state?.onDataChanged) {
             host.unregisterDataListener?.(state.onDataChanged);
           }
@@ -71,12 +273,18 @@
         },
         onRender: async ({ doc, body, item, setSectionSummary }) => {
           if (!body) return;
+          const state = sectionStates.get(body);
+          if (state?.paneScope?.aborted) return;
+          state?.renderScope?.abort("re-render");
+          const renderScope = createLifecycleScope(state?.paneScope?.signal);
+          if (state) state.renderScope = renderScope;
           const document = doc || body.ownerDocument;
           body.replaceChildren();
           const target = host.getLiteratureItem?.(item) || item;
           if (!target) return;
           const isReadOnly = Boolean(target.deleted || typeof target.isEditable === "function" && !target.isEditable());
           const db = host._cachedData || await host.loadDatabase();
+          if (renderScope.aborted) return;
           const targetKey = target.key;
           const targetDoi = (typeof target.getField === "function" ? target.getField("DOI") : "") || "";
           const allManuscripts = db.manuscripts || [];
@@ -127,7 +335,7 @@
               btnView.style.cssText = "font-size:11px; padding:3px 8px; border-radius:4px; border:1px solid #e11d48; background:transparent; color:#e11d48; cursor:pointer; font-weight:500;";
               btnView.textContent = "🔍 查看";
               btnView.title = "在 Zotero PaperFlow 工作台中打开该稿件";
-              btnView.addEventListener("click", () => {
+              renderScope.on(btnView, "click", () => {
                 host.triggerResearchFlowOpen?.(document.defaultView, {
                   view: "view-manuscripts",
                   manuscriptId: m.id
@@ -145,12 +353,13 @@
               } else {
                 btnSyncNote.style.cursor = "pointer";
                 btnSyncNote.title = "将稿件进展与审稿矩阵同步为文献子笔记 (支持 Zotero 云端全平台多端同步)";
-                btnSyncNote.addEventListener("click", async () => {
+                renderScope.on(btnSyncNote, "click", async () => {
                   btnSyncNote.textContent = "⏳ 同步中...";
                   const note = await host.syncManuscriptToChildNote?.(target, m);
+                  if (renderScope.aborted) return;
                   if (note) {
                     btnSyncNote.textContent = "✅ 已同步";
-                    setTimeout(() => {
+                    renderScope.setTimeout(() => {
                       btnSyncNote.textContent = "📝 同步笔记";
                     }, 2e3);
                   } else {
@@ -165,7 +374,7 @@
                 btnPdf.style.cssText = "font-size:11px; padding:3px 8px; border-radius:4px; border:1px solid #059669; background:transparent; color:#059669; cursor:pointer; font-weight:500;";
                 btnPdf.textContent = "📖 PDF";
                 btnPdf.title = "在 Zotero PDF 阅读器中打开";
-                btnPdf.addEventListener("click", () => {
+                renderScope.on(btnPdf, "click", () => {
                   host.openPdfAttachment?.(target);
                 });
                 actionRow.appendChild(btnPdf);
@@ -176,10 +385,10 @@
               citeChip.style.cssText = "cursor:pointer; font-family:monospace; background:rgba(37,99,235,0.08); color:#2563eb; padding:1px 5px; border-radius:3px; font-weight:600;";
               citeChip.textContent = `[@${metaData?.citekey || ""}]`;
               citeChip.title = "点击复制 Citation Key";
-              citeChip.addEventListener("click", () => {
+              renderScope.on(citeChip, "click", () => {
                 copyToClipboard(`[@${metaData?.citekey || ""}]`);
                 citeChip.textContent = "✅ 已复制";
-                setTimeout(() => {
+                renderScope.setTimeout(() => {
                   citeChip.textContent = `[@${metaData?.citekey || ""}]`;
                 }, 1800);
               });
@@ -195,10 +404,10 @@
               btnApa.style.cssText = "font-size:11px; padding:3px 8px; border-radius:4px; border:1px solid var(--border-primary, #cbd5e1); background:var(--fill-secondary, rgba(127,127,127,0.08)); color:var(--text-secondary, #475569); cursor:pointer; font-weight:500;";
               btnApa.textContent = "📋 引用";
               btnApa.title = "复制标准引用 (APA)";
-              btnApa.addEventListener("click", () => {
+              renderScope.on(btnApa, "click", () => {
                 copyToClipboard(metaData?.citationApa || "");
                 btnApa.textContent = "✅ 已复制";
-                setTimeout(() => {
+                renderScope.setTimeout(() => {
                   btnApa.textContent = "📋 引用";
                 }, 1800);
               });
@@ -206,10 +415,10 @@
               btnBib.style.cssText = "font-size:11px; padding:3px 8px; border-radius:4px; border:1px solid var(--border-primary, #cbd5e1); background:var(--fill-secondary, rgba(127,127,127,0.08)); color:var(--text-secondary, #475569); cursor:pointer; font-weight:500;";
               btnBib.textContent = "📋 BibTeX";
               btnBib.title = "复制 BibTeX 引用条目";
-              btnBib.addEventListener("click", () => {
+              renderScope.on(btnBib, "click", () => {
                 copyToClipboard(metaData?.bibtex || "");
                 btnBib.textContent = "✅ 已复制";
-                setTimeout(() => {
+                renderScope.setTimeout(() => {
                   btnBib.textContent = "📋 BibTeX";
                 }, 1800);
               });
@@ -243,7 +452,7 @@
               linkBtn.title = "条目处于只读库或回收站，不可关联稿件";
             } else {
               createBtn.style.cursor = "pointer";
-              createBtn.addEventListener("click", () => {
+              renderScope.on(createBtn, "click", () => {
                 const serialized = host.serializeLiteratureItem?.(target);
                 host.triggerResearchFlowOpen?.(document.defaultView, {
                   action: "create_manuscript_from_item",
@@ -251,7 +460,7 @@
                 });
               });
               linkBtn.style.cursor = "pointer";
-              linkBtn.addEventListener("click", () => {
+              renderScope.on(linkBtn, "click", () => {
                 const serialized = host.serializeLiteratureItem?.(target);
                 host.triggerResearchFlowOpen?.(document.defaultView, {
                   action: "link_item_to_manuscript",

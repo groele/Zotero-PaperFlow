@@ -12,7 +12,7 @@
   var ADDON_ID = "zotero-paperflow@groele.org";
   var CHROME_ROOT = "chrome://researchflow/content/";
   var PREF_PREFIX = "extensions.researchflow.";
-  var DEFAULT_VERSION = "16.5.5";
+  var DEFAULT_VERSION = "17.0.0";
 
   // src/modules/academic-citation/formatters.ts
   var extractCiteKey = (target) => {
@@ -1525,170 +1525,201 @@
     }
   };
 
-  // src/host/window-ui.ts
-  var hostWindowUiMethods = {
-    ensureToolbarButton(window2, windowElements, retryCount = 0) {
-      if (!window2 || !window2.document) return;
-      const doc = window2.document;
-      const toolbar = doc.getElementById("zotero-item-toolbar") || doc.getElementById("zotero-items-toolbar") || doc.getElementById("zotero-tb");
-      if (!toolbar) {
-        if (retryCount < 5) {
-          const retryTimer = window2.setTimeout(() => this.ensureToolbarButton(window2, windowElements, retryCount + 1), 500);
-          if (windowElements) {
-            windowElements.push({ remove: () => window2.clearTimeout(retryTimer) });
-          }
-        }
-        return;
-      }
-      const isResearchFlowButton = (b) => b.id === "researchflow-toolbar-button" || (b.getAttribute("label") === "Zotero PaperFlow" || b.getAttribute("label") === "ResearchFlow") && String(b.getAttribute("image") || "").includes("researchflow.svg");
-      const existing = Array.from(doc.querySelectorAll("toolbarbutton")).filter(isResearchFlowButton);
-      let btn = existing[0] || null;
-      if (existing.length > 1) {
-        for (let i = 1; i < existing.length; i++) {
+  // src/modules/ui-utils/lifecycle.ts
+  function createFallbackController() {
+    let aborted = false;
+    let reason;
+    const listeners = /* @__PURE__ */ new Set();
+    const signal = {
+      get aborted() {
+        return aborted;
+      },
+      get reason() {
+        return reason;
+      },
+      addEventListener(type, listener) {
+        if (type !== "abort" || typeof listener !== "function") return;
+        if (aborted) {
           try {
-            existing[i].remove();
+            listener({ type: "abort" });
+          } catch (_) {
+          }
+          return;
+        }
+        listeners.add(listener);
+      },
+      removeEventListener(type, listener) {
+        if (type !== "abort") return;
+        listeners.delete(listener);
+      }
+    };
+    return {
+      signal,
+      abort(nextReason) {
+        if (aborted) return;
+        aborted = true;
+        reason = nextReason;
+        const snapshot = Array.from(listeners);
+        listeners.clear();
+        for (const listener of snapshot) {
+          try {
+            listener({ type: "abort" });
           } catch (_) {
           }
         }
       }
-      if (!btn) {
-        btn = this.createXULElement(doc, "toolbarbutton");
-        btn.id = "researchflow-toolbar-button";
-        btn.setAttribute("data-l10n-id", "researchflow-toolbar-tooltip");
-        btn.setAttribute("data-l10n-attrs", "tooltiptext,aria-label");
-        const zh = !Zotero?.locale || String(Zotero.locale).toLowerCase().startsWith("zh");
-        btn.setAttribute("tooltiptext", zh ? "打开 Zotero PaperFlow 工作台 (Ctrl+Alt+R)" : "Open Zotero PaperFlow Workspace (Ctrl+Alt+R)");
-        btn.setAttribute("image", `${CHROME_ROOT}icons/researchflow.svg`);
-        btn.setAttribute("class", "zotero-tb-button toolbarbutton-1 chromeclass-toolbar-additional");
-        btn.setAttribute(
-          "style",
-          "cursor: pointer; margin: 0 4px; width: 28px; height: 28px; min-width: 28px; max-width: 28px; max-height: 28px; display: inline-flex; align-items: center; justify-content: center; overflow: hidden;"
-        );
-        btn.addEventListener("command", (e) => {
-          if (e) {
-            e.preventDefault?.();
-            e.stopPropagation?.();
+    };
+  }
+  function isNativeAbortSignal(signal) {
+    return typeof AbortSignal !== "undefined" && signal instanceof AbortSignal;
+  }
+  function createLifecycleScope(parentSignal) {
+    const controller = typeof AbortController !== "undefined" ? new AbortController() : createFallbackController();
+    const cleanups = /* @__PURE__ */ new Set();
+    let localAborted = false;
+    const runCleanups = () => {
+      const snapshot = Array.from(cleanups);
+      cleanups.clear();
+      for (const cleanup of snapshot) {
+        try {
+          cleanup();
+        } catch (_) {
+        }
+      }
+    };
+    const abort = (reason) => {
+      if (localAborted) return;
+      localAborted = true;
+      try {
+        controller.abort(reason);
+      } catch (_) {
+      }
+      runCleanups();
+    };
+    if (parentSignal) {
+      if (parentSignal.aborted) {
+        abort(parentSignal.reason);
+      } else if (typeof parentSignal.addEventListener === "function") {
+        const onParentAbort = () => abort(parentSignal.reason);
+        parentSignal.addEventListener("abort", onParentAbort, { once: true });
+        cleanups.add(() => {
+          try {
+            parentSignal.removeEventListener?.("abort", onParentAbort);
+          } catch (_) {
           }
-          this.triggerResearchFlowOpen(window2);
         });
       }
-      btn.setAttribute("label", "");
-      btn.setAttribute("aria-label", "Zotero PaperFlow");
-      const constrainIcon = () => {
-        try {
-          const img = btn?.querySelector(".toolbarbutton-icon") || btn?.querySelector("image") || btn?.querySelector("img");
-          if (img) {
-            img.style.width = "20px";
-            img.style.height = "20px";
-            img.style.maxWidth = "20px";
-            img.style.maxHeight = "20px";
-            img.setAttribute("width", "20");
-            img.setAttribute("height", "20");
-          }
-        } catch (_) {
-        }
-      };
-      constrainIcon();
-      const t1 = window2.setTimeout(constrainIcon, 150);
-      const t2 = window2.setTimeout(constrainIcon, 800);
-      if (windowElements) {
-        windowElements.push(
-          { remove: () => window2.clearTimeout(t1) },
-          { remove: () => window2.clearTimeout(t2) }
-        );
-      }
-      const toolbarChildren = Array.from(toolbar.children || []);
-      const flexibleSpacerIndex = toolbarChildren.findIndex((child) => {
-        const tag = String(child.localName || child.tagName || "").toLowerCase();
-        return tag === "toolbarspring" || tag === "spacer" && Number(child.getAttribute("flex") || 0) > 0 || child.id === "zotero-tb-search" || child.id === "zotero-tb-search-textbox" || child.classList?.contains("zotero-search-box") || child.classList?.contains("search-box");
-      });
-      const leadingActionItems = flexibleSpacerIndex >= 0 ? toolbarChildren.slice(0, flexibleSpacerIndex) : toolbarChildren;
-      const toolbarButtons = leadingActionItems.filter(
-        (child) => String(child.localName || child.tagName || "").toLowerCase() === "toolbarbutton" && !isResearchFlowButton(child) && !child.hidden && child.getAttribute("hidden") !== "true" && child.getAttribute("collapsed") !== "true"
-      );
-      const anchor = toolbarButtons.reverse().find((child) => {
-        try {
-          const style = window2.getComputedStyle(child);
-          return style.display !== "none" && style.visibility !== "collapse";
-        } catch (_) {
-          return true;
-        }
-      }) || null;
-      if (anchor && anchor.parentNode === toolbar) {
-        if (anchor.nextSibling !== btn) {
-          anchor.parentNode.insertBefore(btn, anchor.nextSibling);
-        }
-      } else {
-        const searchBox = doc.getElementById("zotero-tb-search-textbox") || doc.getElementById("zotero-tb-search") || toolbar.querySelector("input") || (flexibleSpacerIndex >= 0 ? toolbarChildren[flexibleSpacerIndex] : null);
-        if (searchBox && searchBox.parentNode === toolbar) {
-          toolbar.insertBefore(btn, searchBox);
-        } else {
-          toolbar.appendChild(btn);
-        }
-      }
-      if (windowElements && !windowElements.includes(btn)) {
-        windowElements.push(btn);
-      }
-    },
-    openStandaloneWindow(options = {}, targetWindow = null, windowType = "window") {
-      try {
-        const ww = Services.ww;
-        let features = "";
-        let windowName = "";
-        const url = `${CHROME_ROOT}index.html?mode=${encodeURIComponent(windowType)}${options.settingsOnly === true ? "&settingsOnly=1#paperflow-recovery" : ""}`;
-        if (windowType === "subwindow") {
-          const alwaysRaised = this.getPref("subwindowAlwaysOnTop", false) ? ",alwaysRaised=yes" : "";
-          features = `chrome,dialog=no,all,resizable=yes,minimizable=yes,width=480,height=780,top=80,left=80${alwaysRaised}`;
-          windowName = "ResearchFlow_SubWindow";
-        } else {
-          features = "chrome,dialog=no,all,resizable=yes,minimizable=yes,width=1240,height=820,centerscreen";
-          windowName = "ResearchFlow_Window";
-        }
-        if (options.settingsOnly === true) windowName = "ResearchFlow_Recovery";
-        const mainWin = targetWindow && targetWindow.Zotero_Tabs ? targetWindow : Zotero.getMainWindow ? Zotero.getMainWindow() : Services.wm.getMostRecentWindow("navigator:browser");
-        const win = ww.openWindow(
-          mainWin,
-          url,
-          windowName,
-          features,
-          { Zotero, options: { ...options, currentWindowType: windowType } }
-        );
-        if (win) {
-          const attachHost = () => {
-            const page = win.wrappedJSObject || win;
-            page.Zotero = Zotero;
-            page._researchflowPending = { ...options, currentWindowType: windowType };
-          };
-          attachHost();
-          win.addEventListener("DOMContentLoaded", attachHost, { once: true, capture: true });
-          if (!this._standaloneWindows) this._standaloneWindows = /* @__PURE__ */ new Set();
-          this._standaloneWindows.add(win);
-          win.addEventListener("unload", () => {
-            mainWin.setTimeout(() => {
-              if (win.closed) this._standaloneWindows?.delete(win);
-            }, 0);
-          });
-        }
-        if (win && win.focus) win.focus();
-      } catch (err) {
-        Zotero.logError?.("[PaperFlow] openStandaloneWindow error: " + err);
-      }
-    },
-    openPreferencesPane(window2) {
-      try {
-        const win = window2 || Zotero.getMainWindow?.();
-        if (Zotero.Utilities?.Internal?.openPreferences) {
-          Zotero.Utilities.Internal.openPreferences("researchflow-preferences-pane");
-        } else if (win?.openPreferences) {
-          win.openPreferences("researchflow-preferences-pane");
-        } else {
-          win?.openDialog?.("chrome://zotero/content/preferences/preferences.xhtml", "Preferences", "chrome,titlebar,toolbar,centerscreen,dialog=yes");
-        }
-      } catch (e) {
-        Zotero.logError?.("[PaperFlow] Could not open preferences: " + e);
-      }
     }
-  };
+    const scope = {
+      signal: controller.signal,
+      get aborted() {
+        return localAborted || Boolean(controller.signal?.aborted);
+      },
+      abort,
+      onAbort(fn) {
+        if (typeof fn !== "function") return () => {
+        };
+        if (scope.aborted) {
+          try {
+            fn();
+          } catch (_) {
+          }
+          return () => {
+          };
+        }
+        cleanups.add(fn);
+        return () => {
+          cleanups.delete(fn);
+        };
+      },
+      on(target, type, listener, options) {
+        if (!target || typeof target.addEventListener !== "function" || typeof listener !== "function" || scope.aborted) {
+          return () => {
+          };
+        }
+        const capture = typeof options === "boolean" ? options : Boolean(options?.capture);
+        const baseOpts = typeof options === "boolean" ? { capture: options } : options ? { ...options } : {};
+        const listenerOptions = isNativeAbortSignal(controller.signal) ? { ...baseOpts, signal: controller.signal } : typeof options === "boolean" ? options : options || void 0;
+        target.addEventListener(type, listener, listenerOptions);
+        const detach = () => {
+          cleanups.delete(detach);
+          if (typeof target.removeEventListener === "function") {
+            try {
+              target.removeEventListener(type, listener, capture);
+            } catch (_) {
+            }
+          }
+        };
+        cleanups.add(detach);
+        return detach;
+      },
+      setTimeout(fn, delay = 0) {
+        const st = globalThis.setTimeout;
+        const ct = globalThis.clearTimeout;
+        if (scope.aborted || typeof st !== "function") return 0;
+        let timerId = 0;
+        const cancel = () => {
+          cleanups.delete(cancel);
+          if (timerId && typeof ct === "function") {
+            ct(timerId);
+            timerId = 0;
+          }
+        };
+        cleanups.add(cancel);
+        timerId = st(() => {
+          cleanups.delete(cancel);
+          timerId = 0;
+          if (!scope.aborted) fn();
+        }, delay);
+        return timerId;
+      },
+      setInterval(fn, delay = 0) {
+        const si = globalThis.setInterval;
+        const ci = globalThis.clearInterval;
+        if (scope.aborted || typeof si !== "function") return 0;
+        let timerId = 0;
+        const cancel = () => {
+          cleanups.delete(cancel);
+          if (timerId && typeof ci === "function") {
+            ci(timerId);
+            timerId = 0;
+          }
+        };
+        cleanups.add(cancel);
+        timerId = si(() => {
+          if (!scope.aborted) fn();
+        }, delay);
+        return timerId;
+      },
+      raf(fn) {
+        const req = globalThis.requestAnimationFrame;
+        const can = globalThis.cancelAnimationFrame;
+        if (scope.aborted) return 0;
+        if (typeof req !== "function") {
+          return scope.setTimeout(() => fn(Date.now()), 0);
+        }
+        let rafId = 0;
+        const cancel = () => {
+          cleanups.delete(cancel);
+          if (rafId && typeof can === "function") {
+            can(rafId);
+            rafId = 0;
+          }
+        };
+        cleanups.add(cancel);
+        rafId = req((ts) => {
+          cleanups.delete(cancel);
+          rafId = 0;
+          if (!scope.aborted) fn(ts);
+        });
+        return rafId;
+      },
+      child() {
+        return createLifecycleScope(controller.signal);
+      }
+    };
+    return scope;
+  }
 
   // src/host/message-handler.ts
   function createHostMessageHandler(host, window2) {
@@ -1925,8 +1956,15 @@
   // src/host/window-lifecycle.ts
   var injectedElements = /* @__PURE__ */ new Map();
   var pendingWindowLoads = /* @__PURE__ */ new Map();
+  var windowScopes = /* @__PURE__ */ new Map();
   var activeWindowListener = null;
+  var windowListenerScope = null;
   function clearWindowListener() {
+    if (windowListenerScope) {
+      windowListenerScope.abort("shutdown");
+      windowListenerScope = null;
+    }
+    pendingWindowLoads.clear();
     if (activeWindowListener && Services.wm?.removeListener) {
       try {
         Services.wm.removeListener(activeWindowListener);
@@ -2000,8 +2038,11 @@
       }
     },
     initWindowListener() {
+      clearWindowListener();
+      windowListenerScope = createLifecycleScope();
       activeWindowListener = {
         onOpenWindow: (xulWindow) => {
+          if (this._disposed || windowListenerScope?.aborted) return;
           let domWindow;
           try {
             domWindow = xulWindow.QueryInterface(Ci.nsIInterfaceRequestor).getInterface(Ci.nsIDOMWindowInternal || Ci.nsIDOMWindow);
@@ -2011,10 +2052,10 @@
           const onLoad = () => {
             domWindow.removeEventListener("load", onLoad, false);
             pendingWindowLoads.delete(domWindow);
-            if (!domWindow.closed) Zotero.ResearchFlow?.addToWindow(domWindow);
+            if (!this._disposed && !domWindow.closed) Zotero.ResearchFlow?.addToWindow(domWindow);
           };
           pendingWindowLoads.set(domWindow, onLoad);
-          domWindow.addEventListener("load", onLoad, { once: true });
+          windowListenerScope?.on(domWindow, "load", onLoad, { once: true });
           if (domWindow.document?.readyState === "complete") onLoad();
         },
         onCloseWindow: (xulWindow) => {
@@ -2031,10 +2072,13 @@
       Services.wm?.addListener?.(activeWindowListener);
     },
     addToWindow(window2) {
-      if (!window2 || !window2.document) return;
+      if (this._disposed || !window2 || !window2.document) return;
       const doc = window2.document;
       this.purgeStaleContextMenus(window2);
       if (doc.getElementById("researchflow-tools-menu")) return;
+      windowScopes.get(window2)?.abort("re-inject");
+      const winScope = createLifecycleScope();
+      windowScopes.set(window2, winScope);
       const windowElements = [];
       this.ensureLocalization(doc);
       const toolsPopup = doc.getElementById("menu_ToolsPopup");
@@ -2044,7 +2088,7 @@
         toolsItem.setAttribute("label", "Zotero PaperFlow 工作台");
         toolsItem.setAttribute("image", `${CHROME_ROOT}icons/researchflow.svg`);
         toolsItem.setAttribute("class", "menuitem-iconic");
-        toolsItem.addEventListener("command", () => {
+        winScope.on(toolsItem, "command", () => {
           this.triggerResearchFlowOpen(window2);
         });
         toolsPopup.appendChild(toolsItem);
@@ -2125,20 +2169,20 @@
           }
         }
       };
-      window2.addEventListener("keydown", handleGlobalKeyDown, true);
-      windowElements.push({
-        remove: () => window2.removeEventListener("keydown", handleGlobalKeyDown, true)
-      });
+      winScope.on(window2, "keydown", handleGlobalKeyDown, true);
       const handleHostMessage = createHostMessageHandler(this, window2);
-      window2.addEventListener("message", handleHostMessage);
-      windowElements.push({
-        remove: () => window2.removeEventListener("message", handleHostMessage)
-      });
-      this.ensureToolbarButton(window2, windowElements);
+      winScope.on(window2, "message", handleHostMessage);
+      this.ensureToolbarButton(window2, windowElements, 0, winScope);
       injectedElements.set(window2, windowElements);
     },
     removeFromWindow(window2) {
-      if (!window2 || !injectedElements.has(window2)) return;
+      if (!window2) return;
+      const winScope = windowScopes.get(window2);
+      if (winScope) {
+        winScope.abort("removeFromWindow");
+        windowScopes.delete(window2);
+      }
+      if (!injectedElements.has(window2)) return;
       const elements = injectedElements.get(window2);
       elements.forEach((el) => {
         try {
@@ -2148,6 +2192,203 @@
         }
       });
       injectedElements.delete(window2);
+    }
+  };
+
+  // src/host/window-ui.ts
+  var hostWindowUiMethods = {
+    ensureToolbarButton(window2, windowElements, retryCount = 0, scope) {
+      const winScope = scope || windowScopes.get(window2);
+      if (this._disposed || winScope?.aborted || !window2 || !window2.document) return;
+      const doc = window2.document;
+      const toolbar = doc.getElementById("zotero-item-toolbar") || doc.getElementById("zotero-items-toolbar") || doc.getElementById("zotero-tb");
+      if (!toolbar) {
+        if (retryCount < 5) {
+          const retryTimer = window2.setTimeout(() => {
+            if (this._disposed || winScope?.aborted) return;
+            this.ensureToolbarButton(window2, windowElements, retryCount + 1, winScope);
+          }, 500);
+          if (winScope) {
+            winScope.onAbort(() => window2.clearTimeout?.(retryTimer));
+          } else if (windowElements) {
+            windowElements.push({ remove: () => window2.clearTimeout?.(retryTimer) });
+          }
+        }
+        return;
+      }
+      const isResearchFlowButton = (b) => b.id === "researchflow-toolbar-button" || (b.getAttribute("label") === "Zotero PaperFlow" || b.getAttribute("label") === "ResearchFlow") && String(b.getAttribute("image") || "").includes("researchflow.svg");
+      const existing = Array.from(doc.querySelectorAll("toolbarbutton")).filter(isResearchFlowButton);
+      let btn = existing[0] || null;
+      if (existing.length > 1) {
+        for (let i = 1; i < existing.length; i++) {
+          try {
+            existing[i].remove();
+          } catch (_) {
+          }
+        }
+      }
+      if (!btn) {
+        btn = this.createXULElement(doc, "toolbarbutton");
+        btn.id = "researchflow-toolbar-button";
+        btn.setAttribute("data-l10n-id", "researchflow-toolbar-tooltip");
+        btn.setAttribute("data-l10n-attrs", "tooltiptext,aria-label");
+        const zh = !Zotero?.locale || String(Zotero.locale).toLowerCase().startsWith("zh");
+        btn.setAttribute("tooltiptext", zh ? "打开 Zotero PaperFlow 工作台 (Ctrl+Alt+R)" : "Open Zotero PaperFlow Workspace (Ctrl+Alt+R)");
+        btn.setAttribute("image", `${CHROME_ROOT}icons/researchflow.svg`);
+        btn.setAttribute("class", "zotero-tb-button toolbarbutton-1 chromeclass-toolbar-additional");
+        btn.setAttribute(
+          "style",
+          "cursor: pointer; margin: 0 4px; width: 28px; height: 28px; min-width: 28px; max-width: 28px; max-height: 28px; display: inline-flex; align-items: center; justify-content: center; overflow: hidden;"
+        );
+        const onToolbarCommand = (e) => {
+          if (e) {
+            e.preventDefault?.();
+            e.stopPropagation?.();
+          }
+          this.triggerResearchFlowOpen(window2);
+        };
+        if (winScope) {
+          winScope.on(btn, "command", onToolbarCommand);
+        } else {
+          btn.addEventListener("command", onToolbarCommand);
+        }
+      }
+      btn.setAttribute("label", "");
+      btn.setAttribute("aria-label", "Zotero PaperFlow");
+      const constrainIcon = () => {
+        if (this._disposed || winScope?.aborted) return;
+        try {
+          const img = btn?.querySelector(".toolbarbutton-icon") || btn?.querySelector("image") || btn?.querySelector("img");
+          if (img) {
+            img.style.width = "20px";
+            img.style.height = "20px";
+            img.style.maxWidth = "20px";
+            img.style.maxHeight = "20px";
+            img.setAttribute("width", "20");
+            img.setAttribute("height", "20");
+          }
+        } catch (_) {
+        }
+      };
+      constrainIcon();
+      const t1 = window2.setTimeout(constrainIcon, 150);
+      const t2 = window2.setTimeout(constrainIcon, 800);
+      if (winScope) {
+        winScope.onAbort(() => {
+          window2.clearTimeout?.(t1);
+          window2.clearTimeout?.(t2);
+        });
+      } else if (windowElements) {
+        windowElements.push(
+          { remove: () => window2.clearTimeout?.(t1) },
+          { remove: () => window2.clearTimeout?.(t2) }
+        );
+      }
+      const toolbarChildren = Array.from(toolbar.children || []);
+      const flexibleSpacerIndex = toolbarChildren.findIndex((child) => {
+        const tag = String(child.localName || child.tagName || "").toLowerCase();
+        return tag === "toolbarspring" || tag === "spacer" && Number(child.getAttribute("flex") || 0) > 0 || child.id === "zotero-tb-search" || child.id === "zotero-tb-search-textbox" || child.classList?.contains("zotero-search-box") || child.classList?.contains("search-box");
+      });
+      const leadingActionItems = flexibleSpacerIndex >= 0 ? toolbarChildren.slice(0, flexibleSpacerIndex) : toolbarChildren;
+      const toolbarButtons = leadingActionItems.filter(
+        (child) => String(child.localName || child.tagName || "").toLowerCase() === "toolbarbutton" && !isResearchFlowButton(child) && !child.hidden && child.getAttribute("hidden") !== "true" && child.getAttribute("collapsed") !== "true"
+      );
+      const anchor = toolbarButtons.reverse().find((child) => {
+        try {
+          const style = window2.getComputedStyle(child);
+          return style.display !== "none" && style.visibility !== "collapse";
+        } catch (_) {
+          return true;
+        }
+      }) || null;
+      if (anchor && anchor.parentNode === toolbar) {
+        if (anchor.nextSibling !== btn) {
+          anchor.parentNode.insertBefore(btn, anchor.nextSibling);
+        }
+      } else {
+        const searchBox = doc.getElementById("zotero-tb-search-textbox") || doc.getElementById("zotero-tb-search") || toolbar.querySelector("input") || (flexibleSpacerIndex >= 0 ? toolbarChildren[flexibleSpacerIndex] : null);
+        if (searchBox && searchBox.parentNode === toolbar) {
+          toolbar.insertBefore(btn, searchBox);
+        } else {
+          toolbar.appendChild(btn);
+        }
+      }
+      if (windowElements && !windowElements.includes(btn)) {
+        windowElements.push(btn);
+      }
+    },
+    openStandaloneWindow(options = {}, targetWindow = null, windowType = "window") {
+      try {
+        const ww = Services.ww;
+        let features = "";
+        let windowName = "";
+        const url = `${CHROME_ROOT}index.html?mode=${encodeURIComponent(windowType)}${options.settingsOnly === true ? "&settingsOnly=1#paperflow-recovery" : ""}`;
+        if (windowType === "subwindow") {
+          const alwaysRaised = this.getPref("subwindowAlwaysOnTop", false) ? ",alwaysRaised=yes" : "";
+          features = `chrome,dialog=no,all,resizable=yes,minimizable=yes,width=480,height=780,top=80,left=80${alwaysRaised}`;
+          windowName = "ResearchFlow_SubWindow";
+        } else {
+          features = "chrome,dialog=no,all,resizable=yes,minimizable=yes,width=1240,height=820,centerscreen";
+          windowName = "ResearchFlow_Window";
+        }
+        if (options.settingsOnly === true) windowName = "ResearchFlow_Recovery";
+        const mainWin = targetWindow && targetWindow.Zotero_Tabs ? targetWindow : Zotero.getMainWindow ? Zotero.getMainWindow() : Services.wm.getMostRecentWindow("navigator:browser");
+        const win = ww.openWindow(
+          mainWin,
+          url,
+          windowName,
+          features,
+          { Zotero, options: { ...options, currentWindowType: windowType } }
+        );
+        if (win) {
+          const ac = typeof AbortController !== "undefined" ? new AbortController() : null;
+          if (ac) {
+            if (!this._windowControllers) this._windowControllers = /* @__PURE__ */ new Map();
+            this._windowControllers.set(win, ac);
+          }
+          const attachHost = () => {
+            if (this._disposed || ac?.signal?.aborted) return;
+            const page = win.wrappedJSObject || win;
+            page.Zotero = Zotero;
+            page._researchflowPending = { ...options, currentWindowType: windowType };
+          };
+          attachHost();
+          win.addEventListener("DOMContentLoaded", attachHost, ac ? { once: true, capture: true, signal: ac.signal } : { once: true, capture: true });
+          if (!this._standaloneWindows) this._standaloneWindows = /* @__PURE__ */ new Set();
+          this._standaloneWindows.add(win);
+          win.addEventListener("unload", () => {
+            const mainAc = mainWin && this._windowControllers ? this._windowControllers.get(mainWin) : null;
+            const timerId = mainWin?.setTimeout?.(() => {
+              if (!this._disposed && win.closed) this._standaloneWindows?.delete(win);
+            }, 0);
+            if (timerId && mainAc?.signal) {
+              mainAc.signal.addEventListener("abort", () => mainWin?.clearTimeout?.(timerId), { once: true });
+            }
+            try {
+              ac?.abort("standalone-unload");
+            } catch (_) {
+            }
+            this._windowControllers?.delete(win);
+          }, ac ? { once: true, signal: ac.signal } : { once: true });
+        }
+        if (win && win.focus) win.focus();
+      } catch (err) {
+        Zotero.logError?.("[PaperFlow] openStandaloneWindow error: " + err);
+      }
+    },
+    openPreferencesPane(window2) {
+      try {
+        const win = window2 || Zotero.getMainWindow?.();
+        if (Zotero.Utilities?.Internal?.openPreferences) {
+          Zotero.Utilities.Internal.openPreferences("researchflow-preferences-pane");
+        } else if (win?.openPreferences) {
+          win.openPreferences("researchflow-preferences-pane");
+        } else {
+          win?.openDialog?.("chrome://zotero/content/preferences/preferences.xhtml", "Preferences", "chrome,titlebar,toolbar,centerscreen,dialog=yes");
+        }
+      } catch (e) {
+        Zotero.logError?.("[PaperFlow] Could not open preferences: " + e);
+      }
     }
   };
 
@@ -2363,12 +2604,14 @@
             }
             return;
           }
+          const tabScope = createLifecycleScope(windowScopes.get(mainWin)?.signal);
           const tabResult = tabs.add({
             type: "researchflow",
             title: "Zotero PaperFlow",
             select: true,
             data: options,
             onClose: () => {
+              tabScope.abort("tab-close");
               Zotero.log?.("[PaperFlow] Tab closed");
             }
           });
@@ -2387,7 +2630,8 @@
             container.style.width = "100%";
             container.style.height = "100%";
             container.style.overflow = "hidden";
-            iframe.addEventListener("load", () => {
+            tabScope.on(iframe, "load", () => {
+              if (this._disposed || tabScope.aborted) return;
               try {
                 if (iframe.contentWindow) {
                   iframe.contentWindow.Zotero = Zotero;
@@ -2437,6 +2681,22 @@
       this.destroyPrefObserver();
       this.unregisterMenus();
       clearWindowListener();
+      if (this._windowControllers) {
+        for (const ac of this._windowControllers.values()) {
+          try {
+            ac.abort("shutdown");
+          } catch (_) {
+          }
+        }
+        this._windowControllers.clear();
+      }
+      for (const scope of windowScopes.values()) {
+        try {
+          scope.abort("shutdown");
+        } catch (_) {
+        }
+      }
+      windowScopes.clear();
       for (const [, elements] of injectedElements) {
         elements.forEach((el) => {
           try {

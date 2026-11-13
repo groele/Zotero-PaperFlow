@@ -12,7 +12,7 @@ export function initUiPlatform(): void {
   const prefix = 'researchflow.zotero.ui.';
   const emit = (message: any) => {
     for (const listener of listeners) {
-      try { listener(message, {}, () => {}); } catch (error) { console.error('[ResearchFlow] UI listener failed:', error); }
+      try { listener(message, {}, () => {}); } catch (error) { console.error('[PaperFlow] UI listener failed:', error); }
     }
   };
   const keysOf = (keys: any): string[] => Array.isArray(keys) ? keys : typeof keys === 'string' ? [keys] : keys && typeof keys === 'object' ? Object.keys(keys) : [];
@@ -37,7 +37,7 @@ export function initUiPlatform(): void {
       callback(value);
       return value;
     }, (error) => {
-      console.error('[ResearchFlow] Zotero compatibility operation failed:', error);
+      console.error('[PaperFlow] Zotero compatibility operation failed:', error);
       (globalThis as any).RFPlatform.runtime.lastError = { message: String(error?.message || error) };
       try { callback(undefined); } finally { delete (globalThis as any).RFPlatform.runtime.lastError; }
       return undefined;

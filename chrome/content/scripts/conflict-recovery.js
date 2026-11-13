@@ -8,9 +8,208 @@
  */
 "use strict";
 (() => {
+  // src/modules/ui-utils/lifecycle.ts
+  function createFallbackController() {
+    let aborted = false;
+    let reason;
+    const listeners = /* @__PURE__ */ new Set();
+    const signal = {
+      get aborted() {
+        return aborted;
+      },
+      get reason() {
+        return reason;
+      },
+      addEventListener(type, listener) {
+        if (type !== "abort" || typeof listener !== "function") return;
+        if (aborted) {
+          try {
+            listener({ type: "abort" });
+          } catch (_) {
+          }
+          return;
+        }
+        listeners.add(listener);
+      },
+      removeEventListener(type, listener) {
+        if (type !== "abort") return;
+        listeners.delete(listener);
+      }
+    };
+    return {
+      signal,
+      abort(nextReason) {
+        if (aborted) return;
+        aborted = true;
+        reason = nextReason;
+        const snapshot = Array.from(listeners);
+        listeners.clear();
+        for (const listener of snapshot) {
+          try {
+            listener({ type: "abort" });
+          } catch (_) {
+          }
+        }
+      }
+    };
+  }
+  function isNativeAbortSignal(signal) {
+    return typeof AbortSignal !== "undefined" && signal instanceof AbortSignal;
+  }
+  function createLifecycleScope(parentSignal) {
+    const controller = typeof AbortController !== "undefined" ? new AbortController() : createFallbackController();
+    const cleanups = /* @__PURE__ */ new Set();
+    let localAborted = false;
+    const runCleanups = () => {
+      const snapshot = Array.from(cleanups);
+      cleanups.clear();
+      for (const cleanup of snapshot) {
+        try {
+          cleanup();
+        } catch (_) {
+        }
+      }
+    };
+    const abort = (reason) => {
+      if (localAborted) return;
+      localAborted = true;
+      try {
+        controller.abort(reason);
+      } catch (_) {
+      }
+      runCleanups();
+    };
+    if (parentSignal) {
+      if (parentSignal.aborted) {
+        abort(parentSignal.reason);
+      } else if (typeof parentSignal.addEventListener === "function") {
+        const onParentAbort = () => abort(parentSignal.reason);
+        parentSignal.addEventListener("abort", onParentAbort, { once: true });
+        cleanups.add(() => {
+          try {
+            parentSignal.removeEventListener?.("abort", onParentAbort);
+          } catch (_) {
+          }
+        });
+      }
+    }
+    const scope = {
+      signal: controller.signal,
+      get aborted() {
+        return localAborted || Boolean(controller.signal?.aborted);
+      },
+      abort,
+      onAbort(fn) {
+        if (typeof fn !== "function") return () => {
+        };
+        if (scope.aborted) {
+          try {
+            fn();
+          } catch (_) {
+          }
+          return () => {
+          };
+        }
+        cleanups.add(fn);
+        return () => {
+          cleanups.delete(fn);
+        };
+      },
+      on(target, type, listener, options) {
+        if (!target || typeof target.addEventListener !== "function" || typeof listener !== "function" || scope.aborted) {
+          return () => {
+          };
+        }
+        const capture = typeof options === "boolean" ? options : Boolean(options?.capture);
+        const baseOpts = typeof options === "boolean" ? { capture: options } : options ? { ...options } : {};
+        const listenerOptions = isNativeAbortSignal(controller.signal) ? { ...baseOpts, signal: controller.signal } : typeof options === "boolean" ? options : options || void 0;
+        target.addEventListener(type, listener, listenerOptions);
+        const detach = () => {
+          cleanups.delete(detach);
+          if (typeof target.removeEventListener === "function") {
+            try {
+              target.removeEventListener(type, listener, capture);
+            } catch (_) {
+            }
+          }
+        };
+        cleanups.add(detach);
+        return detach;
+      },
+      setTimeout(fn, delay = 0) {
+        const st = globalThis.setTimeout;
+        const ct = globalThis.clearTimeout;
+        if (scope.aborted || typeof st !== "function") return 0;
+        let timerId = 0;
+        const cancel = () => {
+          cleanups.delete(cancel);
+          if (timerId && typeof ct === "function") {
+            ct(timerId);
+            timerId = 0;
+          }
+        };
+        cleanups.add(cancel);
+        timerId = st(() => {
+          cleanups.delete(cancel);
+          timerId = 0;
+          if (!scope.aborted) fn();
+        }, delay);
+        return timerId;
+      },
+      setInterval(fn, delay = 0) {
+        const si = globalThis.setInterval;
+        const ci = globalThis.clearInterval;
+        if (scope.aborted || typeof si !== "function") return 0;
+        let timerId = 0;
+        const cancel = () => {
+          cleanups.delete(cancel);
+          if (timerId && typeof ci === "function") {
+            ci(timerId);
+            timerId = 0;
+          }
+        };
+        cleanups.add(cancel);
+        timerId = si(() => {
+          if (!scope.aborted) fn();
+        }, delay);
+        return timerId;
+      },
+      raf(fn) {
+        const req = globalThis.requestAnimationFrame;
+        const can = globalThis.cancelAnimationFrame;
+        if (scope.aborted) return 0;
+        if (typeof req !== "function") {
+          return scope.setTimeout(() => fn(Date.now()), 0);
+        }
+        let rafId = 0;
+        const cancel = () => {
+          cleanups.delete(cancel);
+          if (rafId && typeof can === "function") {
+            can(rafId);
+            rafId = 0;
+          }
+        };
+        cleanups.add(cancel);
+        rafId = req((ts) => {
+          cleanups.delete(cancel);
+          rafId = 0;
+          if (!scope.aborted) fn(ts);
+        });
+        return rafId;
+      },
+      child() {
+        return createLifecycleScope(controller.signal);
+      }
+    };
+    return scope;
+  }
+
   // src/modules/conflict-recovery.ts
   function initConflictRecovery() {
     if (typeof document === "undefined") return;
+    const rootScope = createLifecycleScope();
+    let listScope = rootScope.child();
+    let editorScope = rootScope.child();
     let root, list, editor, status, refresh;
     let generation = 0, busy = false, inspection = null, preview = null, choices = {};
     const tr = (key) => typeof t === "function" ? t(key) : key;
@@ -67,7 +266,9 @@
     }
     async function loadList(version) {
       const result = await ZoteroBridge.conflictRecovery("list");
-      if (version !== generation) return;
+      if (version !== generation || rootScope.aborted) return;
+      listScope.abort();
+      listScope = rootScope.child();
       list.replaceChildren();
       if (!result.entries.length) list.append(localized("p", "recoveryEmpty", "rf-recovery-help"));
       for (const item of result.entries) {
@@ -79,7 +280,7 @@
         else {
           const open = localized("button", "recoveryOpen");
           open.type = "button";
-          open.addEventListener("click", () => inspect(item.id));
+          listScope.on(open, "click", () => inspect(item.id));
           row.append(open);
         }
         list.append(row);
@@ -96,6 +297,8 @@
       return wrap;
     }
     function compare() {
+      editorScope.abort();
+      editorScope = rootScope.child();
       preview = null;
       editor.replaceChildren();
       editor.append(
@@ -115,7 +318,7 @@
           input.name = `rf-recovery-field-${index}`;
           input.value = side;
           input.checked = choices[row.key] === side;
-          input.addEventListener("change", () => {
+          editorScope.on(input, "change", () => {
             choices[row.key] = side;
             preview = null;
             setBusy(false);
@@ -130,7 +333,7 @@
       const next = localized("button", "recoveryPreview");
       next.type = "button";
       next.dataset.recoveryPreview = "";
-      next.addEventListener("click", () => run(async (version) => {
+      editorScope.on(next, "click", () => run(async (version) => {
         const result = await ZoteroBridge.conflictRecovery("preview", { token: inspection.token, choices: { ...choices } });
         if (version !== generation) return;
         preview = result;
@@ -142,6 +345,8 @@
       setBusy(busy);
     }
     function showPreview() {
+      editorScope.abort();
+      editorScope = rootScope.child();
       editor.replaceChildren(localized("h4", "recoveryPreviewTitle"));
       preview.changes.forEach((row) => {
         const field = element("fieldset", "rf-recovery-row");
@@ -158,14 +363,14 @@
       const actions = element("div", "rf-recovery-actions");
       const back = localized("button", "recoveryBack");
       back.type = "button";
-      back.addEventListener("click", () => {
+      editorScope.on(back, "click", () => {
         compare();
         message("recoveryCompareTitle");
       });
       const apply = localized("button", "recoveryApply");
       apply.type = "button";
       apply.dataset.recoveryApply = "";
-      apply.addEventListener("click", () => {
+      editorScope.on(apply, "click", () => {
         if (pendingEdits()) {
           message("recoveryPending", true);
           return;
@@ -227,7 +432,7 @@
       editor = element("div", "rf-recovery-editor");
       root.append(status, list, editor);
       anchor.after(root);
-      refresh.addEventListener("click", () => run(async (version) => {
+      rootScope.on(refresh, "click", () => run(async (version) => {
         inspection = null;
         preview = null;
         choices = {};
@@ -243,7 +448,7 @@
         return;
       }
       refresh.click();
-      window.addEventListener("message", (event) => {
+      rootScope.on(window, "message", (event) => {
         if (event.data?.type !== "RESEARCHFLOW_DATA_UPDATED" || busy || !inspection) return;
         inspection = null;
         preview = null;
@@ -251,14 +456,15 @@
         editor.replaceChildren();
         message("recoveryInvalidated", true);
       });
-      window.addEventListener("unload", () => {
+      rootScope.on(window, "unload", () => {
         generation++;
         inspection = null;
         preview = null;
+        rootScope.abort();
       }, { once: true });
     }
     window.PaperFlowRecovery = { translate };
-    if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", init, { once: true });
+    if (document.readyState === "loading") rootScope.on(document, "DOMContentLoaded", init, { once: true });
     else init();
   }
   var RFConflictRecovery = {

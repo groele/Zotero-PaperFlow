@@ -1,7 +1,7 @@
 /**
  * Zotero PaperFlow - Extension Shutdown & Lifecycle Teardown
  */
-import { injectedElements, clearWindowListener } from './window-lifecycle.js';
+import { injectedElements, windowScopes, clearWindowListener } from './window-lifecycle.js';
 
 declare var Zotero: any;
 
@@ -19,6 +19,16 @@ export const hostShutdownMethods = {
     this.unregisterMenus();
     clearWindowListener();
 
+    if (this._windowControllers) {
+      for (const ac of this._windowControllers.values()) {
+        try { ac.abort('shutdown'); } catch (_) {}
+      }
+      this._windowControllers.clear();
+    }
+    for (const scope of windowScopes.values()) {
+      try { scope.abort('shutdown'); } catch (_) {}
+    }
+    windowScopes.clear();
     for (const [, elements] of injectedElements) {
       elements.forEach((el: any) => {
         try {

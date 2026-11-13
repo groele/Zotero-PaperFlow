@@ -5,6 +5,7 @@
 import { resolveZoteroItem } from './zotero-bridge/resolver.js';
 import { bridgeMessengerMethods } from './zotero-bridge/messenger.js';
 import { bridgeActionMethods } from './zotero-bridge/actions.js';
+import { createLifecycleScope, type LifecycleScope } from './ui-utils/lifecycle.js';
 
 export { resolveZoteroItem };
 
@@ -18,13 +19,25 @@ export const ZoteroBridge: any = {
   _requestCallbacks: new Map<string, (val: any) => void>(),
   _pendingNavigation: null as any,
   _directPrefObserverSymbol: null as any,
+  _lifecycleScope: null as LifecycleScope | null,
+
+  destroy(): void {
+    this._lifecycleScope?.abort('bridge-destroy');
+    this._lifecycleScope = null;
+    this._requestCallbacks.clear();
+  },
 
   init(): void {
+    this.destroy();
+    const scope = createLifecycleScope();
+    this._lifecycleScope = scope;
+
     this.detectEnvironment();
     this.setupMessageListener();
     this.initDirectPrefObserver();
     if (typeof window !== 'undefined') {
-      window.addEventListener('researchflow-workspace-ready', () => {
+      scope.on(window, 'unload', () => this.destroy(), { once: true });
+      scope.on(window, 'researchflow-workspace-ready', () => {
         if (this._pendingNavigation) {
           const options = this._pendingNavigation;
           this._pendingNavigation = null;
@@ -37,9 +50,8 @@ export const ZoteroBridge: any = {
       document.documentElement.classList.add('zotero-env');
       document.body?.classList?.add('zotero-env');
       this.sendToHost({ type: 'RESEARCHFLOW_READY' });
-      console.log('[ResearchFlow] Running in Zotero environment');
 
-      document.addEventListener('click', (e: any) => {
+      scope.on(document, 'click', (e: any) => {
         const link = e.target?.closest?.('a[href^="http"]');
         if (link && !link.dataset.internal) {
           e.preventDefault();
@@ -63,7 +75,7 @@ export const ZoteroBridge: any = {
 // Initialize bridge
 if (typeof document !== 'undefined') {
   if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', () => ZoteroBridge.init());
+    document.addEventListener('DOMContentLoaded', () => ZoteroBridge.init(), { once: true });
   } else {
     ZoteroBridge.init();
   }

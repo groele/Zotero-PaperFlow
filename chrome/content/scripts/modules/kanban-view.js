@@ -176,19 +176,251 @@ Note: This will also remove ${linkedSubmissions.length} associated submission tr
     }
   });
 
+  // src/modules/ui-utils/lifecycle.ts
+  function createFallbackController() {
+    let aborted = false;
+    let reason;
+    const listeners = /* @__PURE__ */ new Set();
+    const signal = {
+      get aborted() {
+        return aborted;
+      },
+      get reason() {
+        return reason;
+      },
+      addEventListener(type, listener) {
+        if (type !== "abort" || typeof listener !== "function") return;
+        if (aborted) {
+          try {
+            listener({ type: "abort" });
+          } catch (_) {
+          }
+          return;
+        }
+        listeners.add(listener);
+      },
+      removeEventListener(type, listener) {
+        if (type !== "abort") return;
+        listeners.delete(listener);
+      }
+    };
+    return {
+      signal,
+      abort(nextReason) {
+        if (aborted) return;
+        aborted = true;
+        reason = nextReason;
+        const snapshot = Array.from(listeners);
+        listeners.clear();
+        for (const listener of snapshot) {
+          try {
+            listener({ type: "abort" });
+          } catch (_) {
+          }
+        }
+      }
+    };
+  }
+  function isNativeAbortSignal(signal) {
+    return typeof AbortSignal !== "undefined" && signal instanceof AbortSignal;
+  }
+  function createLifecycleScope(parentSignal) {
+    const controller = typeof AbortController !== "undefined" ? new AbortController() : createFallbackController();
+    const cleanups = /* @__PURE__ */ new Set();
+    let localAborted = false;
+    const runCleanups = () => {
+      const snapshot = Array.from(cleanups);
+      cleanups.clear();
+      for (const cleanup of snapshot) {
+        try {
+          cleanup();
+        } catch (_) {
+        }
+      }
+    };
+    const abort = (reason) => {
+      if (localAborted) return;
+      localAborted = true;
+      try {
+        controller.abort(reason);
+      } catch (_) {
+      }
+      runCleanups();
+    };
+    if (parentSignal) {
+      if (parentSignal.aborted) {
+        abort(parentSignal.reason);
+      } else if (typeof parentSignal.addEventListener === "function") {
+        const onParentAbort = () => abort(parentSignal.reason);
+        parentSignal.addEventListener("abort", onParentAbort, { once: true });
+        cleanups.add(() => {
+          try {
+            parentSignal.removeEventListener?.("abort", onParentAbort);
+          } catch (_) {
+          }
+        });
+      }
+    }
+    const scope = {
+      signal: controller.signal,
+      get aborted() {
+        return localAborted || Boolean(controller.signal?.aborted);
+      },
+      abort,
+      onAbort(fn) {
+        if (typeof fn !== "function") return () => {
+        };
+        if (scope.aborted) {
+          try {
+            fn();
+          } catch (_) {
+          }
+          return () => {
+          };
+        }
+        cleanups.add(fn);
+        return () => {
+          cleanups.delete(fn);
+        };
+      },
+      on(target, type, listener, options) {
+        if (!target || typeof target.addEventListener !== "function" || typeof listener !== "function" || scope.aborted) {
+          return () => {
+          };
+        }
+        const capture = typeof options === "boolean" ? options : Boolean(options?.capture);
+        const baseOpts = typeof options === "boolean" ? { capture: options } : options ? { ...options } : {};
+        const listenerOptions = isNativeAbortSignal(controller.signal) ? { ...baseOpts, signal: controller.signal } : typeof options === "boolean" ? options : options || void 0;
+        target.addEventListener(type, listener, listenerOptions);
+        const detach = () => {
+          cleanups.delete(detach);
+          if (typeof target.removeEventListener === "function") {
+            try {
+              target.removeEventListener(type, listener, capture);
+            } catch (_) {
+            }
+          }
+        };
+        cleanups.add(detach);
+        return detach;
+      },
+      setTimeout(fn, delay = 0) {
+        const st = globalThis.setTimeout;
+        const ct = globalThis.clearTimeout;
+        if (scope.aborted || typeof st !== "function") return 0;
+        let timerId = 0;
+        const cancel = () => {
+          cleanups.delete(cancel);
+          if (timerId && typeof ct === "function") {
+            ct(timerId);
+            timerId = 0;
+          }
+        };
+        cleanups.add(cancel);
+        timerId = st(() => {
+          cleanups.delete(cancel);
+          timerId = 0;
+          if (!scope.aborted) fn();
+        }, delay);
+        return timerId;
+      },
+      setInterval(fn, delay = 0) {
+        const si = globalThis.setInterval;
+        const ci = globalThis.clearInterval;
+        if (scope.aborted || typeof si !== "function") return 0;
+        let timerId = 0;
+        const cancel = () => {
+          cleanups.delete(cancel);
+          if (timerId && typeof ci === "function") {
+            ci(timerId);
+            timerId = 0;
+          }
+        };
+        cleanups.add(cancel);
+        timerId = si(() => {
+          if (!scope.aborted) fn();
+        }, delay);
+        return timerId;
+      },
+      raf(fn) {
+        const req = globalThis.requestAnimationFrame;
+        const can = globalThis.cancelAnimationFrame;
+        if (scope.aborted) return 0;
+        if (typeof req !== "function") {
+          return scope.setTimeout(() => fn(Date.now()), 0);
+        }
+        let rafId = 0;
+        const cancel = () => {
+          cleanups.delete(cancel);
+          if (rafId && typeof can === "function") {
+            can(rafId);
+            rafId = 0;
+          }
+        };
+        cleanups.add(cancel);
+        rafId = req((ts) => {
+          cleanups.delete(cancel);
+          rafId = 0;
+          if (!scope.aborted) fn(ts);
+        });
+        return rafId;
+      },
+      child() {
+        return createLifecycleScope(controller.signal);
+      }
+    };
+    return scope;
+  }
+  function resetWeakScope(registry, key, parentSignal) {
+    const prev = registry.get(key);
+    if (prev) prev.abort("re-bind");
+    const next = createLifecycleScope(parentSignal);
+    registry.set(key, next);
+    next.onAbort(() => {
+      if (registry.get(key) === next) {
+        registry.delete(key);
+      }
+    });
+    return next;
+  }
+  function acquireModalScope() {
+    const g = typeof globalThis !== "undefined" ? globalThis : typeof window !== "undefined" ? window : {};
+    if (typeof g?.getModalLifecycleScope === "function") {
+      return g.getModalLifecycleScope();
+    }
+    const scope = createLifecycleScope();
+    const register = g?.registerModalCleanup || (typeof window !== "undefined" ? window.registerModalCleanup : null);
+    if (typeof register === "function") {
+      register(() => scope.abort("modal-closed"));
+    }
+    return scope;
+  }
+  var init_lifecycle = __esm({
+    "src/modules/ui-utils/lifecycle.ts"() {
+      "use strict";
+    }
+  });
+
   // src/modules/kanban-view/zotero-drawer.ts
-  function bindZoteroReadingAssetsDrawer(state) {
+  function bindZoteroReadingAssetsDrawer(state, parentScope) {
     const w = window;
-    document.getElementById("btn-zotero-toggle-annos")?.addEventListener("click", async () => {
+    const modalScope = parentScope || acquireModalScope();
+    let drawerContentScope = modalScope.child();
+    modalScope.on(document.getElementById("btn-zotero-toggle-annos"), "click", async () => {
       const panel = document.getElementById("man-zotero-annotations-panel");
       if (!panel || !state.currentZoteroItemKey || typeof ZoteroBridge === "undefined") return;
       if (panel.style.display !== "none") {
+        drawerContentScope.abort("drawer-collapsed");
         panel.style.display = "none";
         return;
       }
+      drawerContentScope.abort("drawer-reload");
+      drawerContentScope = modalScope.child();
+      const contentScope = drawerContentScope;
       panel.style.display = "flex";
       w.RFUI.setHTML(panel, '<div style="font-size:11px; color:#64748b; padding:8px; text-align:center;">⏳ 正在读取 Zotero 研读资产库 (PDF划线、独立笔记、分类标签)...</div>');
       const assets = typeof ZoteroBridge.getReadingAssets === "function" ? await ZoteroBridge.getReadingAssets(state.currentZoteroItemKey, state.currentZoteroLibraryID) : { annotations: await ZoteroBridge.getAnnotations(state.currentZoteroItemKey, state.currentZoteroLibraryID), notes: [], collections: [], tags: [] };
+      if (contentScope.aborted || panel.style.display === "none") return;
       const annos = assets.annotations || [];
       const notes = assets.notes || [];
       const collections = assets.collections || [];
@@ -204,7 +436,7 @@ Note: This will also remove ${linkedSubmissions.length} associated submission tr
       <div id="zotero-tab-content-meta" class="zotero-drawer-section" style="display:none;"></div>
     `);
       panel.querySelectorAll(".zotero-drawer-tab").forEach((tabBtn) => {
-        tabBtn.addEventListener("click", (e) => {
+        contentScope.on(tabBtn, "click", (e) => {
           e.preventDefault();
           panel.querySelectorAll(".zotero-drawer-tab").forEach((b) => b.classList.remove("active"));
           tabBtn.classList.add("active");
@@ -217,12 +449,12 @@ Note: This will also remove ${linkedSubmissions.length} associated submission tr
           if (secMeta) secMeta.style.display = targetTab === "meta" ? "flex" : "none";
         });
       });
-      populateZoteroAnnosTab(panel, annos, state);
-      populateZoteroNotesTab(panel, notes, state);
-      populateZoteroMetaTab(panel, collections, tags);
+      populateZoteroAnnosTab(panel, annos, state, contentScope);
+      populateZoteroNotesTab(panel, notes, state, contentScope);
+      populateZoteroMetaTab(panel, collections, tags, contentScope);
     });
   }
-  function populateZoteroAnnosTab(panel, annos, state) {
+  function populateZoteroAnnosTab(panel, annos, state, contentScope) {
     const w = window;
     const annosContainer = panel.querySelector("#zotero-tab-content-annos");
     if (!annosContainer) return;
@@ -237,7 +469,7 @@ Note: This will also remove ${linkedSubmissions.length} associated submission tr
       <span>共检测到 <strong>${annos.length}</strong> 条 PDF 批注划线</span>
       <button type="button" class="btn-secondary" id="btn-batch-insert-annos" style="font-size:10px; padding:2px 8px; color:var(--text-accent, #e11d48); font-weight:600; cursor:pointer;">➕ 全部汇入研读草稿</button>
     `);
-      batchBar.querySelector("#btn-batch-insert-annos")?.addEventListener("click", () => {
+      contentScope.on(batchBar.querySelector("#btn-batch-insert-annos"), "click", () => {
         const absBox = document.getElementById("man-abstract");
         if (absBox) {
           const allQuotes = annos.filter((a) => a.text || a.comment).map((a) => `> "${a.text || a.comment}" (第 ${a.page} 页)`).join("\n\n");
@@ -265,7 +497,7 @@ ${allQuotes}`.trim();
         <button type="button" class="btn-secondary btn-quote-jump" style="font-size:10px; padding:2px 6px;">📖 原文第 ${a.page} 页</button>
       </div>
     `);
-      itemEl.querySelector(".btn-quote-insert")?.addEventListener("click", () => {
+      contentScope.on(itemEl.querySelector(".btn-quote-insert"), "click", () => {
         const absBox = document.getElementById("man-abstract");
         if (absBox) {
           absBox.value = `${absBox.value}
@@ -274,7 +506,7 @@ ${allQuotes}`.trim();
           showGlobalToast("已将划线批注插入到研读草稿中", "success");
         }
       });
-      itemEl.querySelector(".btn-quote-jump")?.addEventListener("click", () => {
+      contentScope.on(itemEl.querySelector(".btn-quote-jump"), "click", () => {
         if (state.currentZoteroItemKey && typeof ZoteroBridge !== "undefined") {
           ZoteroBridge.openPdf(state.currentZoteroItemKey, a.pageIndex + 1, state.currentZoteroLibraryID);
         }
@@ -282,7 +514,7 @@ ${allQuotes}`.trim();
       annosContainer.appendChild(itemEl);
     });
   }
-  function populateZoteroNotesTab(panel, notes, state) {
+  function populateZoteroNotesTab(panel, notes, state, contentScope) {
     const w = window;
     const notesContainer = panel.querySelector("#zotero-tab-content-notes");
     if (!notesContainer) return;
@@ -304,7 +536,7 @@ ${allQuotes}`.trim();
         <button type="button" class="btn-secondary btn-locate-note" style="font-size:10px; padding:2px 6px;">🔗 定位笔记</button>
       </div>
     `);
-      noteEl.querySelector(".btn-insert-note")?.addEventListener("click", () => {
+      contentScope.on(noteEl.querySelector(".btn-insert-note"), "click", () => {
         const absBox = document.getElementById("man-abstract");
         if (absBox) {
           absBox.value = `${absBox.value}
@@ -314,13 +546,13 @@ ${n.snippet || ""}`.trim();
           showGlobalToast("已将文献笔记插入到研读草稿中", "success");
         }
       });
-      noteEl.querySelector(".btn-locate-note")?.addEventListener("click", () => {
+      contentScope.on(noteEl.querySelector(".btn-locate-note"), "click", () => {
         if (typeof ZoteroBridge !== "undefined") ZoteroBridge.selectItemInZotero(n.key, state.currentZoteroLibraryID);
       });
       notesContainer.appendChild(noteEl);
     });
   }
-  function populateZoteroMetaTab(panel, collections, tags) {
+  function populateZoteroMetaTab(panel, collections, tags, contentScope) {
     const w = window;
     const metaContainer = panel.querySelector("#zotero-tab-content-meta");
     if (!metaContainer) return;
@@ -357,7 +589,7 @@ ${n.snippet || ""}`.trim();
         tagsWrap.appendChild(tagPill);
       });
       tagSection.appendChild(tagsWrap);
-      tagSection.querySelector("#btn-extract-tags-to-notes")?.addEventListener("click", () => {
+      contentScope.on(tagSection.querySelector("#btn-extract-tags-to-notes"), "click", () => {
         const absBox = document.getElementById("man-abstract");
         if (absBox) {
           absBox.value = `${absBox.value}
@@ -372,24 +604,31 @@ ${n.snippet || ""}`.trim();
       w.RFUI.setHTML(metaContainer, '<div style="font-size:11px; color:#64748b; padding:8px; text-align:center;">该文献暂未分配分类目录与标签。</div>');
     }
   }
-  function bindZoteroLiveSearchDropdown(applyItemToForm) {
+  function bindZoteroLiveSearchDropdown(applyItemToForm, parentScope) {
     const w = window;
     const searchInput = document.getElementById("ipt-zotero-live-search");
     const dropdown = document.getElementById("zotero-search-results-dropdown");
-    let searchTimer = null;
     if (!searchInput || !dropdown) return;
-    searchInput.addEventListener("input", (e) => {
+    const modalScope = parentScope || acquireModalScope();
+    let searchTimerScope = modalScope.child();
+    let dropdownListScope = modalScope.child();
+    modalScope.on(searchInput, "input", (e) => {
       const query = e.target.value.trim();
-      clearTimeout(searchTimer);
+      searchTimerScope.abort("search-debounce");
+      searchTimerScope = modalScope.child();
+      const activeSearchScope = searchTimerScope;
       if (query.length < 2) {
         dropdown.style.display = "none";
         w.RFUI.setHTML(dropdown, "");
         return;
       }
-      searchTimer = setTimeout(async () => {
+      activeSearchScope.setTimeout(async () => {
         w.RFUI.setHTML(dropdown, `<div class="zotero-search-empty">🔍 ${escapeHTML(currentLanguage === "zh" ? "检索中..." : "Searching...")}</div>`);
         dropdown.style.display = "block";
         const results = typeof ZoteroBridge !== "undefined" ? await ZoteroBridge.searchLibrary(query, 10) : [];
+        if (activeSearchScope.aborted) return;
+        dropdownListScope.abort("refresh-results");
+        dropdownListScope = modalScope.child();
         if (!results || results.length === 0) {
           w.RFUI.setHTML(dropdown, `<div class="zotero-search-empty">${escapeHTML(currentLanguage === "zh" ? "未找到匹配的 Zotero 文献" : "No matching Zotero items found")}</div>`);
           return;
@@ -402,7 +641,7 @@ ${n.snippet || ""}`.trim();
           <div class="zotero-search-result-title">${escapeHTML(res.title || "无标题文献")}</div>
           <div class="zotero-search-result-meta">${escapeHTML(res.authors || "")} ${res.year ? `· ${escapeHTML(res.year)}` : ""} ${res.publication ? `· ${escapeHTML(res.publication)}` : ""}</div>
         `);
-          itemEl.addEventListener("click", () => {
+          dropdownListScope.on(itemEl, "click", () => {
             applyItemToForm(res);
             dropdown.style.display = "none";
             searchInput.value = "";
@@ -411,37 +650,27 @@ ${n.snippet || ""}`.trim();
         });
       }, 220);
     });
-    if (activeManuscriptDropdownOutsideClick) {
-      document.removeEventListener("click", activeManuscriptDropdownOutsideClick);
-      activeManuscriptDropdownOutsideClick = null;
-    }
-    activeManuscriptDropdownOutsideClick = (e) => {
+    modalScope.on(document, "click", (e) => {
       if (!searchInput.contains?.(e.target) && !dropdown.contains?.(e.target)) {
         dropdown.style.display = "none";
       }
-    };
-    document.addEventListener("click", activeManuscriptDropdownOutsideClick);
-    if (typeof registerModalCleanup === "function") {
-      registerModalCleanup(() => {
-        if (activeManuscriptDropdownOutsideClick) {
-          document.removeEventListener("click", activeManuscriptDropdownOutsideClick);
-          activeManuscriptDropdownOutsideClick = null;
-        }
-      });
-    }
+    });
   }
-  var activeManuscriptDropdownOutsideClick;
   var init_zotero_drawer = __esm({
     "src/modules/kanban-view/zotero-drawer.ts"() {
       "use strict";
-      activeManuscriptDropdownOutsideClick = null;
+      init_lifecycle();
     }
   });
 
   // src/modules/kanban-view/zotero-modal-binder.ts
-  function setupZoteroModalBindings(state) {
+  function setupZoteroModalBindings(state, parentScope) {
     const w = window;
+    const modalScope = parentScope || acquireModalScope();
+    let bindUiScope = modalScope.child();
     const updateZoteroBindUI = (item) => {
+      bindUiScope.abort("refresh-bind-ui");
+      bindUiScope = modalScope.child();
       const statusEl = document.getElementById("zotero-bind-status");
       const pdfBtn = document.getElementById("btn-zotero-open-pdf");
       const syncBtn = document.getElementById("btn-zotero-sync-note");
@@ -467,7 +696,7 @@ ${n.snippet || ""}`.trim();
             citeEl.className = "zotero-citekey-badge";
             citeEl.textContent = `[@${state.currentCiteKey}]`;
             citeEl.title = "点击复制 Citation Key";
-            citeEl.addEventListener("click", (e) => {
+            bindUiScope.on(citeEl, "click", (e) => {
               e.stopPropagation();
               if (typeof ZoteroBridge !== "undefined") ZoteroBridge.copyText(`[@${state.currentCiteKey}]`, `已复制 Citation Key: [@${state.currentCiteKey}]`);
             });
@@ -491,7 +720,7 @@ ${n.snippet || ""}`.trim();
             chip.className = "zotero-related-chip";
             chip.textContent = `${(r.title || "").slice(0, 16)}… (${r.year || ""})`;
             chip.title = `${r.title} - ${r.authors} (点击在文献库定位)`;
-            chip.addEventListener("click", () => {
+            bindUiScope.on(chip, "click", () => {
               if (typeof ZoteroBridge !== "undefined") ZoteroBridge.selectItemInZotero(r.key);
             });
             relChips.appendChild(chip);
@@ -530,16 +759,17 @@ ${n.snippet || ""}`.trim();
       showGlobalToast(`已关联并填充文献《${(item.title || "").slice(0, 18)}…》元数据`, "success");
       if (typeof ZoteroBridge !== "undefined") ZoteroBridge.showNativeToast("文献已关联", item.title, "success");
     };
-    setTimeout(async () => {
+    modalScope.setTimeout(async () => {
       try {
         if (typeof ZoteroBridge !== "undefined" && !state.currentZoteroItemKey && ZoteroBridge.getPref("autoLinkSelectedPaper", true)) {
           const activeItem = await ZoteroBridge.getActiveItem();
+          if (modalScope.aborted) return;
           const banner = document.getElementById("zotero-active-item-banner");
           const textEl = document.getElementById("zotero-active-item-text");
           if (activeItem?.title && banner && textEl) {
             w.RFUI.setHTML(textEl, `📌 <strong>检测到 Zotero 选中文献：</strong>《${escapeHTML(activeItem.title)}》`);
             banner.style.display = "flex";
-            document.getElementById("btn-zotero-quick-bind-active")?.addEventListener("click", () => {
+            modalScope.on(document.getElementById("btn-zotero-quick-bind-active"), "click", () => {
               applyItemToForm(activeItem);
               banner.style.display = "none";
             });
@@ -548,50 +778,52 @@ ${n.snippet || ""}`.trim();
       } catch (_) {
       }
     }, 60);
-    document.getElementById("zotero-bind-status")?.addEventListener("click", () => {
+    modalScope.on(document.getElementById("zotero-bind-status"), "click", () => {
       const sc = document.getElementById("zotero-search-container");
       if (sc) {
         sc.style.display = "block";
         document.getElementById("ipt-zotero-live-search")?.focus();
       }
     });
-    document.getElementById("btn-zotero-toggle-search")?.addEventListener("click", () => {
+    modalScope.on(document.getElementById("btn-zotero-toggle-search"), "click", () => {
       const sc = document.getElementById("zotero-search-container");
       if (sc) {
         sc.style.display = sc.style.display === "none" ? "block" : "none";
         if (sc.style.display === "block") document.getElementById("ipt-zotero-live-search")?.focus();
       }
     });
-    document.getElementById("zotero-modal-citekey")?.addEventListener("click", (e) => {
+    modalScope.on(document.getElementById("zotero-modal-citekey"), "click", (e) => {
       e.stopPropagation();
       if (state.currentCiteKey && typeof ZoteroBridge !== "undefined") ZoteroBridge.copyText(`[@${state.currentCiteKey}]`, `已复制 Citation Key: [@${state.currentCiteKey}]`);
     });
-    document.getElementById("btn-zotero-copy-bib")?.addEventListener("click", () => {
+    modalScope.on(document.getElementById("btn-zotero-copy-bib"), "click", () => {
       if (state.currentBibtex && typeof ZoteroBridge !== "undefined") ZoteroBridge.copyText(state.currentBibtex, "已复制 BibTeX 引用条目");
     });
-    document.getElementById("btn-zotero-copy-apa")?.addEventListener("click", () => {
+    modalScope.on(document.getElementById("btn-zotero-copy-apa"), "click", () => {
       if (state.currentCitationApa && typeof ZoteroBridge !== "undefined") ZoteroBridge.copyText(state.currentCitationApa, "已复制标准引用 (APA)");
     });
-    bindZoteroReadingAssetsDrawer(state);
-    bindZoteroLiveSearchDropdown(applyItemToForm);
-    document.getElementById("btn-zotero-fetch-active")?.addEventListener("click", async () => {
+    bindZoteroReadingAssetsDrawer(state, modalScope);
+    bindZoteroLiveSearchDropdown(applyItemToForm, modalScope);
+    modalScope.on(document.getElementById("btn-zotero-fetch-active"), "click", async () => {
       const activeItem = typeof ZoteroBridge !== "undefined" ? await ZoteroBridge.getActiveItem() : null;
+      if (modalScope.aborted) return;
       if (activeItem) applyItemToForm(activeItem);
       else showGlobalToast("未在 Zotero 中检测到选中条目，请在文献库中单击选中目标论文。", "warning");
     });
-    document.getElementById("btn-zotero-open-pdf")?.addEventListener("click", () => {
+    modalScope.on(document.getElementById("btn-zotero-open-pdf"), "click", () => {
       if (state.currentZoteroItemKey && typeof ZoteroBridge !== "undefined") ZoteroBridge.openPdf(state.currentZoteroItemKey, null, state.currentZoteroLibraryID);
     });
-    document.getElementById("btn-zotero-sync-note")?.addEventListener("click", async () => {
+    modalScope.on(document.getElementById("btn-zotero-sync-note"), "click", async () => {
       if (state.currentZoteroItemKey && typeof ZoteroBridge !== "undefined") {
         const ok = await ZoteroBridge.syncNote(state.currentZoteroItemKey, state.currentZoteroLibraryID);
+        if (modalScope.aborted) return;
         showGlobalToast(ok ? "已同步审稿进展至 Zotero 云端笔记！" : "同步失败，请检查条目是否存在", ok ? "success" : "error");
       }
     });
-    document.getElementById("btn-zotero-locate")?.addEventListener("click", () => {
+    modalScope.on(document.getElementById("btn-zotero-locate"), "click", () => {
       if (state.currentZoteroItemKey && typeof ZoteroBridge !== "undefined") ZoteroBridge.selectItemInZotero(state.currentZoteroItemKey, state.currentZoteroLibraryID);
     });
-    document.getElementById("btn-zotero-unlink")?.addEventListener("click", () => {
+    modalScope.on(document.getElementById("btn-zotero-unlink"), "click", () => {
       updateZoteroBindUI(null);
       showGlobalToast("已解除 Zotero 文献绑定", "info");
     });
@@ -600,6 +832,7 @@ ${n.snippet || ""}`.trim();
     "src/modules/kanban-view/zotero-modal-binder.ts"() {
       "use strict";
       init_zotero_drawer();
+      init_lifecycle();
     }
   });
 
@@ -727,15 +960,16 @@ ${n.snippet || ""}`.trim();
       </div>
     </div>
   `);
-    document.getElementById("btn-cancel-man")?.addEventListener("click", closeModal);
-    document.getElementById("btn-modal-delete-man")?.addEventListener("click", () => {
+    const modalScope = acquireModalScope();
+    modalScope.on(document.getElementById("btn-cancel-man"), "click", closeModal);
+    modalScope.on(document.getElementById("btn-modal-delete-man"), "click", () => {
       closeModal();
       deleteManuscript(man.id);
     });
     if (isZoteroEnv) {
-      setupZoteroModalBindings(state);
+      setupZoteroModalBindings(state, modalScope);
     }
-    document.getElementById("btn-submit-man")?.addEventListener("click", async () => {
+    modalScope.on(document.getElementById("btn-submit-man"), "click", async () => {
       const title = (document.getElementById("man-title")?.value || "").trim();
       const status = document.getElementById("man-status")?.value || "idea";
       const journal = (document.getElementById("man-journal")?.value || "").trim();
@@ -828,12 +1062,14 @@ ${n.snippet || ""}`.trim();
       "use strict";
       init_status_helpers();
       init_board_renderer();
+      init_zotero_drawer();
       init_zotero_modal_binder();
+      init_lifecycle();
     }
   });
 
   // src/modules/kanban-view/card-builder.ts
-  function buildKanbanCard(m, linkedSubmission, onReRender, removeDropPlaceholders) {
+  function buildKanbanCard(m, linkedSubmission, onReRender, removeDropPlaceholders, parentSignal) {
     const w = window;
     const currentJournal = linkedSubmission?.targetJournal || linkedSubmission?.journalName || m.targetJournals?.[0] || (currentLanguage === "zh" ? "待定" : "TBD");
     const card = document.createElement("div");
@@ -890,19 +1126,20 @@ ${n.snippet || ""}`.trim();
       </div>
     </div>
   `);
-    card.addEventListener("dragstart", (e) => {
+    const cardScope = resetWeakScope(kanbanCardScopes, card, parentSignal);
+    cardScope.on(card, "dragstart", (e) => {
       card.classList.add("dragging");
       e.dataTransfer?.setData("text/plain", m.id);
     });
-    card.addEventListener("dragend", () => {
+    cardScope.on(card, "dragend", () => {
       card.classList.remove("dragging");
       removeDropPlaceholders();
     });
-    card.querySelector(".btn-open-linked-submission")?.addEventListener("click", (event) => {
+    cardScope.on(card.querySelector(".btn-open-linked-submission"), "click", (event) => {
       event.stopPropagation();
       navigateToSubmissionDetails(event.currentTarget.dataset.subId);
     });
-    card.querySelector(`#sel-man-status-${m.id}`)?.addEventListener("change", async (e) => {
+    cardScope.on(card.querySelector(`#sel-man-status-${m.id}`), "change", async (e) => {
       const boardEl = document.querySelector(".kanban-board");
       const beforeRects = w.RFUI?.captureElementRects?.(boardEl, ".kanban-card[data-manuscript-id]", "data-manuscript-id");
       try {
@@ -934,23 +1171,24 @@ ${n.snippet || ""}`.trim();
         showGlobalToast(error.message || t("autoSaveFailed"), "error");
       }
     });
-    card.addEventListener("click", (e) => {
+    cardScope.on(card, "click", (e) => {
       if (e.target.closest?.("button, select, a, input, textarea, .zotero-card-badge, .zotero-pdf-badge, .zotero-citekey-badge")) return;
       if (m.zoteroItemKey && typeof ZoteroBridge !== "undefined" && ZoteroBridge.getPref("locateOnManuscriptClick", true)) {
         ZoteroBridge.selectItemInZotero(m.zoteroItemKey, m.zoteroLibraryID);
       }
     });
-    card.querySelector(`#btn-edit-man-${m.id}`)?.addEventListener("click", () => openManuscriptModal(m));
-    card.querySelector(`#btn-delete-man-${m.id}`)?.addEventListener("click", (e) => {
+    cardScope.on(card.querySelector(`#btn-edit-man-${m.id}`), "click", () => openManuscriptModal(m));
+    cardScope.on(card.querySelector(`#btn-delete-man-${m.id}`), "click", (e) => {
       e.stopPropagation();
       deleteManuscript(m.id);
     });
-    bindKanbanCardBadges(card, m, onReRender);
+    bindKanbanCardBadges(card, m, onReRender, cardScope);
     return card;
   }
-  function bindKanbanCardBadges(card, m, onReRender) {
+  function bindKanbanCardBadges(card, m, onReRender, existingScope) {
     const w = window;
-    card.querySelector(`#btn-link-this-${m.id}`)?.addEventListener("click", async (e) => {
+    const scope = existingScope || resetWeakScope(kanbanCardScopes, card);
+    scope.on(card.querySelector(`#btn-link-this-${m.id}`), "click", async (e) => {
       e.stopPropagation();
       const pItem = w._pendingZoteroLinkItem;
       if (!pItem) return;
@@ -968,21 +1206,21 @@ ${n.snippet || ""}`.trim();
         ZoteroBridge.syncNote(m.zoteroItemKey, m.zoteroLibraryID);
       }
     });
-    card.querySelector(".zotero-card-badge")?.addEventListener("click", (e) => {
+    scope.on(card.querySelector(".zotero-card-badge"), "click", (e) => {
       e.stopPropagation();
       const key = e.currentTarget.dataset.itemKey;
       if (key && typeof ZoteroBridge !== "undefined") {
         ZoteroBridge.selectItemInZotero(key, m.zoteroLibraryID);
       }
     });
-    card.querySelector(".zotero-pdf-badge")?.addEventListener("click", (e) => {
+    scope.on(card.querySelector(".zotero-pdf-badge"), "click", (e) => {
       e.stopPropagation();
       const key = e.currentTarget.dataset.itemKey;
       if (key && typeof ZoteroBridge !== "undefined") {
         ZoteroBridge.openPdf(key, m.zoteroLibraryID);
       }
     });
-    card.querySelector(".zotero-citekey-badge")?.addEventListener("click", (e) => {
+    scope.on(card.querySelector(".zotero-citekey-badge"), "click", (e) => {
       e.stopPropagation();
       const ck = e.currentTarget.dataset.citekey;
       if (ck) {
@@ -992,7 +1230,7 @@ ${n.snippet || ""}`.trim();
         showGlobalToast(`已复制引文命令：\\cite{${ck}}`, "info");
       }
     });
-    card.querySelector(".zotero-sync-note-badge")?.addEventListener("click", async (e) => {
+    scope.on(card.querySelector(".zotero-sync-note-badge"), "click", async (e) => {
       e.stopPropagation();
       const key = e.currentTarget.dataset.itemKey;
       if (key && typeof ZoteroBridge !== "undefined") {
@@ -1001,11 +1239,14 @@ ${n.snippet || ""}`.trim();
       }
     });
   }
+  var kanbanCardScopes;
   var init_card_builder = __esm({
     "src/modules/kanban-view/card-builder.ts"() {
       "use strict";
       init_status_helpers();
       init_manuscript_modal();
+      init_lifecycle();
+      kanbanCardScopes = /* @__PURE__ */ new WeakMap();
     }
   });
 
@@ -1016,6 +1257,11 @@ ${n.snippet || ""}`.trim();
   function renderKanban() {
     const w = window;
     if (w.RFUI?.isViewDeferred?.("view-manuscripts")) return;
+    bannerScope?.abort("re-render");
+    bannerScope = null;
+    kanbanCardsScope?.abort("re-render");
+    const renderScope = createLifecycleScope();
+    kanbanCardsScope = renderScope;
     const columns = ["idea", "drafting", "submitted", "accepted"];
     columns.forEach((col) => {
       w.RFUI.setHTML(document.getElementById(`cards-${col}`), "");
@@ -1042,7 +1288,8 @@ ${n.snippet || ""}`.trim();
       </div>
       <button class="btn-secondary" id="btn-cancel-zotero-link" style="padding:4px 10px; font-size:12px;">取消关联</button>
     `);
-      document.getElementById("btn-cancel-zotero-link")?.addEventListener("click", () => {
+      bannerScope = renderScope.child();
+      bannerScope.on(document.getElementById("btn-cancel-zotero-link"), "click", () => {
         w._pendingZoteroLinkItem = null;
         renderKanban();
       });
@@ -1064,7 +1311,7 @@ ${n.snippet || ""}`.trim();
       else if (m.status === "accepted" || m.status === "published") col = "accepted";
       mCount[col]++;
       const linkedSubmission = w.RFCore.getCurrentSubmission(db, m.id);
-      const card = buildKanbanCard(m, linkedSubmission, renderKanban, removeKanbanDropPlaceholders);
+      const card = buildKanbanCard(m, linkedSubmission, renderKanban, removeKanbanDropPlaceholders, renderScope.signal);
       document.getElementById(`cards-${col}`)?.appendChild(card);
     });
     bindKanbanColumnsAndPlaceholders(columns, mCount, visibleManuscripts.length);
@@ -1151,11 +1398,15 @@ ${n.snippet || ""}`.trim();
     setText("#kanban-stage-summary", tf("kanbanStageSummary", { count: columns.filter((col) => mCount[col] > 0).length, total: columns.length }));
     updateKanbanEmptyColumns();
   }
+  var bannerScope, kanbanCardsScope;
   var init_board_renderer = __esm({
     "src/modules/kanban-view/board-renderer.ts"() {
       "use strict";
       init_status_helpers();
       init_card_builder();
+      init_lifecycle();
+      bannerScope = null;
+      kanbanCardsScope = null;
     }
   });
 

@@ -3,6 +3,9 @@
  */
 import { deleteManuscript, persistManuscriptStatusChange } from './status-helpers.js';
 import { openManuscriptModal } from './manuscript-modal.js';
+import { resetWeakScope, type LifecycleScope, type LifecycleSignal } from '../ui-utils/lifecycle.js';
+
+const kanbanCardScopes = new WeakMap<HTMLElement, LifecycleScope>();
 
 declare const db: any;
 declare const currentLanguage: string;
@@ -22,7 +25,8 @@ export function buildKanbanCard(
   m: any,
   linkedSubmission: any,
   onReRender: () => void,
-  removeDropPlaceholders: () => void
+  removeDropPlaceholders: () => void,
+  parentSignal?: AbortSignal | LifecycleSignal | null
 ): HTMLElement {
   const w = window as any;
   const currentJournal = linkedSubmission?.targetJournal || linkedSubmission?.journalName || m.targetJournals?.[0] || (currentLanguage === 'zh' ? '待定' : 'TBD');
@@ -87,22 +91,24 @@ export function buildKanbanCard(
     </div>
   `);
 
-  card.addEventListener('dragstart', (e: DragEvent) => {
+  const cardScope = resetWeakScope(kanbanCardScopes, card, parentSignal);
+
+  cardScope.on(card, 'dragstart', (e: DragEvent) => {
     card.classList.add('dragging');
     e.dataTransfer?.setData('text/plain', m.id);
   });
 
-  card.addEventListener('dragend', () => {
+  cardScope.on(card, 'dragend', () => {
     card.classList.remove('dragging');
     removeDropPlaceholders();
   });
 
-  card.querySelector('.btn-open-linked-submission')?.addEventListener('click', (event: any) => {
+  cardScope.on(card.querySelector('.btn-open-linked-submission'), 'click', (event: any) => {
     event.stopPropagation();
     navigateToSubmissionDetails(event.currentTarget.dataset.subId);
   });
 
-  card.querySelector(`#sel-man-status-${m.id}`)?.addEventListener('change', async (e: any) => {
+  cardScope.on(card.querySelector(`#sel-man-status-${m.id}`), 'change', async (e: any) => {
     const boardEl = document.querySelector('.kanban-board');
     const beforeRects = w.RFUI?.captureElementRects?.(boardEl, '.kanban-card[data-manuscript-id]', 'data-manuscript-id');
     try {
@@ -135,26 +141,32 @@ export function buildKanbanCard(
     }
   });
 
-  card.addEventListener('click', (e: any) => {
+  cardScope.on(card, 'click', (e: any) => {
     if (e.target.closest?.('button, select, a, input, textarea, .zotero-card-badge, .zotero-pdf-badge, .zotero-citekey-badge')) return;
     if (m.zoteroItemKey && typeof ZoteroBridge !== 'undefined' && ZoteroBridge.getPref('locateOnManuscriptClick', true)) {
       ZoteroBridge.selectItemInZotero(m.zoteroItemKey, m.zoteroLibraryID);
     }
   });
 
-  card.querySelector(`#btn-edit-man-${m.id}`)?.addEventListener('click', () => openManuscriptModal(m));
-  card.querySelector(`#btn-delete-man-${m.id}`)?.addEventListener('click', (e) => {
+  cardScope.on(card.querySelector(`#btn-edit-man-${m.id}`), 'click', () => openManuscriptModal(m));
+  cardScope.on(card.querySelector(`#btn-delete-man-${m.id}`), 'click', (e: Event) => {
     e.stopPropagation();
     deleteManuscript(m.id);
   });
 
-  bindKanbanCardBadges(card, m, onReRender);
+  bindKanbanCardBadges(card, m, onReRender, cardScope);
   return card;
 }
 
-export function bindKanbanCardBadges(card: HTMLElement, m: any, onReRender: () => void): void {
+export function bindKanbanCardBadges(
+  card: HTMLElement,
+  m: any,
+  onReRender: () => void,
+  existingScope?: LifecycleScope
+): void {
   const w = window as any;
-  card.querySelector(`#btn-link-this-${m.id}`)?.addEventListener('click', async (e) => {
+  const scope = existingScope || resetWeakScope(kanbanCardScopes, card);
+  scope.on(card.querySelector(`#btn-link-this-${m.id}`), 'click', async (e: Event) => {
     e.stopPropagation();
     const pItem = w._pendingZoteroLinkItem;
     if (!pItem) return;
@@ -173,7 +185,7 @@ export function bindKanbanCardBadges(card: HTMLElement, m: any, onReRender: () =
     }
   });
 
-  card.querySelector('.zotero-card-badge')?.addEventListener('click', (e: any) => {
+  scope.on(card.querySelector('.zotero-card-badge'), 'click', (e: any) => {
     e.stopPropagation();
     const key = e.currentTarget.dataset.itemKey;
     if (key && typeof ZoteroBridge !== 'undefined') {
@@ -181,7 +193,7 @@ export function bindKanbanCardBadges(card: HTMLElement, m: any, onReRender: () =
     }
   });
 
-  card.querySelector('.zotero-pdf-badge')?.addEventListener('click', (e: any) => {
+  scope.on(card.querySelector('.zotero-pdf-badge'), 'click', (e: any) => {
     e.stopPropagation();
     const key = e.currentTarget.dataset.itemKey;
     if (key && typeof ZoteroBridge !== 'undefined') {
@@ -189,7 +201,7 @@ export function bindKanbanCardBadges(card: HTMLElement, m: any, onReRender: () =
     }
   });
 
-  card.querySelector('.zotero-citekey-badge')?.addEventListener('click', (e: any) => {
+  scope.on(card.querySelector('.zotero-citekey-badge'), 'click', (e: any) => {
     e.stopPropagation();
     const ck = e.currentTarget.dataset.citekey;
     if (ck) {
@@ -200,7 +212,7 @@ export function bindKanbanCardBadges(card: HTMLElement, m: any, onReRender: () =
     }
   });
 
-  card.querySelector('.zotero-sync-note-badge')?.addEventListener('click', async (e: any) => {
+  scope.on(card.querySelector('.zotero-sync-note-badge'), 'click', async (e: any) => {
     e.stopPropagation();
     const key = e.currentTarget.dataset.itemKey;
     if (key && typeof ZoteroBridge !== 'undefined') {

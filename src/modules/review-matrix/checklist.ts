@@ -1,8 +1,12 @@
 /**
  * Zotero PaperFlow - Submission Compliance Checklist Helpers
  */
+import { createLifecycleScope, type LifecycleScope } from '../ui-utils/lifecycle.js';
+
 declare var submissionComplianceChecklistPresets: any[];
 declare function escapeHTML(value: any): string;
+
+let checklistEditorScope: LifecycleScope | null = null;
 
 export function getSubmissionChecklistPreset(key: string): any | null {
   return submissionComplianceChecklistPresets.find((preset: any) => preset.key === key) || null;
@@ -66,6 +70,9 @@ export function collectSubmissionChecklistKeysFromEditor(): string[] {
 export function renderSubmissionChecklistEditor(sub: any, checklistKeys = getSubmissionChecklistKeys(sub)): void {
   const checklistBox = document.getElementById('sub-edit-compliance-checklist-container');
   if (!checklistBox) return;
+  checklistEditorScope?.abort('re-render');
+  const scope = createLifecycleScope();
+  checklistEditorScope = scope;
 
   window.RFUI.setHTML(checklistBox, checklistKeys.map((key: string) => {
     const isDone = isSubmissionChecklistDone(sub, key);
@@ -83,7 +90,7 @@ export function renderSubmissionChecklistEditor(sub: any, checklistKeys = getSub
   checklistBox.querySelectorAll('[data-checklist-item]').forEach((item: any) => {
     const key = item.getAttribute('data-checklist-key');
     const checkbox = item.querySelector('input[type="checkbox"]');
-    checkbox?.addEventListener('change', (e: any) => {
+    scope.on(checkbox, 'change', (e: any) => {
       item.classList.toggle('done', e.target.checked);
       setSubmissionChecklistDone(sub, key, e.target.checked);
     });

@@ -12,6 +12,9 @@ import { openLinkSubmissionModal, renderSubmissions } from './list-and-portals';
 import { openAcademicRebuttalExportModal } from './rebuttal-export-modal';
 import { openTransferSubmissionModal } from './modals-and-creation';
 import { setSelectedSubmissionId, clearSubmissionAutoSave } from './submission-state';
+import { createLifecycleScope, type LifecycleScope } from '../ui-utils/lifecycle.js';
+
+let detailsRenderScope: LifecycleScope | null = null;
 
 declare var db: any;
 declare const currentLanguage: string;
@@ -40,6 +43,9 @@ declare function showGlobalToast(message: string, type?: string, duration?: numb
 
 export function renderSubmissionDetails(sub: any): void {
   const w = window as any;
+  detailsRenderScope?.abort('re-render');
+  const detailScope = createLifecycleScope();
+  detailsRenderScope = detailScope;
   clearSubmissionAutoSave();
   sub.status = normalizeSubmissionStatus(sub.status);
   normalizeSubmissionTimeline(sub);
@@ -128,7 +134,7 @@ export function renderSubmissionDetails(sub: any): void {
   detailPanel.dataset.currentSubmissionId = sub.id;
   detailPanel.scrollTop = 0;
 
-  bindSubmissionDetailListeners(sub, man);
+  bindSubmissionDetailListeners(sub, man, detailScope);
   const checklistKeys = getSubmissionChecklistKeys(sub);
   renderSubmissionChecklistEditor(sub, checklistKeys);
   renderSubmissionReviewMatrixEditor(sub, manAbstract);
@@ -271,34 +277,36 @@ function buildEditorPanelHtml(d: any): string {
   `;
 }
 
-function bindSubmissionDetailListeners(sub: any, man: any): void {
+function bindSubmissionDetailListeners(sub: any, man: any, detailScope: LifecycleScope): void {
   const w = window as any;
   const journalName = getSubmissionJournalName(sub);
-  document.getElementById('btn-link-submission-manuscript')?.addEventListener('click', () => openLinkSubmissionModal(sub));
-  document.getElementById('btn-focus-edit-center')?.addEventListener('click', (e) => { e.preventDefault(); focusSubmissionEditCenter(); });
-  document.getElementById('btn-mark-sub-rejected')?.addEventListener('click', async () => {
+  detailScope.on(document.getElementById('btn-link-submission-manuscript'), 'click', () => openLinkSubmissionModal(sub));
+  detailScope.on(document.getElementById('btn-focus-edit-center'), 'click', (e: Event) => { e.preventDefault(); focusSubmissionEditCenter(); });
+  detailScope.on(document.getElementById('btn-mark-sub-rejected'), 'click', async () => {
     if (!confirm(t('confirmMarkRejected'))) return;
     markSubmissionRejected(sub, todayString());
     syncManuscriptStatusFromSubmission(sub);
     await w.storage.saveAll(db);
+    if (detailScope.aborted) return;
     renderDashboard();
     renderKanban();
     renderSubmissions();
     renderSubmissionDetails(sub);
     showGlobalToast(t('rejectedToast'), 'success');
   });
-  document.getElementById('btn-share-sub-journey')?.addEventListener('click', (e: any) => {
+  detailScope.on(document.getElementById('btn-share-sub-journey'), 'click', (e: any) => {
     e.stopPropagation();
     const shareFn = (w as any).openSubmissionSharePreview || (w as any).openSubmissionShareModal;
     if (typeof shareFn === 'function') shareFn(sub.id, e.currentTarget);
   });
-  document.getElementById('btn-transfer-submission')?.addEventListener('click', () => openTransferSubmissionModal(sub));
-  document.getElementById('btn-delete-sub')?.addEventListener('click', async () => {
+  detailScope.on(document.getElementById('btn-transfer-submission'), 'click', () => openTransferSubmissionModal(sub));
+  detailScope.on(document.getElementById('btn-delete-sub'), 'click', async () => {
     if (confirm(t('confirmDeleteSubmission'))) {
       w.storage.recordEntityDeletion(db, 'submissions', sub.id);
       syncManuscriptStatusesFromSubmissions(db);
       setSelectedSubmissionId(null);
       await w.storage.saveAll(db);
+      if (detailScope.aborted) return;
       renderDashboard();
       renderKanban();
       renderSubmissions();
@@ -308,22 +316,24 @@ function bindSubmissionDetailListeners(sub: any, man: any): void {
     }
   });
 
-  document.getElementById('btn-sync-submission-to-zotero')?.addEventListener('click', async () => {
+  detailScope.on(document.getElementById('btn-sync-submission-to-zotero'), 'click', async () => {
     if (typeof ZoteroBridge !== 'undefined' && man?.zoteroItemKey) {
       const btn = document.getElementById('btn-sync-submission-to-zotero') as HTMLButtonElement | null;
       if (btn) btn.disabled = true;
       try {
         const ok = await ZoteroBridge.syncNote(man.zoteroItemKey, man.zoteroLibraryID);
-        showGlobalToast(ok ? (currentLanguage === 'zh' ? '已成功同步审稿记录与修回矩阵至 Zotero 笔记' : 'Successfully synced review & rebuttal matrix to Zotero note') : (currentLanguage === 'zh' ? '同步至 Zotero 笔记失败' : 'Failed to sync to Zotero note'), ok ? 'success' : 'error');
+        if (!detailScope.aborted) {
+          showGlobalToast(ok ? (currentLanguage === 'zh' ? '已成功同步审稿记录与修回矩阵至 Zotero 笔记' : 'Successfully synced review & rebuttal matrix to Zotero note') : (currentLanguage === 'zh' ? '同步至 Zotero 笔记失败' : 'Failed to sync to Zotero note'), ok ? 'success' : 'error');
+        }
       } catch (e: any) { showGlobalToast(String(e.message || e), 'error'); }
-      setTimeout(() => { if (btn) btn.disabled = false; }, 1200);
+      detailScope.setTimeout(() => { if (btn) btn.disabled = false; }, 1200);
     }
   });
 
   const detailPanel = document.getElementById('submission-detail-panel');
-  detailPanel?.querySelector('#sub-detail-zotero-badge')?.addEventListener('click', () => { if (man?.zoteroItemKey && typeof ZoteroBridge !== 'undefined') ZoteroBridge.selectItemInZotero(man.zoteroItemKey, man.zoteroLibraryID); });
-  detailPanel?.querySelector('#sub-detail-citekey-badge')?.addEventListener('click', () => { if (man?.citekey && typeof ZoteroBridge !== 'undefined') ZoteroBridge.copyText(`[@${man.citekey}]`, currentLanguage === 'zh' ? `已复制 Citation Key: [@${man.citekey}]` : `Copied Citation Key: [@${man.citekey}]`); });
-  detailPanel?.querySelector('#sub-detail-pdf-badge')?.addEventListener('click', () => { if (man?.zoteroItemKey && typeof ZoteroBridge !== 'undefined') ZoteroBridge.openPdf(man.zoteroItemKey, null, man.zoteroLibraryID); });
+  detailScope.on(detailPanel?.querySelector('#sub-detail-zotero-badge'), 'click', () => { if (man?.zoteroItemKey && typeof ZoteroBridge !== 'undefined') ZoteroBridge.selectItemInZotero(man.zoteroItemKey, man.zoteroLibraryID); });
+  detailScope.on(detailPanel?.querySelector('#sub-detail-citekey-badge'), 'click', () => { if (man?.citekey && typeof ZoteroBridge !== 'undefined') ZoteroBridge.copyText(`[@${man.citekey}]`, currentLanguage === 'zh' ? `已复制 Citation Key: [@${man.citekey}]` : `Copied Citation Key: [@${man.citekey}]`); });
+  detailScope.on(detailPanel?.querySelector('#sub-detail-pdf-badge'), 'click', () => { if (man?.zoteroItemKey && typeof ZoteroBridge !== 'undefined') ZoteroBridge.openPdf(man.zoteroItemKey, null, man.zoteroLibraryID); });
 
   const triggerSubIcs = () => {
     if (!sub.revisionDueDate) { showGlobalToast(currentLanguage === 'zh' ? '请先设置修回截止日期' : 'Please set revision due date first', 'warning'); return; }
@@ -333,7 +343,7 @@ function bindSubmissionDetailListeners(sub: any, man: any): void {
       showGlobalToast(t('calendarExportedToast') || (currentLanguage === 'zh' ? '修回截止日历 (.ics) 已导出！' : 'Revision deadline calendar (.ics) exported.'), 'success');
     }
   };
-  detailPanel?.querySelector('#btn-export-submission-ics')?.addEventListener('click', triggerSubIcs);
-  detailPanel?.querySelector('#btn-editor-due-ics')?.addEventListener('click', triggerSubIcs);
-  document.getElementById('btn-export-rebuttal-table')?.addEventListener('click', () => openAcademicRebuttalExportModal(sub, man));
+  detailScope.on(detailPanel?.querySelector('#btn-export-submission-ics'), 'click', triggerSubIcs);
+  detailScope.on(detailPanel?.querySelector('#btn-editor-due-ics'), 'click', triggerSubIcs);
+  detailScope.on(document.getElementById('btn-export-rebuttal-table'), 'click', () => openAcademicRebuttalExportModal(sub, man));
 }

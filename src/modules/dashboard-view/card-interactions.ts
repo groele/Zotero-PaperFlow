@@ -17,10 +17,67 @@ declare function openTimelineEventManager(subId: string): void;
 declare function renderDashboard(): void;
 declare function showGlobalToast(message: string, type?: string): void;
 
+interface LocalScope {
+  on: (target: any, type: string, listener: (...args: any[]) => any, options?: any) => void;
+  abort: (reason?: unknown) => void;
+}
+
+function createCardScope(): LocalScope {
+  const rfui = typeof globalThis !== 'undefined' ? (globalThis as any).RFUI : null;
+  if (rfui && typeof rfui.createLifecycleScope === 'function') {
+    return rfui.createLifecycleScope();
+  }
+  const ac = typeof AbortController !== 'undefined' ? new AbortController() : null;
+  const cleanups: Array<() => void> = [];
+  let aborted = false;
+  return {
+    on(target: any, type: string, listener: (...args: any[]) => any, options?: any) {
+      if (!target || typeof target.addEventListener !== 'function' || aborted) return;
+      const capture = typeof options === 'boolean' ? options : Boolean(options?.capture);
+      const opts = ac?.signal
+        ? (typeof options === 'boolean' ? { capture, signal: ac.signal } : { ...(options || {}), signal: ac.signal })
+        : options;
+      target.addEventListener(type, listener, opts);
+      cleanups.push(() => {
+        target.removeEventListener?.(type, listener, capture);
+      });
+    },
+    abort(reason?: unknown) {
+      if (aborted) return;
+      aborted = true;
+      try { ac?.abort(reason); } catch (_) {}
+      for (const fn of cleanups.splice(0)) {
+        try { fn(); } catch (_) {}
+      }
+    }
+  };
+}
+
+export const pipelineCardScopes = new WeakMap<HTMLElement, LocalScope>();
+let saveErrorScope: LocalScope | null = null;
+let dashboardFilterScope: LocalScope | null = null;
+
+export function disposePipelineCardInteractions(card: HTMLElement | null | undefined): void {
+  if (!card) return;
+  const existing = pipelineCardScopes.get(card);
+  if (existing) {
+    pipelineCardScopes.delete(card);
+    existing.abort('card-removed');
+  }
+}
+
+if (typeof globalThis !== 'undefined') {
+  (globalThis as any).disposePipelineCardInteractions = disposePipelineCardInteractions;
+}
+
 export function bindPipelineCardInteractions(card: HTMLElement, sub: any): void {
+  disposePipelineCardInteractions(card);
+  const cardScope = createCardScope();
+  pipelineCardScopes.set(card, cardScope);
+
   // 1. Interactive timeline dots in Col 2
   card.querySelectorAll('.dot.interactive-dot').forEach((dot: any) => {
-    dot.addEventListener('click', (e: Event) => {
+    cardScope.on(dot, 'click', (e: Event) => {
       e.stopPropagation();
       const nodeId = dot.getAttribute('data-node-id');
       const subId = dot.getAttribute('data-sub-id') || sub.id;
@@ -31,7 +88,7 @@ export function bindPipelineCardInteractions(card: HTMLElement, sub: any): void 
   // 2. Latest node window in Col 3
   const latestWindow = card.querySelector('.latest-window');
   if (latestWindow) {
-    latestWindow.addEventListener('click', (e: Event) => {
+    cardScope.on(latestWindow, 'click', (e: Event) => {
       e.stopPropagation();
       const latestId = latestWindow.getAttribute('data-latest-id');
       const subId = latestWindow.getAttribute('data-sub-id') || sub.id;
@@ -45,7 +102,7 @@ export function bindPipelineCardInteractions(card: HTMLElement, sub: any): void 
 
   // 3. Action buttons in Col 1
   card.querySelectorAll('.btn-pipeline-open').forEach((btn: any) => {
-    btn.addEventListener('click', (e: Event) => {
+    cardScope.on(btn, 'click', (e: Event) => {
       e.stopPropagation();
       try {
         const g = typeof window !== 'undefined' ? (window as any) : (globalThis as any);
@@ -60,7 +117,7 @@ export function bindPipelineCardInteractions(card: HTMLElement, sub: any): void 
   });
 
   card.querySelectorAll('.btn-pipeline-add, .btn-quick-add-event').forEach((btn: any) => {
-    btn.addEventListener('click', (e: Event) => {
+    cardScope.on(btn, 'click', (e: Event) => {
       e.stopPropagation();
       try {
         const g = typeof window !== 'undefined' ? (window as any) : (globalThis as any);
@@ -76,7 +133,7 @@ export function bindPipelineCardInteractions(card: HTMLElement, sub: any): void 
   });
 
   card.querySelectorAll('.btn-pipeline-manage').forEach((btn: any) => {
-    btn.addEventListener('click', (e: Event) => {
+    cardScope.on(btn, 'click', (e: Event) => {
       e.stopPropagation();
       try {
         const g = typeof window !== 'undefined' ? (window as any) : (globalThis as any);
@@ -91,7 +148,7 @@ export function bindPipelineCardInteractions(card: HTMLElement, sub: any): void 
   });
 
   card.querySelectorAll('.btn-pipeline-share, .btn-quick-share').forEach((btn: any) => {
-    btn.addEventListener('click', (e: Event) => {
+    cardScope.on(btn, 'click', (e: Event) => {
       e.stopPropagation();
       try {
         const g = typeof window !== 'undefined' ? (window as any) : (globalThis as any);
@@ -106,7 +163,7 @@ export function bindPipelineCardInteractions(card: HTMLElement, sub: any): void 
   });
 
   // 4. Zotero Badges in Col 1
-  card.querySelector('.zotero-card-badge')?.addEventListener('click', (e: Event) => {
+  cardScope.on(card.querySelector('.zotero-card-badge'), 'click', (e: Event) => {
     e.stopPropagation();
     const badge = e.currentTarget as HTMLElement;
     const key = badge.getAttribute('data-item-key');
@@ -117,7 +174,7 @@ export function bindPipelineCardInteractions(card: HTMLElement, sub: any): void 
     }
   });
 
-  card.querySelector('.zotero-citekey-badge')?.addEventListener('click', (e: Event) => {
+  cardScope.on(card.querySelector('.zotero-citekey-badge'), 'click', (e: Event) => {
     e.stopPropagation();
     const badge = e.currentTarget as HTMLElement;
     const ck = badge.getAttribute('data-citekey');
@@ -127,7 +184,7 @@ export function bindPipelineCardInteractions(card: HTMLElement, sub: any): void 
     }
   });
 
-  card.querySelector('.zotero-pdf-badge')?.addEventListener('click', (e: Event) => {
+  cardScope.on(card.querySelector('.zotero-pdf-badge'), 'click', (e: Event) => {
     e.stopPropagation();
     const badge = e.currentTarget as HTMLElement;
     const key = badge.getAttribute('data-item-key');
@@ -139,7 +196,7 @@ export function bindPipelineCardInteractions(card: HTMLElement, sub: any): void 
   });
 
   // 5. Inline Stage Editor bindings
-  card.querySelector('.btn-inline-stage-cancel')?.addEventListener('click', (e: Event) => {
+  cardScope.on(card.querySelector('.btn-inline-stage-cancel'), 'click', (e: Event) => {
     e.stopPropagation();
     const btn = e.currentTarget as HTMLButtonElement;
     if (btn?.disabled) return;
@@ -149,20 +206,20 @@ export function bindPipelineCardInteractions(card: HTMLElement, sub: any): void 
 
   const inlineEditor = card.querySelector('.inline-stage-editor') as HTMLElement | null;
   if (inlineEditor) {
-    inlineEditor.querySelector('.inline-stage-key')?.addEventListener('change', () => {
+    cardScope.on(inlineEditor.querySelector('.inline-stage-key'), 'change', () => {
       syncInlineStagePreset(inlineEditor);
     });
-    inlineEditor.querySelector('.inline-stage-type')?.addEventListener('change', () => {
+    cardScope.on(inlineEditor.querySelector('.inline-stage-type'), 'change', () => {
       syncInlineStagePreset(inlineEditor);
     });
-    inlineEditor.querySelector('.inline-stage-deadline')?.addEventListener('input', () => {
+    cardScope.on(inlineEditor.querySelector('.inline-stage-deadline'), 'input', () => {
       updateInlineStageDeadlineStatus(inlineEditor);
     });
-    inlineEditor.querySelector('.btn-inline-stage-reset')?.addEventListener('click', (e: Event) => {
+    cardScope.on(inlineEditor.querySelector('.btn-inline-stage-reset'), 'click', (e: Event) => {
       e.stopPropagation();
       resetInlineStageEditor(inlineEditor);
     });
-    inlineEditor.querySelector('.btn-inline-stage-save')?.addEventListener('click', async (e: Event) => {
+    cardScope.on(inlineEditor.querySelector('.btn-inline-stage-save'), 'click', async (e: Event) => {
       e.stopPropagation();
       const saveBtn = inlineEditor.querySelector('.btn-inline-stage-save') as HTMLButtonElement | null;
       if (saveBtn?.disabled) return;
@@ -177,7 +234,7 @@ export function bindPipelineCardInteractions(card: HTMLElement, sub: any): void 
         if (inlineEditor.isConnected) setInlineStageBusy(inlineEditor, false, errorMessage);
       }
     });
-    inlineEditor.addEventListener('keydown', (event: any) => {
+    cardScope.on(inlineEditor, 'keydown', (event: any) => {
       if (event.key !== 'Escape' || inlineEditor.querySelector('.btn-inline-stage-save')?.hasAttribute('disabled')) return;
       event.preventDefault();
       event.stopPropagation();
@@ -185,7 +242,7 @@ export function bindPipelineCardInteractions(card: HTMLElement, sub: any): void 
       (card.querySelector('.btn-pipeline-add') as HTMLElement)?.focus?.();
     });
     inlineEditor.querySelectorAll('.inline-stage-fields input').forEach((input: any) => {
-      input.addEventListener('keydown', (event: any) => {
+      cardScope.on(input, 'keydown', (event: any) => {
         if (event.key !== 'Enter' || event.isComposing) return;
         event.preventDefault();
         (inlineEditor.querySelector('.btn-inline-stage-save') as HTMLButtonElement)?.click?.();
@@ -196,12 +253,16 @@ export function bindPipelineCardInteractions(card: HTMLElement, sub: any): void 
 
 export function setupSaveErrorListener(): void {
   if (typeof window === 'undefined' || typeof window.addEventListener !== 'function') return;
-  window.addEventListener('researchflow-save-state', (event: any) => {
+  saveErrorScope?.abort('rebind');
+  const scope = createCardScope();
+  saveErrorScope = scope;
+  scope.on(window, 'researchflow-save-state', (event: any) => {
     const { state, error } = event.detail || {};
     const curLang = typeof (window as any).currentLanguage !== 'undefined' ? (window as any).currentLanguage : 'en';
     if (state === 'error') showGlobalToast(error || (curLang === 'zh' ? '保存失败，请重试' : 'Save failed, please retry'), 'error');
     if (state === 'pending') showGlobalToast(t('saveNewEditsPending'), 'info');
   });
+  scope.on(window, 'unload', () => scope.abort('unload'), { once: true });
 }
 
 export function setupDashboardFilterListeners(): void {
@@ -211,6 +272,13 @@ export function setupDashboardFilterListeners(): void {
 
   if (!cardAccepted || !cardActive || !cardAll) return;
 
+  dashboardFilterScope?.abort('rebind');
+  const scope = createCardScope();
+  dashboardFilterScope = scope;
+  if (typeof window !== 'undefined') {
+    scope.on(window, 'unload', () => scope.abort('unload'), { once: true });
+  }
+
   const clearActiveClasses = () => {
     [cardAccepted, cardActive, cardAll].forEach((c) => {
       c.classList.remove('active');
@@ -218,7 +286,7 @@ export function setupDashboardFilterListeners(): void {
     });
   };
 
-  cardAccepted.addEventListener('click', () => {
+  scope.on(cardAccepted, 'click', () => {
     (window as any).currentDashboardFilter = 'accepted';
     clearActiveClasses();
     cardAccepted.classList.add('active');
@@ -226,7 +294,7 @@ export function setupDashboardFilterListeners(): void {
     renderDashboard();
   });
 
-  cardActive.addEventListener('click', () => {
+  scope.on(cardActive, 'click', () => {
     (window as any).currentDashboardFilter = 'active';
     clearActiveClasses();
     cardActive.classList.add('active');
@@ -234,7 +302,7 @@ export function setupDashboardFilterListeners(): void {
     renderDashboard();
   });
 
-  cardAll.addEventListener('click', () => {
+  scope.on(cardAll, 'click', () => {
     (window as any).currentDashboardFilter = 'all';
     clearActiveClasses();
     cardAll.classList.add('active');

@@ -2,6 +2,7 @@ import { deleteManuscript } from './status-helpers';
 import { renderKanban } from './board-renderer';
 import { type ZoteroModalBindState } from './zotero-drawer';
 import { setupZoteroModalBindings } from './zotero-modal-binder';
+import { acquireModalScope } from '../ui-utils/lifecycle.js';
 
 declare const db: any;
 declare const currentLanguage: string;
@@ -156,17 +157,18 @@ export function openManuscriptModal(man: any = null, prefill: any = null): void 
     </div>
   `);
 
-  document.getElementById('btn-cancel-man')?.addEventListener('click', closeModal);
-  document.getElementById('btn-modal-delete-man')?.addEventListener('click', () => {
+  const modalScope = acquireModalScope();
+  modalScope.on(document.getElementById('btn-cancel-man'), 'click', closeModal);
+  modalScope.on(document.getElementById('btn-modal-delete-man'), 'click', () => {
     closeModal();
     deleteManuscript(man.id);
   });
 
   if (isZoteroEnv) {
-    setupZoteroModalBindings(state);
+    setupZoteroModalBindings(state, modalScope);
   }
 
-  document.getElementById('btn-submit-man')?.addEventListener('click', async () => {
+  modalScope.on(document.getElementById('btn-submit-man'), 'click', async () => {
     const title = ((document.getElementById('man-title') as HTMLInputElement | null)?.value || '').trim();
     const status = (document.getElementById('man-status') as HTMLSelectElement | null)?.value || 'idea';
     const journal = ((document.getElementById('man-journal') as HTMLInputElement | null)?.value || '').trim();

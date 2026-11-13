@@ -352,6 +352,14 @@
     }
     return rects;
   }
+  var activeFlipTimers = /* @__PURE__ */ new WeakMap();
+  var allFlipTimers = /* @__PURE__ */ new Set();
+  if (typeof window !== "undefined" && typeof window.addEventListener === "function") {
+    window.addEventListener("unload", () => {
+      allFlipTimers.forEach((id) => clearTimeout(id));
+      allFlipTimers.clear();
+    }, { once: true });
+  }
   function playFlipAnimation(container, selector, keyAttr, prevRects, highlightClass = "") {
     if (!container || !prevRects || prevRects.size === 0 || prefersReducedMotion()) return;
     if (typeof container.querySelectorAll !== "function") return;
@@ -364,27 +372,299 @@
         const dx = (first.left || 0) - (last.left || 0);
         const dy = (first.top || 0) - (last.top || 0);
         if (Math.abs(dx) < 1 && Math.abs(dy) < 1) return;
+        let timers = activeFlipTimers.get(el);
+        if (!timers) {
+          timers = {};
+          activeFlipTimers.set(el, timers);
+        }
         if (el.style) {
+          if (timers.transformTimer !== void 0) {
+            clearTimeout(timers.transformTimer);
+            allFlipTimers.delete(timers.transformTimer);
+          }
           el.style.transition = "none";
           el.style.transform = `translate(${dx}px, ${dy}px)`;
           void el.offsetWidth;
           el.style.transition = "transform 240ms cubic-bezier(0.22, 1, 0.36, 1)";
           el.style.transform = "translate(0, 0)";
-          setTimeout(() => {
+          const tId = setTimeout(() => {
+            allFlipTimers.delete(tId);
+            if (timers) timers.transformTimer = void 0;
             if (el.style) {
               el.style.transition = "";
               el.style.transform = "";
             }
           }, 260);
+          timers.transformTimer = tId;
+          allFlipTimers.add(tId);
         }
         if (highlightClass && el.classList?.add) {
+          if (timers.highlightTimer !== void 0) {
+            clearTimeout(timers.highlightTimer);
+            allFlipTimers.delete(timers.highlightTimer);
+          }
           el.classList.remove(highlightClass);
           void el.offsetWidth;
           el.classList.add(highlightClass);
-          setTimeout(() => el.classList?.remove?.(highlightClass), 700);
+          const hId = setTimeout(() => {
+            allFlipTimers.delete(hId);
+            if (timers) timers.highlightTimer = void 0;
+            el.classList?.remove?.(highlightClass);
+          }, 700);
+          timers.highlightTimer = hId;
+          allFlipTimers.add(hId);
         }
       });
     } catch (_) {
+    }
+  }
+
+  // src/modules/ui-utils/lifecycle.ts
+  function createFallbackController() {
+    let aborted = false;
+    let reason;
+    const listeners = /* @__PURE__ */ new Set();
+    const signal = {
+      get aborted() {
+        return aborted;
+      },
+      get reason() {
+        return reason;
+      },
+      addEventListener(type, listener) {
+        if (type !== "abort" || typeof listener !== "function") return;
+        if (aborted) {
+          try {
+            listener({ type: "abort" });
+          } catch (_) {
+          }
+          return;
+        }
+        listeners.add(listener);
+      },
+      removeEventListener(type, listener) {
+        if (type !== "abort") return;
+        listeners.delete(listener);
+      }
+    };
+    return {
+      signal,
+      abort(nextReason) {
+        if (aborted) return;
+        aborted = true;
+        reason = nextReason;
+        const snapshot = Array.from(listeners);
+        listeners.clear();
+        for (const listener of snapshot) {
+          try {
+            listener({ type: "abort" });
+          } catch (_) {
+          }
+        }
+      }
+    };
+  }
+  function isNativeAbortSignal(signal) {
+    return typeof AbortSignal !== "undefined" && signal instanceof AbortSignal;
+  }
+  function createLifecycleScope(parentSignal) {
+    const controller = typeof AbortController !== "undefined" ? new AbortController() : createFallbackController();
+    const cleanups = /* @__PURE__ */ new Set();
+    let localAborted = false;
+    const runCleanups = () => {
+      const snapshot = Array.from(cleanups);
+      cleanups.clear();
+      for (const cleanup of snapshot) {
+        try {
+          cleanup();
+        } catch (_) {
+        }
+      }
+    };
+    const abort = (reason) => {
+      if (localAborted) return;
+      localAborted = true;
+      try {
+        controller.abort(reason);
+      } catch (_) {
+      }
+      runCleanups();
+    };
+    if (parentSignal) {
+      if (parentSignal.aborted) {
+        abort(parentSignal.reason);
+      } else if (typeof parentSignal.addEventListener === "function") {
+        const onParentAbort = () => abort(parentSignal.reason);
+        parentSignal.addEventListener("abort", onParentAbort, { once: true });
+        cleanups.add(() => {
+          try {
+            parentSignal.removeEventListener?.("abort", onParentAbort);
+          } catch (_) {
+          }
+        });
+      }
+    }
+    const scope = {
+      signal: controller.signal,
+      get aborted() {
+        return localAborted || Boolean(controller.signal?.aborted);
+      },
+      abort,
+      onAbort(fn) {
+        if (typeof fn !== "function") return () => {
+        };
+        if (scope.aborted) {
+          try {
+            fn();
+          } catch (_) {
+          }
+          return () => {
+          };
+        }
+        cleanups.add(fn);
+        return () => {
+          cleanups.delete(fn);
+        };
+      },
+      on(target, type, listener, options) {
+        if (!target || typeof target.addEventListener !== "function" || typeof listener !== "function" || scope.aborted) {
+          return () => {
+          };
+        }
+        const capture = typeof options === "boolean" ? options : Boolean(options?.capture);
+        const baseOpts = typeof options === "boolean" ? { capture: options } : options ? { ...options } : {};
+        const listenerOptions = isNativeAbortSignal(controller.signal) ? { ...baseOpts, signal: controller.signal } : typeof options === "boolean" ? options : options || void 0;
+        target.addEventListener(type, listener, listenerOptions);
+        const detach = () => {
+          cleanups.delete(detach);
+          if (typeof target.removeEventListener === "function") {
+            try {
+              target.removeEventListener(type, listener, capture);
+            } catch (_) {
+            }
+          }
+        };
+        cleanups.add(detach);
+        return detach;
+      },
+      setTimeout(fn, delay = 0) {
+        const st = globalThis.setTimeout;
+        const ct = globalThis.clearTimeout;
+        if (scope.aborted || typeof st !== "function") return 0;
+        let timerId = 0;
+        const cancel = () => {
+          cleanups.delete(cancel);
+          if (timerId && typeof ct === "function") {
+            ct(timerId);
+            timerId = 0;
+          }
+        };
+        cleanups.add(cancel);
+        timerId = st(() => {
+          cleanups.delete(cancel);
+          timerId = 0;
+          if (!scope.aborted) fn();
+        }, delay);
+        return timerId;
+      },
+      setInterval(fn, delay = 0) {
+        const si = globalThis.setInterval;
+        const ci = globalThis.clearInterval;
+        if (scope.aborted || typeof si !== "function") return 0;
+        let timerId = 0;
+        const cancel = () => {
+          cleanups.delete(cancel);
+          if (timerId && typeof ci === "function") {
+            ci(timerId);
+            timerId = 0;
+          }
+        };
+        cleanups.add(cancel);
+        timerId = si(() => {
+          if (!scope.aborted) fn();
+        }, delay);
+        return timerId;
+      },
+      raf(fn) {
+        const req = globalThis.requestAnimationFrame;
+        const can = globalThis.cancelAnimationFrame;
+        if (scope.aborted) return 0;
+        if (typeof req !== "function") {
+          return scope.setTimeout(() => fn(Date.now()), 0);
+        }
+        let rafId = 0;
+        const cancel = () => {
+          cleanups.delete(cancel);
+          if (rafId && typeof can === "function") {
+            can(rafId);
+            rafId = 0;
+          }
+        };
+        cleanups.add(cancel);
+        rafId = req((ts) => {
+          cleanups.delete(cancel);
+          rafId = 0;
+          if (!scope.aborted) fn(ts);
+        });
+        return rafId;
+      },
+      child() {
+        return createLifecycleScope(controller.signal);
+      }
+    };
+    return scope;
+  }
+  function createScopeRegistry() {
+    const scopes = /* @__PURE__ */ new Map();
+    return {
+      reset(key, parentSignal) {
+        const prev = scopes.get(key);
+        if (prev) prev.abort("re-render");
+        const next = createLifecycleScope(parentSignal);
+        scopes.set(key, next);
+        next.onAbort(() => {
+          if (scopes.get(key) === next) {
+            scopes.delete(key);
+          }
+        });
+        return next;
+      },
+      get(key) {
+        return scopes.get(key);
+      },
+      abort(key, reason) {
+        const existing = scopes.get(key);
+        if (existing) {
+          scopes.delete(key);
+          existing.abort(reason);
+        }
+      },
+      abortAll(reason) {
+        const snapshot = Array.from(scopes.values());
+        scopes.clear();
+        for (const scope of snapshot) {
+          scope.abort(reason);
+        }
+      }
+    };
+  }
+  function resetWeakScope(registry, key, parentSignal) {
+    const prev = registry.get(key);
+    if (prev) prev.abort("re-bind");
+    const next = createLifecycleScope(parentSignal);
+    registry.set(key, next);
+    next.onAbort(() => {
+      if (registry.get(key) === next) {
+        registry.delete(key);
+      }
+    });
+    return next;
+  }
+  function abortWeakScope(registry, key, reason) {
+    const existing = registry.get(key);
+    if (existing) {
+      registry.delete(key);
+      existing.abort(reason);
     }
   }
 
@@ -414,7 +694,11 @@
     prefersReducedMotion,
     animateMetricValue,
     captureElementRects,
-    playFlipAnimation
+    playFlipAnimation,
+    createLifecycleScope,
+    createScopeRegistry,
+    resetWeakScope,
+    abortWeakScope
   };
   if (typeof globalThis !== "undefined") {
     globalThis.RFUI = RFUI;

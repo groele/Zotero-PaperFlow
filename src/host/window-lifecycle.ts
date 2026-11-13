@@ -3,6 +3,7 @@
  */
 import { ADDON_ID, CHROME_ROOT } from '../config.js';
 import { createHostMessageHandler } from './message-handler.js';
+import { createLifecycleScope, type LifecycleScope } from '../modules/ui-utils/lifecycle.js';
 
 declare var Zotero: any;
 declare var Services: any;
@@ -10,13 +11,20 @@ declare var Ci: any;
 
 export const injectedElements = new Map<any, any>();
 export const pendingWindowLoads = new Map<any, any>();
+export const windowScopes = new Map<any, LifecycleScope>();
 let activeWindowListener: any = null;
+let windowListenerScope: LifecycleScope | null = null;
 
 export function getWindowListener() {
   return activeWindowListener;
 }
 
 export function clearWindowListener() {
+  if (windowListenerScope) {
+    windowListenerScope.abort('shutdown');
+    windowListenerScope = null;
+  }
+  pendingWindowLoads.clear();
   if (activeWindowListener && Services.wm?.removeListener) {
     try {
       Services.wm.removeListener(activeWindowListener);
@@ -105,8 +113,11 @@ export const hostWindowLifecycleMethods = {
   },
 
   initWindowListener(this: any) {
+    clearWindowListener();
+    windowListenerScope = createLifecycleScope();
     activeWindowListener = {
       onOpenWindow: (xulWindow: any) => {
+        if (this._disposed || windowListenerScope?.aborted) return;
         let domWindow;
         try {
           domWindow = xulWindow
@@ -118,10 +129,10 @@ export const hostWindowLifecycleMethods = {
         const onLoad = () => {
           domWindow.removeEventListener('load', onLoad, false);
           pendingWindowLoads.delete(domWindow);
-          if (!domWindow.closed) Zotero.ResearchFlow?.addToWindow(domWindow);
+          if (!this._disposed && !domWindow.closed) Zotero.ResearchFlow?.addToWindow(domWindow);
         };
         pendingWindowLoads.set(domWindow, onLoad);
-        domWindow.addEventListener('load', onLoad, { once: true });
+        windowListenerScope?.on(domWindow, 'load', onLoad, { once: true });
         if (domWindow.document?.readyState === 'complete') onLoad();
       },
       onCloseWindow: (xulWindow: any) => {
@@ -140,12 +151,16 @@ export const hostWindowLifecycleMethods = {
   },
 
   addToWindow(this: any, window: any) {
-    if (!window || !window.document) return;
+    if (this._disposed || !window || !window.document) return;
     const doc = window.document;
 
     this.purgeStaleContextMenus(window);
 
     if (doc.getElementById('researchflow-tools-menu')) return;
+
+    windowScopes.get(window)?.abort('re-inject');
+    const winScope = createLifecycleScope();
+    windowScopes.set(window, winScope);
 
     const windowElements: any[] = [];
     this.ensureLocalization(doc);
@@ -158,7 +173,7 @@ export const hostWindowLifecycleMethods = {
       toolsItem.setAttribute('label', 'Zotero PaperFlow 工作台');
       toolsItem.setAttribute('image', `${CHROME_ROOT}icons/researchflow.svg`);
       toolsItem.setAttribute('class', 'menuitem-iconic');
-      toolsItem.addEventListener('command', () => {
+      winScope.on(toolsItem, 'command', () => {
         this.triggerResearchFlowOpen(window);
       });
       toolsPopup.appendChild(toolsItem);
@@ -242,26 +257,26 @@ export const hostWindowLifecycleMethods = {
         }
       }
     };
-    window.addEventListener('keydown', handleGlobalKeyDown, true);
-    windowElements.push({
-      remove: () => window.removeEventListener('keydown', handleGlobalKeyDown, true),
-    });
+    winScope.on(window, 'keydown', handleGlobalKeyDown, true);
 
     // 4. Host-level listener for postMessages from iframes
     const handleHostMessage = createHostMessageHandler(this, window);
-    window.addEventListener('message', handleHostMessage);
-    windowElements.push({
-      remove: () => window.removeEventListener('message', handleHostMessage),
-    });
+    winScope.on(window, 'message', handleHostMessage);
 
     // 5. Toolbar Button Injection
-    this.ensureToolbarButton(window, windowElements);
+    this.ensureToolbarButton(window, windowElements, 0, winScope);
 
     injectedElements.set(window, windowElements);
   },
 
   removeFromWindow(this: any, window: any) {
-    if (!window || !injectedElements.has(window)) return;
+    if (!window) return;
+    const winScope = windowScopes.get(window);
+    if (winScope) {
+      winScope.abort('removeFromWindow');
+      windowScopes.delete(window);
+    }
+    if (!injectedElements.has(window)) return;
     const elements = injectedElements.get(window);
     elements.forEach((el: any) => {
       try {

@@ -32,6 +32,13 @@ import {
   playFlipAnimation
 } from './ui-utils/dom-helpers.js';
 
+import {
+  createLifecycleScope,
+  createScopeRegistry,
+  resetWeakScope,
+  abortWeakScope
+} from './ui-utils/lifecycle.js';
+
 export const RFUI = {
   escapeHTML,
   cleanText,
@@ -57,7 +64,11 @@ export const RFUI = {
   prefersReducedMotion,
   animateMetricValue,
   captureElementRects,
-  playFlipAnimation
+  playFlipAnimation,
+  createLifecycleScope,
+  createScopeRegistry,
+  resetWeakScope,
+  abortWeakScope
 };
 
 if (typeof globalThis !== 'undefined') {

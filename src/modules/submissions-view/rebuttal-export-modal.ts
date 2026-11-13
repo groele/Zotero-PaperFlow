@@ -4,6 +4,7 @@ import {
   copyRebuttalRichText,
 } from './list-and-portals';
 import { getSubmissionReviewMatrixRows } from './checklist-and-matrix';
+import { acquireModalScope } from '../ui-utils/lifecycle.js';
 
 declare const db: any;
 declare const currentLanguage: string;
@@ -116,18 +117,21 @@ export function openAcademicRebuttalExportModal(sub: any, man: any): void {
   };
   updatePreview();
 
+  const modalScope = acquireModalScope();
   tabs.forEach((item) => {
-    item.el?.addEventListener('click', () => { currentFormat = item.id; updatePreview(); });
+    modalScope.on(item.el, 'click', () => { currentFormat = item.id; updatePreview(); });
   });
 
-  document.getElementById('btn-copy-rebuttal-word')?.addEventListener('click', async () => {
+  modalScope.on(document.getElementById('btn-copy-rebuttal-word'), 'click', async () => {
     const activeHtml = currentFormat === 'cover' ? coverHtml : wordHtml;
     const activeText = currentFormat === 'cover' ? coverMd : mdCode;
     await copyRebuttalRichText(activeHtml, activeText);
-    showGlobalToast(t('copyWordSuccess') || (currentLanguage === 'zh' ? '已复制 Word 富文本至剪贴板！可直接粘贴至 Word / WPS。' : 'Copied rich text to clipboard! Ready to paste into Word.'), 'success');
+    if (!modalScope.aborted) {
+      showGlobalToast(t('copyWordSuccess') || (currentLanguage === 'zh' ? '已复制 Word 富文本至剪贴板！可直接粘贴至 Word / WPS。' : 'Copied rich text to clipboard! Ready to paste into Word.'), 'success');
+    }
   });
 
-  document.getElementById('btn-copy-rebuttal-code')?.addEventListener('click', () => {
+  modalScope.on(document.getElementById('btn-copy-rebuttal-code'), 'click', () => {
     let codeToCopy = mdCode;
     if (currentFormat === 'cover') codeToCopy = coverMd;
     else if (currentFormat === 'latex') codeToCopy = latexCode;
@@ -159,21 +163,21 @@ export function openAcademicRebuttalExportModal(sub: any, man: any): void {
     return `${prefix}_${safeId}.${ext}`;
   };
 
-  document.getElementById('btn-download-tex')?.addEventListener('click', () => {
+  modalScope.on(document.getElementById('btn-download-tex'), 'click', () => {
     const content = currentFormat === 'cover' ? coverLatex : latexCode;
     const name = currentFormat === 'cover' ? getExportFilename('cover_letter', 'tex') : getExportFilename('rebuttal_letter', 'tex');
     triggerDownload(content, name, 'text/plain;charset=utf-8');
     showGlobalToast(t('latexDownloaded'), 'success');
   });
 
-  document.getElementById('btn-download-md')?.addEventListener('click', () => {
+  modalScope.on(document.getElementById('btn-download-md'), 'click', () => {
     const content = currentFormat === 'cover' ? coverMd : mdCode;
     const name = currentFormat === 'cover' ? getExportFilename('cover_letter', 'md') : getExportFilename('rebuttal_letter', 'md');
     triggerDownload(content, name, 'text/markdown;charset=utf-8');
     showGlobalToast(currentLanguage === 'zh' ? '已下载学术 Markdown 模版' : 'Downloaded Markdown document', 'success');
   });
 
-  document.getElementById('btn-download-doc')?.addEventListener('click', () => {
+  modalScope.on(document.getElementById('btn-download-doc'), 'click', () => {
     const content = currentFormat === 'cover' ? coverHtml : wordHtml;
     const name = currentFormat === 'cover' ? getExportFilename('cover_letter', 'doc') : getExportFilename('rebuttal_letter', 'doc');
     triggerDownload(content, name, 'application/msword;charset=utf-8');

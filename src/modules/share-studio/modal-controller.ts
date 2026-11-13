@@ -1,4 +1,5 @@
 import { buildShareModal } from './modal-template.js';
+import { acquireModalScope } from '../ui-utils/lifecycle.js';
 /**
  * Zotero PaperFlow - Share Journey Modal Controller
  */
@@ -59,10 +60,10 @@ export async function openSubmissionShareModal(subId: string, triggerButton?: HT
     }
 
     openModalFn(buildShareModal(prefs));
+    const modalScope = acquireModalScope();
     const modalEl = document.getElementById('modal-body') || (typeof modalContent !== 'undefined' ? modalContent : null);
     modalEl?.classList?.add('share-preview-card');
-    const regCleanup = g.registerModalCleanup || (typeof registerModalCleanup === 'function' ? registerModalCleanup : null);
-    if (regCleanup) regCleanup(() => modalEl?.classList?.remove('share-preview-card'));
+    modalScope.onAbort(() => modalEl?.classList?.remove('share-preview-card'));
 
     const preview = document.getElementById('share-journey-preview') as HTMLImageElement | null;
     const previewWrap = document.getElementById('share-journey-preview-wrap');
@@ -80,21 +81,25 @@ export async function openSubmissionShareModal(subId: string, triggerButton?: HT
     let currentKey = '';
     let renderSeq = 0;
     let closed = false;
-    let prefsTimer: ReturnType<typeof setTimeout> | null = null;
+    let prefsTimerId: number | null = null;
+    let pendingPrefsSave = false;
     const pendingUrls = new Set<string>();
 
     activeSharePreviewCleanup = () => {
       closed = true;
       renderSeq += 1;
-      if (prefsTimer !== null) {
-        clearTimeout(prefsTimer);
-        prefsTimer = null;
+      if (prefsTimerId !== null) {
+        clearTimeout(prefsTimerId);
+        prefsTimerId = null;
+      }
+      if (pendingPrefsSave) {
+        pendingPrefsSave = false;
         void persistSharePreferences(prefs);
       }
       pendingUrls.forEach((url) => URL.revokeObjectURL(url));
       pendingUrls.clear();
     };
-    if (regCleanup) regCleanup(clearActiveSharePreview);
+    modalScope.onAbort(clearActiveSharePreview);
 
     const setSaveStatus = (message: string, state = 'neutral') => {
       if (!statusEl) return;
@@ -220,10 +225,15 @@ export async function openSubmissionShareModal(subId: string, triggerButton?: HT
       prefs = normalizeSharePreferences({ ...prefs, ...patch, visible: { ...prefs.visible, ...(patch.visible || {}) } });
       syncControlSelection();
       setBusy();
-      if (prefsTimer !== null) clearTimeout(prefsTimer);
-      prefsTimer = setTimeout(async () => {
-        prefsTimer = null;
-        if (closed) return;
+      if (prefsTimerId !== null) {
+        clearTimeout(prefsTimerId);
+        prefsTimerId = null;
+      }
+      pendingPrefsSave = true;
+      prefsTimerId = modalScope.setTimeout(async () => {
+        prefsTimerId = null;
+        pendingPrefsSave = false;
+        if (closed || modalScope.aborted) return;
         await renderPreview();
         await persistSharePreferences(prefs);
       }, 90);
@@ -239,20 +249,20 @@ export async function openSubmissionShareModal(subId: string, triggerButton?: HT
       return blob;
     };
 
-    document.getElementById('share-appearance')?.addEventListener('change', (e: any) => updatePrefs({ theme: e.target.value, appearance: e.target.value }));
+    modalScope.on(document.getElementById('share-appearance'), 'change', (e: any) => updatePrefs({ theme: e.target.value, appearance: e.target.value }));
     modalEl?.querySelectorAll('[data-share-theme]').forEach((btn: any) => {
-      btn.addEventListener('click', () => { const id = btn.getAttribute('data-share-theme'); updatePrefs({ theme: id, appearance: id }); });
+      modalScope.on(btn, 'click', () => { const id = btn.getAttribute('data-share-theme'); updatePrefs({ theme: id, appearance: id }); });
     });
     modalEl?.querySelectorAll('[data-share-visible]').forEach((input: any) => {
-      input.addEventListener('change', () => updatePrefs({ visible: { [input.getAttribute('data-share-visible')]: input.checked } }));
+      modalScope.on(input, 'change', () => updatePrefs({ visible: { [input.getAttribute('data-share-visible')]: input.checked } }));
     });
     modalEl?.querySelectorAll('input[name="share-timeline-start"]').forEach((input: any) => {
-      input.addEventListener('change', () => { if (input.checked) updatePrefs({ timelineStart: input.value }); });
+      modalScope.on(input, 'change', () => { if (input.checked) updatePrefs({ timelineStart: input.value }); });
     });
-    document.getElementById('share-card-size')?.addEventListener('change', (e: any) => updatePrefs({ size: e.target.value }));
-    document.getElementById('share-brand-size')?.addEventListener('change', (e: any) => updatePrefs({ brandSize: e.target.value }));
-    document.getElementById('share-card-resolution')?.addEventListener('change', (e: any) => updatePrefs({ resolution: e.target.value }));
-    document.getElementById('btn-reset-share-style')?.addEventListener('click', () => {
+    modalScope.on(document.getElementById('share-card-size'), 'change', (e: any) => updatePrefs({ size: e.target.value }));
+    modalScope.on(document.getElementById('share-brand-size'), 'change', (e: any) => updatePrefs({ brandSize: e.target.value }));
+    modalScope.on(document.getElementById('share-card-resolution'), 'change', (e: any) => updatePrefs({ resolution: e.target.value }));
+    modalScope.on(document.getElementById('btn-reset-share-style'), 'click', () => {
       updatePrefs({ theme: SHARE_THEME_DEFAULT, appearance: SHARE_THEME_DEFAULT, size: SHARE_SIZE_DEFAULT, timelineStart: SHARE_TIMELINE_START_DEFAULT, brandSize: SHARE_BRAND_SIZE_DEFAULT, resolution: SHARE_RESOLUTION_DEFAULT });
     });
 
@@ -263,12 +273,12 @@ export async function openSubmissionShareModal(subId: string, triggerButton?: HT
       zoomBtn.textContent = t(zoomed ? 'shareFit' : 'shareZoom');
       previewWrap.scrollTo?.({ top: 0, left: 0 });
     };
-    zoomBtn?.addEventListener('click', toggleZoom);
-    preview?.addEventListener('click', toggleZoom);
-    retryBtn?.addEventListener('click', () => { void renderPreview(); });
+    modalScope.on(zoomBtn, 'click', toggleZoom);
+    modalScope.on(preview, 'click', toggleZoom);
+    modalScope.on(retryBtn, 'click', () => { void renderPreview(); });
 
-    downloadBtn?.addEventListener('click', async () => {
-      if (!currentBlob) return;
+    modalScope.on(downloadBtn, 'click', async () => {
+      if (!downloadBtn || !currentBlob) return;
       downloadBtn.disabled = true;
       try {
         setSaveStatus(t('shareJourneySaving'), 'pending');
@@ -288,8 +298,8 @@ export async function openSubmissionShareModal(subId: string, triggerButton?: HT
       }
     });
 
-    copyBtn?.addEventListener('click', async () => {
-      if (!currentBlob) return;
+    modalScope.on(copyBtn, 'click', async () => {
+      if (!copyBtn || !currentBlob) return;
       copyBtn.disabled = true;
       try {
         const blob = await getExportBlob();

@@ -1,4 +1,4 @@
-> **16.5.5 工具栏图标与时间线动效修复版**：修复主工具栏按钮 Fluent 词条带顶级值导致图标被文本覆盖的问题，并修复 `performance.css` 全局禁用动画导致活跃投稿时间线流动与「今天」呼吸脉冲动效失效的问题。见[版本说明](docs/releases/v16.5.5.md)。
+> **17.0.0 Zotero Flow 统一大版本与架构升级**：全面启用 TypeScript `strict` / `noImplicitAny` / `verbatimModuleSyntax` 静态类型守卫，引入声明式 `AbortController` 生命周期管理消除宿主窗体与工作台监听/定时器泄漏，并统一 Zotero Flow 全家桶版本号至 `v17.0.0`。见[版本说明](docs/releases/v17.0.0.md)。
 
 # Zotero PaperFlow
 
@@ -11,7 +11,7 @@
 
 [简体中文](README.md) · [English](README.en.md)
 
-[![当前版本](https://img.shields.io/badge/version-16.5.5-245ac7?style=flat-square)](https://github.com/groele/Zotero-PaperFlow/releases/tag/v16.5.5) · [下载 XPI](https://github.com/groele/Zotero-PaperFlow/releases/download/v16.5.5/zotero-paperflow-16.5.5.xpi) · [问题反馈](https://github.com/groele/Zotero-PaperFlow/issues)
+[![当前版本](https://img.shields.io/badge/version-17.0.0-245ac7?style=flat-square)](https://github.com/groele/Zotero-PaperFlow/releases/tag/v17.0.0) · [下载 XPI](https://github.com/groele/Zotero-PaperFlow/releases/download/v17.0.0/zotero-paperflow-17.0.0.xpi) · [问题反馈](https://github.com/groele/Zotero-PaperFlow/issues)
 
 [产品定位](#overview) · [安装与更新](#installation) · [快速开始](#quick-start) · [核心功能](#features) · [设置与使用](#settings) · [数据、同步与外部服务](#data) · [兼容性与验证范围](#compatibility) · [常见问题](#troubleshooting) · [开发与详细文档](#development) · [系列产品](#series) · [项目来源与许可](#license)
 

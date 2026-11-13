@@ -438,6 +438,207 @@
     }
   });
 
+  // src/modules/ui-utils/lifecycle.ts
+  function createFallbackController() {
+    let aborted = false;
+    let reason;
+    const listeners = /* @__PURE__ */ new Set();
+    const signal = {
+      get aborted() {
+        return aborted;
+      },
+      get reason() {
+        return reason;
+      },
+      addEventListener(type, listener) {
+        if (type !== "abort" || typeof listener !== "function") return;
+        if (aborted) {
+          try {
+            listener({ type: "abort" });
+          } catch (_) {
+          }
+          return;
+        }
+        listeners.add(listener);
+      },
+      removeEventListener(type, listener) {
+        if (type !== "abort") return;
+        listeners.delete(listener);
+      }
+    };
+    return {
+      signal,
+      abort(nextReason) {
+        if (aborted) return;
+        aborted = true;
+        reason = nextReason;
+        const snapshot = Array.from(listeners);
+        listeners.clear();
+        for (const listener of snapshot) {
+          try {
+            listener({ type: "abort" });
+          } catch (_) {
+          }
+        }
+      }
+    };
+  }
+  function isNativeAbortSignal(signal) {
+    return typeof AbortSignal !== "undefined" && signal instanceof AbortSignal;
+  }
+  function createLifecycleScope(parentSignal) {
+    const controller = typeof AbortController !== "undefined" ? new AbortController() : createFallbackController();
+    const cleanups = /* @__PURE__ */ new Set();
+    let localAborted = false;
+    const runCleanups = () => {
+      const snapshot = Array.from(cleanups);
+      cleanups.clear();
+      for (const cleanup of snapshot) {
+        try {
+          cleanup();
+        } catch (_) {
+        }
+      }
+    };
+    const abort = (reason) => {
+      if (localAborted) return;
+      localAborted = true;
+      try {
+        controller.abort(reason);
+      } catch (_) {
+      }
+      runCleanups();
+    };
+    if (parentSignal) {
+      if (parentSignal.aborted) {
+        abort(parentSignal.reason);
+      } else if (typeof parentSignal.addEventListener === "function") {
+        const onParentAbort = () => abort(parentSignal.reason);
+        parentSignal.addEventListener("abort", onParentAbort, { once: true });
+        cleanups.add(() => {
+          try {
+            parentSignal.removeEventListener?.("abort", onParentAbort);
+          } catch (_) {
+          }
+        });
+      }
+    }
+    const scope = {
+      signal: controller.signal,
+      get aborted() {
+        return localAborted || Boolean(controller.signal?.aborted);
+      },
+      abort,
+      onAbort(fn) {
+        if (typeof fn !== "function") return () => {
+        };
+        if (scope.aborted) {
+          try {
+            fn();
+          } catch (_) {
+          }
+          return () => {
+          };
+        }
+        cleanups.add(fn);
+        return () => {
+          cleanups.delete(fn);
+        };
+      },
+      on(target, type, listener, options) {
+        if (!target || typeof target.addEventListener !== "function" || typeof listener !== "function" || scope.aborted) {
+          return () => {
+          };
+        }
+        const capture = typeof options === "boolean" ? options : Boolean(options?.capture);
+        const baseOpts = typeof options === "boolean" ? { capture: options } : options ? { ...options } : {};
+        const listenerOptions = isNativeAbortSignal(controller.signal) ? { ...baseOpts, signal: controller.signal } : typeof options === "boolean" ? options : options || void 0;
+        target.addEventListener(type, listener, listenerOptions);
+        const detach = () => {
+          cleanups.delete(detach);
+          if (typeof target.removeEventListener === "function") {
+            try {
+              target.removeEventListener(type, listener, capture);
+            } catch (_) {
+            }
+          }
+        };
+        cleanups.add(detach);
+        return detach;
+      },
+      setTimeout(fn, delay = 0) {
+        const st = globalThis.setTimeout;
+        const ct = globalThis.clearTimeout;
+        if (scope.aborted || typeof st !== "function") return 0;
+        let timerId = 0;
+        const cancel = () => {
+          cleanups.delete(cancel);
+          if (timerId && typeof ct === "function") {
+            ct(timerId);
+            timerId = 0;
+          }
+        };
+        cleanups.add(cancel);
+        timerId = st(() => {
+          cleanups.delete(cancel);
+          timerId = 0;
+          if (!scope.aborted) fn();
+        }, delay);
+        return timerId;
+      },
+      setInterval(fn, delay = 0) {
+        const si = globalThis.setInterval;
+        const ci = globalThis.clearInterval;
+        if (scope.aborted || typeof si !== "function") return 0;
+        let timerId = 0;
+        const cancel = () => {
+          cleanups.delete(cancel);
+          if (timerId && typeof ci === "function") {
+            ci(timerId);
+            timerId = 0;
+          }
+        };
+        cleanups.add(cancel);
+        timerId = si(() => {
+          if (!scope.aborted) fn();
+        }, delay);
+        return timerId;
+      },
+      raf(fn) {
+        const req = globalThis.requestAnimationFrame;
+        const can = globalThis.cancelAnimationFrame;
+        if (scope.aborted) return 0;
+        if (typeof req !== "function") {
+          return scope.setTimeout(() => fn(Date.now()), 0);
+        }
+        let rafId = 0;
+        const cancel = () => {
+          cleanups.delete(cancel);
+          if (rafId && typeof can === "function") {
+            can(rafId);
+            rafId = 0;
+          }
+        };
+        cleanups.add(cancel);
+        rafId = req((ts) => {
+          cleanups.delete(cancel);
+          rafId = 0;
+          if (!scope.aborted) fn(ts);
+        });
+        return rafId;
+      },
+      child() {
+        return createLifecycleScope(controller.signal);
+      }
+    };
+    return scope;
+  }
+  var init_lifecycle = __esm({
+    "src/modules/ui-utils/lifecycle.ts"() {
+      "use strict";
+    }
+  });
+
   // src/modules/dashboard-view/timeline-alerts.ts
   function computeCountdown(dateStr) {
     if (!dateStr) return null;
@@ -461,6 +662,9 @@
   function renderTimelineAlerts() {
     const reviewMilestones = document.getElementById("dashboard-pending-milestones");
     if (!reviewMilestones) return;
+    alertsRenderScope?.abort("re-render");
+    const renderScope = createLifecycleScope();
+    alertsRenderScope = renderScope;
     const w = typeof window !== "undefined" ? window : globalThis;
     w.RFUI?.setHTML?.(reviewMilestones, "");
     const database = w.db || (typeof db !== "undefined" ? db : null) || {};
@@ -599,7 +803,9 @@
     const btnExportAllIcs = document.getElementById("btn-dashboard-export-all-ics");
     if (btnExportAllIcs && !btnExportAllIcs.dataset.listenerAttached) {
       btnExportAllIcs.dataset.listenerAttached = "true";
-      btnExportAllIcs.addEventListener("click", () => {
+      exportAllIcsScope?.abort("rebind");
+      exportAllIcsScope = createLifecycleScope();
+      exportAllIcsScope.on(btnExportAllIcs, "click", () => {
         const activeSubs = (db.submissions || []).filter((s) => s.revisionDueDate && s.status !== "accepted" && s.status !== "published");
         if (activeSubs.length === 0) {
           showGlobalToast(t("noDeadlinesToExport") || (currentLanguage === "zh" ? "当前未发现已设置修回截止日期的活跃稿件。" : "No active submissions with revision due dates found."), "warning");
@@ -621,7 +827,7 @@
         item.className = "recent-item";
         item.title = alert.manTitle;
         item.style.cursor = "pointer";
-        item.addEventListener("click", () => {
+        renderScope.on(item, "click", () => {
           if (typeof openStageDrawer === "function") {
             openStageDrawer(alert.sub.id, alert.node?.id || "");
           }
@@ -659,7 +865,7 @@
           icsBtn.style.cssText = "font-size:11px; padding:2px 6px; border-radius:3px; margin-left:4px; height:22px;";
           icsBtn.title = t("exportCalendarIcs") || "导出修回日历 (.ics)";
           icsBtn.textContent = "📅";
-          icsBtn.addEventListener("click", (e) => {
+          renderScope.on(icsBtn, "click", (e) => {
             e.stopPropagation();
             const rfCal = window.RFCalendar;
             if (rfCal?.generateSubmissionCalendarFeed && rfCal?.triggerCalendarDownload) {
@@ -674,17 +880,66 @@
       });
     }
   }
+  var alertsRenderScope, exportAllIcsScope;
   var init_timeline_alerts = __esm({
     "src/modules/dashboard-view/timeline-alerts.ts"() {
       "use strict";
       init_field_helpers();
+      init_lifecycle();
+      alertsRenderScope = null;
+      exportAllIcsScope = null;
     }
   });
 
   // src/modules/dashboard-view/card-interactions.ts
+  function createCardScope() {
+    const rfui = typeof globalThis !== "undefined" ? globalThis.RFUI : null;
+    if (rfui && typeof rfui.createLifecycleScope === "function") {
+      return rfui.createLifecycleScope();
+    }
+    const ac = typeof AbortController !== "undefined" ? new AbortController() : null;
+    const cleanups = [];
+    let aborted = false;
+    return {
+      on(target, type, listener, options) {
+        if (!target || typeof target.addEventListener !== "function" || aborted) return;
+        const capture = typeof options === "boolean" ? options : Boolean(options?.capture);
+        const opts = ac?.signal ? typeof options === "boolean" ? { capture, signal: ac.signal } : { ...options || {}, signal: ac.signal } : options;
+        target.addEventListener(type, listener, opts);
+        cleanups.push(() => {
+          target.removeEventListener?.(type, listener, capture);
+        });
+      },
+      abort(reason) {
+        if (aborted) return;
+        aborted = true;
+        try {
+          ac?.abort(reason);
+        } catch (_) {
+        }
+        for (const fn of cleanups.splice(0)) {
+          try {
+            fn();
+          } catch (_) {
+          }
+        }
+      }
+    };
+  }
+  function disposePipelineCardInteractions(card) {
+    if (!card) return;
+    const existing = pipelineCardScopes.get(card);
+    if (existing) {
+      pipelineCardScopes.delete(card);
+      existing.abort("card-removed");
+    }
+  }
   function bindPipelineCardInteractions(card, sub) {
+    disposePipelineCardInteractions(card);
+    const cardScope = createCardScope();
+    pipelineCardScopes.set(card, cardScope);
     card.querySelectorAll(".dot.interactive-dot").forEach((dot) => {
-      dot.addEventListener("click", (e) => {
+      cardScope.on(dot, "click", (e) => {
         e.stopPropagation();
         const nodeId = dot.getAttribute("data-node-id");
         const subId = dot.getAttribute("data-sub-id") || sub.id;
@@ -693,7 +948,7 @@
     });
     const latestWindow = card.querySelector(".latest-window");
     if (latestWindow) {
-      latestWindow.addEventListener("click", (e) => {
+      cardScope.on(latestWindow, "click", (e) => {
         e.stopPropagation();
         const latestId = latestWindow.getAttribute("data-latest-id");
         const subId = latestWindow.getAttribute("data-sub-id") || sub.id;
@@ -705,7 +960,7 @@
       });
     }
     card.querySelectorAll(".btn-pipeline-open").forEach((btn) => {
-      btn.addEventListener("click", (e) => {
+      cardScope.on(btn, "click", (e) => {
         e.stopPropagation();
         try {
           const g = typeof window !== "undefined" ? window : globalThis;
@@ -719,7 +974,7 @@
       });
     });
     card.querySelectorAll(".btn-pipeline-add, .btn-quick-add-event").forEach((btn) => {
-      btn.addEventListener("click", (e) => {
+      cardScope.on(btn, "click", (e) => {
         e.stopPropagation();
         try {
           const g = typeof window !== "undefined" ? window : globalThis;
@@ -734,7 +989,7 @@
       });
     });
     card.querySelectorAll(".btn-pipeline-manage").forEach((btn) => {
-      btn.addEventListener("click", (e) => {
+      cardScope.on(btn, "click", (e) => {
         e.stopPropagation();
         try {
           const g = typeof window !== "undefined" ? window : globalThis;
@@ -748,7 +1003,7 @@
       });
     });
     card.querySelectorAll(".btn-pipeline-share, .btn-quick-share").forEach((btn) => {
-      btn.addEventListener("click", (e) => {
+      cardScope.on(btn, "click", (e) => {
         e.stopPropagation();
         try {
           const g = typeof window !== "undefined" ? window : globalThis;
@@ -761,7 +1016,7 @@
         }
       });
     });
-    card.querySelector(".zotero-card-badge")?.addEventListener("click", (e) => {
+    cardScope.on(card.querySelector(".zotero-card-badge"), "click", (e) => {
       e.stopPropagation();
       const badge = e.currentTarget;
       const key = badge.getAttribute("data-item-key");
@@ -771,7 +1026,7 @@
         ZoteroBridge.selectItemInZotero(key, libId);
       }
     });
-    card.querySelector(".zotero-citekey-badge")?.addEventListener("click", (e) => {
+    cardScope.on(card.querySelector(".zotero-citekey-badge"), "click", (e) => {
       e.stopPropagation();
       const badge = e.currentTarget;
       const ck = badge.getAttribute("data-citekey");
@@ -780,7 +1035,7 @@
         ZoteroBridge.copyText(`[@${ck}]`, curLang === "zh" ? `已复制 Citation Key: [@${ck}]` : `Copied Citation Key: [@${ck}]`);
       }
     });
-    card.querySelector(".zotero-pdf-badge")?.addEventListener("click", (e) => {
+    cardScope.on(card.querySelector(".zotero-pdf-badge"), "click", (e) => {
       e.stopPropagation();
       const badge = e.currentTarget;
       const key = badge.getAttribute("data-item-key");
@@ -790,7 +1045,7 @@
         ZoteroBridge.openPdf(key, null, libId);
       }
     });
-    card.querySelector(".btn-inline-stage-cancel")?.addEventListener("click", (e) => {
+    cardScope.on(card.querySelector(".btn-inline-stage-cancel"), "click", (e) => {
       e.stopPropagation();
       const btn = e.currentTarget;
       if (btn?.disabled) return;
@@ -799,20 +1054,20 @@
     });
     const inlineEditor = card.querySelector(".inline-stage-editor");
     if (inlineEditor) {
-      inlineEditor.querySelector(".inline-stage-key")?.addEventListener("change", () => {
+      cardScope.on(inlineEditor.querySelector(".inline-stage-key"), "change", () => {
         syncInlineStagePreset(inlineEditor);
       });
-      inlineEditor.querySelector(".inline-stage-type")?.addEventListener("change", () => {
+      cardScope.on(inlineEditor.querySelector(".inline-stage-type"), "change", () => {
         syncInlineStagePreset(inlineEditor);
       });
-      inlineEditor.querySelector(".inline-stage-deadline")?.addEventListener("input", () => {
+      cardScope.on(inlineEditor.querySelector(".inline-stage-deadline"), "input", () => {
         updateInlineStageDeadlineStatus(inlineEditor);
       });
-      inlineEditor.querySelector(".btn-inline-stage-reset")?.addEventListener("click", (e) => {
+      cardScope.on(inlineEditor.querySelector(".btn-inline-stage-reset"), "click", (e) => {
         e.stopPropagation();
         resetInlineStageEditor(inlineEditor);
       });
-      inlineEditor.querySelector(".btn-inline-stage-save")?.addEventListener("click", async (e) => {
+      cardScope.on(inlineEditor.querySelector(".btn-inline-stage-save"), "click", async (e) => {
         e.stopPropagation();
         const saveBtn = inlineEditor.querySelector(".btn-inline-stage-save");
         if (saveBtn?.disabled) return;
@@ -827,7 +1082,7 @@
           if (inlineEditor.isConnected) setInlineStageBusy(inlineEditor, false, errorMessage);
         }
       });
-      inlineEditor.addEventListener("keydown", (event) => {
+      cardScope.on(inlineEditor, "keydown", (event) => {
         if (event.key !== "Escape" || inlineEditor.querySelector(".btn-inline-stage-save")?.hasAttribute("disabled")) return;
         event.preventDefault();
         event.stopPropagation();
@@ -835,7 +1090,7 @@
         card.querySelector(".btn-pipeline-add")?.focus?.();
       });
       inlineEditor.querySelectorAll(".inline-stage-fields input").forEach((input) => {
-        input.addEventListener("keydown", (event) => {
+        cardScope.on(input, "keydown", (event) => {
           if (event.key !== "Enter" || event.isComposing) return;
           event.preventDefault();
           inlineEditor.querySelector(".btn-inline-stage-save")?.click?.();
@@ -845,39 +1100,49 @@
   }
   function setupSaveErrorListener() {
     if (typeof window === "undefined" || typeof window.addEventListener !== "function") return;
-    window.addEventListener("researchflow-save-state", (event) => {
+    saveErrorScope?.abort("rebind");
+    const scope = createCardScope();
+    saveErrorScope = scope;
+    scope.on(window, "researchflow-save-state", (event) => {
       const { state, error } = event.detail || {};
       const curLang = typeof window.currentLanguage !== "undefined" ? window.currentLanguage : "en";
       if (state === "error") showGlobalToast(error || (curLang === "zh" ? "保存失败，请重试" : "Save failed, please retry"), "error");
       if (state === "pending") showGlobalToast(t("saveNewEditsPending"), "info");
     });
+    scope.on(window, "unload", () => scope.abort("unload"), { once: true });
   }
   function setupDashboardFilterListeners() {
     const cardAccepted = document.getElementById("card-filter-accepted");
     const cardActive = document.getElementById("card-filter-active");
     const cardAll = document.getElementById("card-filter-all");
     if (!cardAccepted || !cardActive || !cardAll) return;
+    dashboardFilterScope?.abort("rebind");
+    const scope = createCardScope();
+    dashboardFilterScope = scope;
+    if (typeof window !== "undefined") {
+      scope.on(window, "unload", () => scope.abort("unload"), { once: true });
+    }
     const clearActiveClasses = () => {
       [cardAccepted, cardActive, cardAll].forEach((c) => {
         c.classList.remove("active");
         c.setAttribute("aria-pressed", "false");
       });
     };
-    cardAccepted.addEventListener("click", () => {
+    scope.on(cardAccepted, "click", () => {
       window.currentDashboardFilter = "accepted";
       clearActiveClasses();
       cardAccepted.classList.add("active");
       cardAccepted.setAttribute("aria-pressed", "true");
       renderDashboard();
     });
-    cardActive.addEventListener("click", () => {
+    scope.on(cardActive, "click", () => {
       window.currentDashboardFilter = "active";
       clearActiveClasses();
       cardActive.classList.add("active");
       cardActive.setAttribute("aria-pressed", "true");
       renderDashboard();
     });
-    cardAll.addEventListener("click", () => {
+    scope.on(cardAll, "click", () => {
       window.currentDashboardFilter = "all";
       clearActiveClasses();
       cardAll.classList.add("active");
@@ -885,9 +1150,16 @@
       renderDashboard();
     });
   }
+  var pipelineCardScopes, saveErrorScope, dashboardFilterScope;
   var init_card_interactions = __esm({
     "src/modules/dashboard-view/card-interactions.ts"() {
       "use strict";
+      pipelineCardScopes = /* @__PURE__ */ new WeakMap();
+      saveErrorScope = null;
+      dashboardFilterScope = null;
+      if (typeof globalThis !== "undefined") {
+        globalThis.disposePipelineCardInteractions = disposePipelineCardInteractions;
+      }
     }
   });
 
@@ -1095,12 +1367,24 @@
   function reconcilePipelineCards(container, records) {
     const previous = caches.get(container);
     const next = /* @__PURE__ */ new Map();
+    const keptCards = /* @__PURE__ */ new Set();
     const cards = records.map((record) => {
       const cached = previous?.get(record.key);
       const entry = cached?.signature === record.signature ? cached : { signature: record.signature, card: record.create() };
       next.set(record.key, entry);
+      keptCards.add(entry.card);
       return entry.card;
     });
+    if (previous) {
+      const disposeCard = typeof globalThis !== "undefined" ? globalThis.disposePipelineCardInteractions : null;
+      if (typeof disposeCard === "function") {
+        for (const oldEntry of previous.values()) {
+          if (!keptCards.has(oldEntry.card)) {
+            disposeCard(oldEntry.card);
+          }
+        }
+      }
+    }
     const existing = Array.from(container.children);
     if (existing.length !== cards.length || existing.some((card, index) => card !== cards[index])) {
       container.replaceChildren(...cards);

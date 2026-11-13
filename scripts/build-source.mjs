@@ -123,7 +123,7 @@ for (const mod of modules) {
     // tests/import-ui-safety.test.js splits by '  // Handle Imported JSON File'
     if (!text.includes('  // Handle Imported JSON File')) {
       text = text.replace(
-        /(document\.getElementById\(['"]import-db-file['"]\)\??\.addEventListener\(['"]change['"])/g,
+        /((?:[a-zA-Z0-9_$]+\.on\(\s*)?document\.getElementById\(["']import-db-file["']\)(?:\s*,\s*["']change["']|\??\.addEventListener\(\s*["']change["']))/,
         '  // Handle Imported JSON File\n  $1'
       );
     }

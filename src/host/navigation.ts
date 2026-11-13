@@ -2,6 +2,8 @@
  * Zotero PaperFlow - Host Navigation, Openers & Reader Integration
  */
 import { CHROME_ROOT } from '../config.js';
+import { createLifecycleScope } from '../modules/ui-utils/lifecycle.js';
+import { windowScopes } from './window-lifecycle.js';
 import {
   getLiteratureItem,
   serializeLiteratureItem
@@ -247,12 +249,14 @@ export const hostNavigationMethods = {
         }
 
         // Open new internal tab
+        const tabScope = createLifecycleScope(windowScopes.get(mainWin)?.signal);
         const tabResult = tabs.add({
           type: 'researchflow',
           title: 'Zotero PaperFlow',
           select: true,
           data: options,
           onClose: () => {
+            tabScope.abort('tab-close');
             Zotero.log?.('[PaperFlow] Tab closed');
           }
         });
@@ -277,7 +281,8 @@ export const hostNavigationMethods = {
           container.style.height = '100%';
           container.style.overflow = 'hidden';
 
-          iframe.addEventListener('load', () => {
+          tabScope.on(iframe, 'load', () => {
+            if (this._disposed || tabScope.aborted) return;
             try {
               if (iframe.contentWindow) {
                 iframe.contentWindow.Zotero = Zotero;

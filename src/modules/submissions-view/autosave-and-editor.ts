@@ -15,10 +15,13 @@ import {
   incrementPendingSubmissionSaves,
   decrementPendingSubmissionSaves,
 } from './submission-state';
+import { createLifecycleScope, type LifecycleScope } from '../ui-utils/lifecycle.js';
 
 declare var db: any;
 declare function t(key: string): string;
 declare function showGlobalToast(message: string, type?: string, duration?: number): void;
+
+let focusHighlightScope: LifecycleScope | null = null;
 
 export function focusSubmissionEditCenter(): void {
   const detailPanel = document.getElementById('submission-detail-panel');
@@ -35,12 +38,15 @@ export function focusSubmissionEditCenter(): void {
     detailPanel.scrollTop = targetTop;
   }
 
+  focusHighlightScope?.abort('re-focus');
+  const fScope = createLifecycleScope();
+  focusHighlightScope = fScope;
   editCenter.classList.remove('submission-edit-center-focused');
   editCenter.classList.add('submission-edit-center-focused');
-  window.setTimeout(() => editCenter.classList.remove('submission-edit-center-focused'), 2400);
+  fScope.setTimeout(() => editCenter.classList.remove('submission-edit-center-focused'), 2400);
 
   if (titleInput) {
-    window.requestAnimationFrame(() => {
+    fScope.raf(() => {
       try { titleInput.focus({ preventScroll: true }); }
       catch (_) { titleInput.focus(); }
       titleInput.select();
@@ -118,11 +124,19 @@ export function setupSubmissionAutoSave(sub: any): void {
   const status = editCenter?.querySelector('[data-submission-autosave-status]') as HTMLElement | null;
   if (!editCenter || !status) return;
 
-  let debounceTimer: any = null;
+  const autoSaveScope = createLifecycleScope();
+  let debounceScope: LifecycleScope | null = null;
+  let debouncePending = false;
   let revision = 0;
   let saveChain = Promise.resolve();
   let lastSavedSnapshot = JSON.stringify(getSubmissionEditValues('sub-edit'));
   const debounceMs = 650;
+
+  const clearDebounce = () => {
+    debouncePending = false;
+    debounceScope?.abort('clear-debounce');
+    debounceScope = null;
+  };
 
   const isHostDisposed = (): boolean => {
     const w = window as any;
@@ -134,7 +148,7 @@ export function setupSubmissionAutoSave(sub: any): void {
   };
 
   const setStatus = (state: string, message: string, detail = '') => {
-    if (!editCenter.isConnected || isHostDisposed()) return;
+    if (autoSaveScope.aborted || !editCenter.isConnected || isHostDisposed()) return;
     status.dataset.state = state;
     status.title = detail || '';
     const label = status.querySelector('[data-submission-autosave-label]');
@@ -142,8 +156,8 @@ export function setupSubmissionAutoSave(sub: any): void {
   };
 
   const persist = () => {
-    if (debounceTimer) { clearTimeout(debounceTimer); debounceTimer = null; }
-    if (!editCenter.isConnected || isHostDisposed()) return;
+    clearDebounce();
+    if (autoSaveScope.aborted || !editCenter.isConnected || isHostDisposed()) return;
     const requestedRevision = revision;
     const values = getSubmissionEditValues('sub-edit');
     const currentSnapshot = JSON.stringify(values);
@@ -151,7 +165,7 @@ export function setupSubmissionAutoSave(sub: any): void {
     setStatus('saving', t('autoSaveSaving'));
 
     saveChain = saveChain.catch(() => {}).then(async () => {
-      if (!editCenter.isConnected || isHostDisposed()) return;
+      if (autoSaveScope.aborted || !editCenter.isConnected || isHostDisposed()) return;
       if (currentSnapshot === lastSavedSnapshot) {
         if (requestedRevision === revision) setStatus('saved', t('autoSaveSaved'));
         return;
@@ -161,7 +175,7 @@ export function setupSubmissionAutoSave(sub: any): void {
         values, alertOnError: false, renderDetails: false, notify: false, mergeOnConflict: true,
         onValidationError: (error: string) => { validationError = error; },
       }, getSubmissionEditValues);
-      if (!editCenter.isConnected || isHostDisposed()) return;
+      if (autoSaveScope.aborted || !editCenter.isConnected || isHostDisposed()) return;
       if (!saved) {
         setStatus('invalid', t('autoSaveInvalid'), validationError);
         return;
@@ -179,38 +193,43 @@ export function setupSubmissionAutoSave(sub: any): void {
   };
 
   const requestSave = ({ immediate = false } = {}) => {
+    if (autoSaveScope.aborted) return;
     revision += 1;
-    if (debounceTimer) clearTimeout(debounceTimer);
+    clearDebounce();
     setStatus('pending', t('autoSavePending'));
     if (immediate) persist();
-    else debounceTimer = window.setTimeout(persist, debounceMs);
+    else {
+      debouncePending = true;
+      debounceScope = autoSaveScope.child();
+      debounceScope.setTimeout(persist, debounceMs);
+    }
   };
 
-  editCenter.addEventListener('input', (event: any) => {
+  autoSaveScope.on(editCenter, 'input', (event: any) => {
     const control = event.target;
     if (!(control instanceof HTMLInputElement || control instanceof HTMLTextAreaElement)) return;
     if (control.type === 'checkbox' || control.type === 'radio') return;
     requestSave();
   });
 
-  editCenter.addEventListener('change', (event: any) => {
+  autoSaveScope.on(editCenter, 'change', (event: any) => {
     const control = event.target;
     if (!(control instanceof HTMLInputElement || control instanceof HTMLTextAreaElement || control instanceof HTMLSelectElement)) return;
     requestSave({ immediate: true });
   });
 
-  editCenter.addEventListener('submission-autosave-request', (event: any) => {
+  autoSaveScope.on(editCenter, 'submission-autosave-request', (event: any) => {
     requestSave({ immediate: event.detail?.immediate !== false });
   });
 
-  const flushPendingSave = () => { if (debounceTimer) persist(); };
+  const flushPendingSave = () => { if (debouncePending) persist(); };
   const flushWhenHidden = () => { if (document.visibilityState === 'hidden') flushPendingSave(); };
-  window.addEventListener('pagehide', flushPendingSave);
-  document.addEventListener('visibilitychange', flushWhenHidden);
+  autoSaveScope.on(window, 'pagehide', flushPendingSave);
+  autoSaveScope.on(document, 'visibilitychange', flushWhenHidden);
   const cleanupFn = () => {
     flushPendingSave();
-    window.removeEventListener('pagehide', flushPendingSave);
-    document.removeEventListener('visibilitychange', flushWhenHidden);
+    focusHighlightScope?.abort('autosave-cleanup');
+    autoSaveScope.abort('autosave-cleanup');
     setSubmissionAutoSaveCleanup(null);
   };
   setSubmissionAutoSaveCleanup(cleanupFn);

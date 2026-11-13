@@ -1,6 +1,9 @@
 import { renderSubmissions } from './list-and-portals';
 import { renderSubmissionDetails } from './details-renderer';
 import { setSelectedSubmissionId } from './submission-state';
+import { createLifecycleScope, acquireModalScope, type LifecycleScope } from '../ui-utils/lifecycle.js';
+
+let trackButtonScope: LifecycleScope | null = null;
 
 declare var db: any;
 declare const currentLanguage: string;
@@ -62,8 +65,9 @@ export function openTransferSubmissionModal(sourceSub: any): void {
     </div>
   `);
 
-  document.getElementById('btn-cancel-transfer')?.addEventListener('click', closeModal);
-  document.getElementById('btn-create-transfer-sub')?.addEventListener('click', async () => {
+  const modalScope = acquireModalScope();
+  modalScope.on(document.getElementById('btn-cancel-transfer'), 'click', closeModal);
+  modalScope.on(document.getElementById('btn-create-transfer-sub'), 'click', async () => {
     const targetJournal = ((document.getElementById('transfer-target-journal') as HTMLInputElement | null)?.value || '').trim();
     const rejectionDate = (document.getElementById('transfer-rejection-date') as HTMLInputElement | null)?.value || today;
     const submissionDate = (document.getElementById('transfer-submission-date') as HTMLInputElement | null)?.value || today;
@@ -100,7 +104,9 @@ export function openTransferSubmissionModal(sourceSub: any): void {
 }
 
 export function bindTrackSubmissionButton(): void {
-  document.getElementById('btn-add-submission')?.addEventListener('click', openTrackSubmissionModal);
+  trackButtonScope?.abort('rebind');
+  trackButtonScope = createLifecycleScope();
+  trackButtonScope.on(document.getElementById('btn-add-submission'), 'click', openTrackSubmissionModal);
 }
 
 export function openTrackSubmissionModal(): void {
@@ -160,7 +166,8 @@ export function openTrackSubmissionModal(): void {
     </div>
   `);
 
-  document.getElementById('btn-cancel-sub')?.addEventListener('click', closeModal);
+  const modalScope = acquireModalScope();
+  modalScope.on(document.getElementById('btn-cancel-sub'), 'click', closeModal);
   const manuscriptSelect = document.getElementById('sub-man-select') as HTMLSelectElement | null;
   const newManuscriptPanel = document.getElementById('sub-new-manuscript-panel') as HTMLElement | null;
 
@@ -184,7 +191,8 @@ export function openTrackSubmissionModal(): void {
     }
   };
 
-  manuscriptSelect?.addEventListener('change', () => {
+  modalScope.on(manuscriptSelect, 'change', () => {
+    if (!manuscriptSelect) return;
     const isNew = manuscriptSelect.value === '__new__';
     if (newManuscriptPanel) newManuscriptPanel.hidden = !isNew;
     if (isNew) (document.getElementById('sub-new-man-title') as HTMLElement | null)?.focus();
@@ -195,23 +203,28 @@ export function openTrackSubmissionModal(): void {
     autoFillFromManuscript(defaultManuscriptMode);
   }
 
-  setupActiveItemDetection(manuscriptSelect, newManuscriptPanel);
-  setupSubmitSubmissionListener(manuscriptSelect);
+  setupActiveItemDetection(manuscriptSelect, newManuscriptPanel, modalScope);
+  setupSubmitSubmissionListener(manuscriptSelect, modalScope);
 }
 
-function setupActiveItemDetection(manuscriptSelect: HTMLSelectElement | null, newManuscriptPanel: HTMLElement | null): void {
+function setupActiveItemDetection(
+  manuscriptSelect: HTMLSelectElement | null,
+  newManuscriptPanel: HTMLElement | null,
+  modalScope: LifecycleScope
+): void {
   const w = window as any;
-  setTimeout(async () => {
+  modalScope.setTimeout(async () => {
     try {
       if (typeof ZoteroBridge !== 'undefined') {
         const activeItem = await ZoteroBridge.getActiveItem();
+        if (modalScope.aborted) return;
         const banner = document.getElementById('sub-zotero-active-item-banner');
         const textEl = document.getElementById('sub-zotero-active-item-text');
         const quickBindBtn = document.getElementById('btn-sub-zotero-quick-bind-active');
         if (activeItem && activeItem.title && banner && textEl) {
           w.RFUI.setHTML(textEl, `📌 <strong>${escapeHTML(currentLanguage === 'zh' ? '检测到 Zotero 选中文献：' : 'Active Zotero item: ')}</strong>《${escapeHTML(activeItem.title)}》`);
           banner.style.display = 'flex';
-          quickBindBtn?.addEventListener('click', () => {
+          modalScope.on(quickBindBtn, 'click', () => {
             const match = (db.manuscripts || []).find((m: any) =>
               (m.zoteroItemKey && m.zoteroItemKey === activeItem.key) ||
               (m.title && m.title.trim().toLowerCase() === activeItem.title.trim().toLowerCase())
@@ -242,9 +255,12 @@ function setupActiveItemDetection(manuscriptSelect: HTMLSelectElement | null, ne
   }, 60);
 }
 
-function setupSubmitSubmissionListener(manuscriptSelect: HTMLSelectElement | null): void {
+function setupSubmitSubmissionListener(
+  manuscriptSelect: HTMLSelectElement | null,
+  modalScope: LifecycleScope
+): void {
   const w = window as any;
-  document.getElementById('btn-submit-sub')?.addEventListener('click', async () => {
+  modalScope.on(document.getElementById('btn-submit-sub'), 'click', async () => {
     const createMode = w.RFUI.buildSubmissionCreateMode({
       selectedManuscriptId: manuscriptSelect?.value || '__new__',
       newManuscriptTitle: (document.getElementById('sub-new-man-title') as HTMLInputElement | null)?.value || '',

@@ -250,19 +250,25 @@
     el.textContent = message;
     el.classList.toggle("rf-pref-error", isError);
   }
-  function bindClick(doc, id, handler) {
+  function bindClick(doc, id, handler, scope) {
     const btn = doc.getElementById(id);
-    if (!btn || btn.dataset?.rfBound) return;
-    if (btn.dataset) btn.dataset.rfBound = "true";
-    btn.addEventListener("click", (event) => {
+    if (!btn) return;
+    const listener = (event) => {
       void handler(event);
-    });
+    };
+    if (scope) {
+      scope.on(btn, "click", listener);
+      return;
+    }
+    if (btn.dataset?.rfBound) return;
+    if (btn.dataset) btn.dataset.rfBound = "true";
+    btn.addEventListener("click", listener);
   }
   function isZhLocale(doc, getPrefValue2) {
     const lang = String(getPrefValue2("language") || doc.documentElement?.lang || "zh").toLowerCase();
     return lang.startsWith("zh");
   }
-  function bindPreferenceActions(doc, win, getPrefValue2, setPrefValue2) {
+  function bindPreferenceActions(doc, win, getPrefValue2, setPrefValue2, scope) {
     const zotero = typeof Zotero !== "undefined" ? Zotero : win.Zotero;
     const host = zotero?.ResearchFlow || zotero?.PaperFlow;
     const zh = isZhLocale(doc, getPrefValue2);
@@ -278,28 +284,29 @@
     if (importModeSelect) {
       const savedMode = String(getPrefValue2("importMode") || "merge");
       importModeSelect.value = savedMode === "overwrite" ? "overwrite" : "merge";
-      if (!importModeSelect.dataset?.rfBound) {
+      const onModeChange = () => setPrefValue2("importMode", importModeSelect.value);
+      if (scope) {
+        scope.on(importModeSelect, "change", onModeChange);
+      } else if (!importModeSelect.dataset?.rfBound) {
         if (importModeSelect.dataset) importModeSelect.dataset.rfBound = "true";
-        importModeSelect.addEventListener("change", () => {
-          setPrefValue2("importMode", importModeSelect.value);
-        });
+        importModeSelect.addEventListener("change", onModeChange);
       }
     }
     bindClick(doc, "rf-btn-open-workspace", () => {
       host?.openResearchFlow?.({}, win, "tab");
-    });
+    }, scope);
     bindClick(doc, "rf-btn-open-subwindow", () => {
       host?.openStandaloneWindow?.({}, win, "subwindow");
-    });
+    }, scope);
     bindClick(doc, "rf-btn-open-window", () => {
       host?.openStandaloneWindow?.({}, win, "window");
-    });
+    }, scope);
     bindClick(doc, "rf-btn-open-cloud-settings", () => {
       host?.openResearchFlow?.({ view: "view-settings" }, win, "tab");
-    });
+    }, scope);
     bindClick(doc, "rf-btn-conflict-recovery", () => {
       host?.openResearchFlow?.({ view: "view-settings" }, win, "tab");
-    });
+    }, scope);
     bindClick(doc, "rf-btn-export-db", async () => {
       if (typeof host?.exportDatabaseFile !== "function") return;
       const res = await host.exportDatabaseFile(win);
@@ -308,7 +315,7 @@
       } else if (res?.error) {
         setImportStatus(doc, (zh ? "导出失败：" : "Export failed: ") + res.error, true);
       }
-    });
+    }, scope);
     bindClick(doc, "rf-btn-import-file", async () => {
       if (typeof host?.importDatabaseFile !== "function") return;
       const mode = importModeSelect?.value || String(getPrefValue2("importMode") || "merge");
@@ -318,7 +325,7 @@
       } else if (res?.error) {
         setImportStatus(doc, (zh ? "导入失败：" : "Import failed: ") + res.error, true);
       }
-    });
+    }, scope);
     bindClick(doc, "rf-btn-restore-backup", async () => {
       if (typeof host?.restoreBackupDatabase !== "function") return;
       const res = await host.restoreBackupDatabase();
@@ -327,7 +334,7 @@
       } else {
         setImportStatus(doc, zh ? "未找到可用的本地备份快照。" : "No local backup snapshot available.", true);
       }
-    });
+    }, scope);
     bindClick(doc, "rf-btn-export-diag", async () => {
       if (typeof host?.exportDiagnosticsFile !== "function") return;
       const report = {
@@ -344,12 +351,222 @@
         }
       };
       await host.exportDiagnosticsFile(report, win);
+    }, scope);
+  }
+
+  // src/modules/ui-utils/lifecycle.ts
+  function createFallbackController() {
+    let aborted = false;
+    let reason;
+    const listeners = /* @__PURE__ */ new Set();
+    const signal = {
+      get aborted() {
+        return aborted;
+      },
+      get reason() {
+        return reason;
+      },
+      addEventListener(type, listener) {
+        if (type !== "abort" || typeof listener !== "function") return;
+        if (aborted) {
+          try {
+            listener({ type: "abort" });
+          } catch (_) {
+          }
+          return;
+        }
+        listeners.add(listener);
+      },
+      removeEventListener(type, listener) {
+        if (type !== "abort") return;
+        listeners.delete(listener);
+      }
+    };
+    return {
+      signal,
+      abort(nextReason) {
+        if (aborted) return;
+        aborted = true;
+        reason = nextReason;
+        const snapshot = Array.from(listeners);
+        listeners.clear();
+        for (const listener of snapshot) {
+          try {
+            listener({ type: "abort" });
+          } catch (_) {
+          }
+        }
+      }
+    };
+  }
+  function isNativeAbortSignal(signal) {
+    return typeof AbortSignal !== "undefined" && signal instanceof AbortSignal;
+  }
+  function createLifecycleScope(parentSignal) {
+    const controller = typeof AbortController !== "undefined" ? new AbortController() : createFallbackController();
+    const cleanups = /* @__PURE__ */ new Set();
+    let localAborted = false;
+    const runCleanups = () => {
+      const snapshot = Array.from(cleanups);
+      cleanups.clear();
+      for (const cleanup of snapshot) {
+        try {
+          cleanup();
+        } catch (_) {
+        }
+      }
+    };
+    const abort = (reason) => {
+      if (localAborted) return;
+      localAborted = true;
+      try {
+        controller.abort(reason);
+      } catch (_) {
+      }
+      runCleanups();
+    };
+    if (parentSignal) {
+      if (parentSignal.aborted) {
+        abort(parentSignal.reason);
+      } else if (typeof parentSignal.addEventListener === "function") {
+        const onParentAbort = () => abort(parentSignal.reason);
+        parentSignal.addEventListener("abort", onParentAbort, { once: true });
+        cleanups.add(() => {
+          try {
+            parentSignal.removeEventListener?.("abort", onParentAbort);
+          } catch (_) {
+          }
+        });
+      }
+    }
+    const scope = {
+      signal: controller.signal,
+      get aborted() {
+        return localAborted || Boolean(controller.signal?.aborted);
+      },
+      abort,
+      onAbort(fn) {
+        if (typeof fn !== "function") return () => {
+        };
+        if (scope.aborted) {
+          try {
+            fn();
+          } catch (_) {
+          }
+          return () => {
+          };
+        }
+        cleanups.add(fn);
+        return () => {
+          cleanups.delete(fn);
+        };
+      },
+      on(target, type, listener, options) {
+        if (!target || typeof target.addEventListener !== "function" || typeof listener !== "function" || scope.aborted) {
+          return () => {
+          };
+        }
+        const capture = typeof options === "boolean" ? options : Boolean(options?.capture);
+        const baseOpts = typeof options === "boolean" ? { capture: options } : options ? { ...options } : {};
+        const listenerOptions = isNativeAbortSignal(controller.signal) ? { ...baseOpts, signal: controller.signal } : typeof options === "boolean" ? options : options || void 0;
+        target.addEventListener(type, listener, listenerOptions);
+        const detach = () => {
+          cleanups.delete(detach);
+          if (typeof target.removeEventListener === "function") {
+            try {
+              target.removeEventListener(type, listener, capture);
+            } catch (_) {
+            }
+          }
+        };
+        cleanups.add(detach);
+        return detach;
+      },
+      setTimeout(fn, delay = 0) {
+        const st = globalThis.setTimeout;
+        const ct = globalThis.clearTimeout;
+        if (scope.aborted || typeof st !== "function") return 0;
+        let timerId = 0;
+        const cancel = () => {
+          cleanups.delete(cancel);
+          if (timerId && typeof ct === "function") {
+            ct(timerId);
+            timerId = 0;
+          }
+        };
+        cleanups.add(cancel);
+        timerId = st(() => {
+          cleanups.delete(cancel);
+          timerId = 0;
+          if (!scope.aborted) fn();
+        }, delay);
+        return timerId;
+      },
+      setInterval(fn, delay = 0) {
+        const si = globalThis.setInterval;
+        const ci = globalThis.clearInterval;
+        if (scope.aborted || typeof si !== "function") return 0;
+        let timerId = 0;
+        const cancel = () => {
+          cleanups.delete(cancel);
+          if (timerId && typeof ci === "function") {
+            ci(timerId);
+            timerId = 0;
+          }
+        };
+        cleanups.add(cancel);
+        timerId = si(() => {
+          if (!scope.aborted) fn();
+        }, delay);
+        return timerId;
+      },
+      raf(fn) {
+        const req = globalThis.requestAnimationFrame;
+        const can = globalThis.cancelAnimationFrame;
+        if (scope.aborted) return 0;
+        if (typeof req !== "function") {
+          return scope.setTimeout(() => fn(Date.now()), 0);
+        }
+        let rafId = 0;
+        const cancel = () => {
+          cleanups.delete(cancel);
+          if (rafId && typeof can === "function") {
+            can(rafId);
+            rafId = 0;
+          }
+        };
+        cleanups.add(cancel);
+        rafId = req((ts) => {
+          cleanups.delete(cancel);
+          rafId = 0;
+          if (!scope.aborted) fn(ts);
+        });
+        return rafId;
+      },
+      child() {
+        return createLifecycleScope(controller.signal);
+      }
+    };
+    return scope;
+  }
+  function resetWeakScope(registry, key, parentSignal) {
+    const prev = registry.get(key);
+    if (prev) prev.abort("re-bind");
+    const next = createLifecycleScope(parentSignal);
+    registry.set(key, next);
+    next.onAbort(() => {
+      if (registry.get(key) === next) {
+        registry.delete(key);
+      }
     });
+    return next;
   }
 
   // src/modules/preferences/controller.ts
   var HTML_NS = "http://www.w3.org/1999/xhtml";
   var SUBORDINATE_KEYS = /* @__PURE__ */ new Set(["subwindowAlwaysOnTop", "subwindowCompactMode"]);
+  var prefWindowScopes = /* @__PURE__ */ new WeakMap();
+  var prefRenderScopes = /* @__PURE__ */ new WeakMap();
   function createHtmlElement(doc, tag, className) {
     const el = typeof doc.createElementNS === "function" ? doc.createElementNS(HTML_NS, tag) : doc.createElement(tag);
     if (className) el.className = className;
@@ -366,7 +583,7 @@
     if (typeof Zotero === "undefined" || !Zotero.Prefs) return;
     Zotero.Prefs.set(`extensions.researchflow.${key}`, value, true);
   }
-  function buildSettingRow(field, doc) {
+  function buildSettingRow(field, doc, scope) {
     const currentVal = getPrefValue(field.key);
     const subordinate = SUBORDINATE_KEYS.has(field.key);
     if (field.type === "check") {
@@ -377,10 +594,12 @@
       input.type = "checkbox";
       input.id = `rf-pref-${field.key}`;
       input.checked = Boolean(currentVal);
-      input.addEventListener("change", () => {
+      const onCheckChange = () => {
         setPrefValue(field.key, input.checked);
         updateSubordinateStates(doc);
-      });
+      };
+      if (scope) scope.on(input, "change", onCheckChange);
+      else input.addEventListener("change", onCheckChange);
       const title = createHtmlElement(doc, "span", "rf-check-title");
       if (field.l10nLabel) {
         title.setAttribute("data-l10n-id", field.l10nLabel);
@@ -437,9 +656,11 @@
         if (val === currentVal) opt.selected = true;
         select.appendChild(opt);
       }
-      select.addEventListener("change", () => {
+      const onSelectChange = () => {
         setPrefValue(field.key, select.value);
-      });
+      };
+      if (scope) scope.on(select, "change", onSelectChange);
+      else select.addEventListener("change", onSelectChange);
       ctrl.appendChild(select);
     }
     row.appendChild(ctrl);
@@ -461,13 +682,13 @@
       if (input) input.disabled = !isSubwindow;
     }
   }
-  function renderPreferencesSection(containerId, sectionKey, doc) {
+  function renderPreferencesSection(containerId, sectionKey, doc, scope) {
     const container = doc.getElementById(containerId);
     if (!container) return;
     container.innerHTML = "";
     const fields = FIELDS[sectionKey] || [];
     for (const field of fields) {
-      container.appendChild(buildSettingRow(field, doc));
+      container.appendChild(buildSettingRow(field, doc, scope));
     }
     try {
       doc.l10n?.translateFragment?.(container);
@@ -479,20 +700,26 @@
   }
   function initPreferencesWindow(win) {
     const doc = win.document;
-    renderPreferencesSection(getSectionContainerId(doc, "rf-pref-window", "rf-window-settings-list"), "window", doc);
-    renderPreferencesSection(getSectionContainerId(doc, "rf-pref-integration", "rf-integration-settings-list"), "integration", doc);
-    renderPreferencesSection(getSectionContainerId(doc, "rf-pref-workflow", "rf-workflow-settings-list"), "workflow", doc);
-    renderPreferencesSection(getSectionContainerId(doc, "rf-pref-data-sync", "rf-storage-settings-list"), "storage", doc);
+    const hostWin = win;
+    let winScope = prefWindowScopes.get(win);
+    if (!winScope || winScope.aborted) {
+      winScope = createLifecycleScope();
+      prefWindowScopes.set(win, winScope);
+    }
+    const renderScope = resetWeakScope(prefRenderScopes, win, winScope.signal);
+    renderPreferencesSection(getSectionContainerId(doc, "rf-pref-window", "rf-window-settings-list"), "window", doc, renderScope);
+    renderPreferencesSection(getSectionContainerId(doc, "rf-pref-integration", "rf-integration-settings-list"), "integration", doc, renderScope);
+    renderPreferencesSection(getSectionContainerId(doc, "rf-pref-workflow", "rf-workflow-settings-list"), "workflow", doc, renderScope);
+    renderPreferencesSection(getSectionContainerId(doc, "rf-pref-data-sync", "rf-storage-settings-list"), "storage", doc, renderScope);
     updateSubordinateStates(doc);
     const windowModeSelect = doc.getElementById("rf-pref-windowMode");
     if (windowModeSelect) {
-      windowModeSelect.addEventListener("change", () => {
+      renderScope.on(windowModeSelect, "change", () => {
         updateSubordinateStates(doc);
       });
     }
-    bindPreferenceActions(doc, win, getPrefValue, setPrefValue);
+    bindPreferenceActions(doc, win, getPrefValue, setPrefValue, renderScope);
     const zotero = typeof Zotero !== "undefined" ? Zotero : win.Zotero;
-    const hostWin = win;
     if (hostWin._rfPrefObserverSymbol && zotero?.Prefs?.unregisterObserver) {
       try {
         zotero.Prefs.unregisterObserver(hostWin._rfPrefObserverSymbol);
@@ -517,25 +744,25 @@
           }
           updateSubordinateStates(doc);
         }, sym);
-        if (!hostWin._rfPrefUnloadBound && typeof win.addEventListener === "function") {
-          hostWin._rfPrefUnloadBound = true;
-          win.addEventListener("unload", () => {
-            if (hostWin._rfPrefObserverSymbol && zotero?.Prefs?.unregisterObserver) {
-              try {
-                zotero.Prefs.unregisterObserver(hostWin._rfPrefObserverSymbol);
-              } catch (_) {
-              }
-              hostWin._rfPrefObserverSymbol = null;
-            }
-          }, { once: true });
-        }
       } catch (_) {
       }
     }
+    if (!hostWin._rfPrefUnloadBound && typeof win.addEventListener === "function") {
+      hostWin._rfPrefUnloadBound = true;
+      winScope.on(win, "unload", () => {
+        if (hostWin._rfPrefObserverSymbol && zotero?.Prefs?.unregisterObserver) {
+          try {
+            zotero.Prefs.unregisterObserver(hostWin._rfPrefObserverSymbol);
+          } catch (_) {
+          }
+          hostWin._rfPrefObserverSymbol = null;
+        }
+        winScope?.abort();
+      }, { once: true });
+    }
     const resetBtn = doc.getElementById("rf-btn-reset-defaults");
-    if (resetBtn && !resetBtn.dataset?.rfBound) {
-      if (resetBtn.dataset) resetBtn.dataset.rfBound = "true";
-      resetBtn.addEventListener("click", () => {
+    if (resetBtn) {
+      renderScope.on(resetBtn, "click", () => {
         if (zotero?.Prefs) {
           for (const [key, val] of Object.entries(DEFAULTS)) {
             zotero.Prefs.set(`extensions.researchflow.${key}`, val, true);

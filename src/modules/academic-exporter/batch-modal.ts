@@ -2,6 +2,7 @@
  * Zotero PaperFlow - Batch Review Import Modal
  */
 import { parseReviewCommentsBatch } from './batch-parser';
+import { acquireModalScope } from '../ui-utils/lifecycle.js';
 
 declare var currentLanguage: string;
 declare function openModal(html: string): void;
@@ -59,6 +60,7 @@ export function openBatchReviewImportModal(sub: any, reviewBox: any, onComplete?
     </div>
   `);
 
+  const modalScope = acquireModalScope();
   const textarea = document.getElementById('batch-import-textarea') as HTMLTextAreaElement | null;
   const defaultRevSelect = document.getElementById('batch-import-default-rev') as HTMLSelectElement | null;
   const previewContainer = document.getElementById('batch-import-preview-container');
@@ -93,8 +95,8 @@ export function openBatchReviewImportModal(sub: any, reviewBox: any, onComplete?
     `).join('');
   }
 
-  textarea?.addEventListener('input', updatePreview);
-  defaultRevSelect?.addEventListener('change', updatePreview);
+  modalScope.on(textarea, 'input', updatePreview);
+  modalScope.on(defaultRevSelect, 'change', updatePreview);
 
   function executeImport(mode: 'append' | 'replace') {
     if (!currentParsed || currentParsed.length === 0) {
@@ -131,6 +133,6 @@ export function openBatchReviewImportModal(sub: any, reviewBox: any, onComplete?
     }
   }
 
-  document.getElementById('btn-batch-do-append')?.addEventListener('click', () => executeImport('append'));
-  document.getElementById('btn-batch-do-replace')?.addEventListener('click', () => executeImport('replace'));
+  modalScope.on(document.getElementById('btn-batch-do-append'), 'click', () => executeImport('append'));
+  modalScope.on(document.getElementById('btn-batch-do-replace'), 'click', () => executeImport('replace'));
 }

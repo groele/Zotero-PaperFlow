@@ -3,10 +3,13 @@
  */
 import { DEFAULTS, FIELDS } from './schema.js';
 import { bindPreferenceActions } from './actions.js';
+import { createLifecycleScope, resetWeakScope, type LifecycleScope } from '../ui-utils/lifecycle.js';
 
 declare var Zotero: any;
 const HTML_NS = 'http://www.w3.org/1999/xhtml';
 const SUBORDINATE_KEYS = new Set(['subwindowAlwaysOnTop', 'subwindowCompactMode']);
+const prefWindowScopes = new WeakMap<Window, LifecycleScope>();
+const prefRenderScopes = new WeakMap<Window, LifecycleScope>();
 
 function createHtmlElement<K extends keyof HTMLElementTagNameMap>(
   doc: Document,
@@ -33,7 +36,7 @@ export function setPrefValue(key: string, value: any): void {
   Zotero.Prefs.set(`extensions.researchflow.${key}`, value, true);
 }
 
-export function buildSettingRow(field: any, doc: Document): HTMLElement {
+export function buildSettingRow(field: any, doc: Document, scope?: LifecycleScope): HTMLElement {
   const currentVal = getPrefValue(field.key);
   const subordinate = SUBORDINATE_KEYS.has(field.key);
 
@@ -46,10 +49,12 @@ export function buildSettingRow(field: any, doc: Document): HTMLElement {
     input.type = 'checkbox';
     input.id = `rf-pref-${field.key}`;
     input.checked = Boolean(currentVal);
-    input.addEventListener('change', () => {
+    const onCheckChange = () => {
       setPrefValue(field.key, input.checked);
       updateSubordinateStates(doc);
-    });
+    };
+    if (scope) scope.on(input, 'change', onCheckChange);
+    else input.addEventListener('change', onCheckChange);
 
     const title = createHtmlElement(doc, 'span', 'rf-check-title');
     if (field.l10nLabel) {
@@ -114,9 +119,11 @@ export function buildSettingRow(field: any, doc: Document): HTMLElement {
       if (val === currentVal) opt.selected = true;
       select.appendChild(opt);
     }
-    select.addEventListener('change', () => {
+    const onSelectChange = () => {
       setPrefValue(field.key, select.value);
-    });
+    };
+    if (scope) scope.on(select, 'change', onSelectChange);
+    else select.addEventListener('change', onSelectChange);
     ctrl.appendChild(select);
   }
 
@@ -142,13 +149,18 @@ export function updateSubordinateStates(doc: Document): void {
   }
 }
 
-export function renderPreferencesSection(containerId: string, sectionKey: string, doc: Document): void {
+export function renderPreferencesSection(
+  containerId: string,
+  sectionKey: string,
+  doc: Document,
+  scope?: LifecycleScope
+): void {
   const container = doc.getElementById(containerId);
   if (!container) return;
   container.innerHTML = '';
   const fields = FIELDS[sectionKey] || [];
   for (const field of fields) {
-    container.appendChild(buildSettingRow(field, doc));
+    container.appendChild(buildSettingRow(field, doc, scope));
   }
   try {
     (doc as any).l10n?.translateFragment?.(container);
@@ -161,25 +173,31 @@ function getSectionContainerId(doc: Document, primaryId: string, legacyId: strin
 
 export function initPreferencesWindow(win: Window): void {
   const doc = win.document;
+  const hostWin = win as any;
+  let winScope = prefWindowScopes.get(win);
+  if (!winScope || winScope.aborted) {
+    winScope = createLifecycleScope();
+    prefWindowScopes.set(win, winScope);
+  }
+  const renderScope = resetWeakScope(prefRenderScopes, win, winScope.signal);
 
-  renderPreferencesSection(getSectionContainerId(doc, 'rf-pref-window', 'rf-window-settings-list'), 'window', doc);
-  renderPreferencesSection(getSectionContainerId(doc, 'rf-pref-integration', 'rf-integration-settings-list'), 'integration', doc);
-  renderPreferencesSection(getSectionContainerId(doc, 'rf-pref-workflow', 'rf-workflow-settings-list'), 'workflow', doc);
-  renderPreferencesSection(getSectionContainerId(doc, 'rf-pref-data-sync', 'rf-storage-settings-list'), 'storage', doc);
+  renderPreferencesSection(getSectionContainerId(doc, 'rf-pref-window', 'rf-window-settings-list'), 'window', doc, renderScope);
+  renderPreferencesSection(getSectionContainerId(doc, 'rf-pref-integration', 'rf-integration-settings-list'), 'integration', doc, renderScope);
+  renderPreferencesSection(getSectionContainerId(doc, 'rf-pref-workflow', 'rf-workflow-settings-list'), 'workflow', doc, renderScope);
+  renderPreferencesSection(getSectionContainerId(doc, 'rf-pref-data-sync', 'rf-storage-settings-list'), 'storage', doc, renderScope);
 
   updateSubordinateStates(doc);
 
   const windowModeSelect = doc.getElementById('rf-pref-windowMode') as HTMLSelectElement | null;
   if (windowModeSelect) {
-    windowModeSelect.addEventListener('change', () => {
+    renderScope.on(windowModeSelect, 'change', () => {
       updateSubordinateStates(doc);
     });
   }
 
-  bindPreferenceActions(doc, win, getPrefValue, setPrefValue);
+  bindPreferenceActions(doc, win, getPrefValue, setPrefValue, renderScope);
 
   const zotero = typeof Zotero !== 'undefined' ? Zotero : (win as any).Zotero;
-  const hostWin = win as any;
   if (hostWin._rfPrefObserverSymbol && zotero?.Prefs?.unregisterObserver) {
     try { zotero.Prefs.unregisterObserver(hostWin._rfPrefObserverSymbol); } catch (_) {}
     hostWin._rfPrefObserverSymbol = null;
@@ -201,22 +219,23 @@ export function initPreferencesWindow(win: Window): void {
         }
         updateSubordinateStates(doc);
       }, sym);
-      if (!hostWin._rfPrefUnloadBound && typeof win.addEventListener === 'function') {
-        hostWin._rfPrefUnloadBound = true;
-        win.addEventListener('unload', () => {
-          if (hostWin._rfPrefObserverSymbol && zotero?.Prefs?.unregisterObserver) {
-            try { zotero.Prefs.unregisterObserver(hostWin._rfPrefObserverSymbol); } catch (_) {}
-            hostWin._rfPrefObserverSymbol = null;
-          }
-        }, { once: true });
-      }
     } catch (_) {}
   }
 
+  if (!hostWin._rfPrefUnloadBound && typeof win.addEventListener === 'function') {
+    hostWin._rfPrefUnloadBound = true;
+    winScope.on(win, 'unload', () => {
+      if (hostWin._rfPrefObserverSymbol && zotero?.Prefs?.unregisterObserver) {
+        try { zotero.Prefs.unregisterObserver(hostWin._rfPrefObserverSymbol); } catch (_) {}
+        hostWin._rfPrefObserverSymbol = null;
+      }
+      winScope?.abort();
+    }, { once: true });
+  }
+
   const resetBtn = doc.getElementById('rf-btn-reset-defaults');
-  if (resetBtn && !(resetBtn as any).dataset?.rfBound) {
-    if ((resetBtn as any).dataset) (resetBtn as any).dataset.rfBound = 'true';
-    resetBtn.addEventListener('click', () => {
+  if (resetBtn) {
+    renderScope.on(resetBtn, 'click', () => {
       if (zotero?.Prefs) {
         for (const [key, val] of Object.entries(DEFAULTS)) {
           zotero.Prefs.set(`extensions.researchflow.${key}`, val, true);

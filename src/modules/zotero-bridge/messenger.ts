@@ -56,7 +56,7 @@ export const bridgeMessengerMethods = {
 
   setupMessageListener(this: any): void {
     if (typeof window === 'undefined') return;
-    window.addEventListener('message', (event: any) => {
+    const onMessage = (event: any) => {
       const data = event.data;
       if (!data || typeof data !== 'object') return;
 
@@ -139,7 +139,12 @@ export const bridgeMessengerMethods = {
           }
         }
       }
-    });
+    };
+    if (this._lifecycleScope) {
+      this._lifecycleScope.on(window, 'message', onMessage);
+    } else {
+      window.addEventListener('message', onMessage);
+    }
   },
 
   sendToHost(this: any, msg: any): void {
@@ -157,18 +162,29 @@ export const bridgeMessengerMethods = {
   },
 
   request(this: any, type: string, payload: any = {}, timeoutMs: number = 6000): Promise<any> {
-    if (!this.isZotero) return Promise.resolve(null);
+    if (!this.isZotero || this._lifecycleScope?.aborted) return Promise.resolve(null);
     const requestId = `rf_req_${++this._pendingRequestId}_${Date.now()}`;
     return new Promise((resolve) => {
-      const timeout = timeoutMs > 0 ? setTimeout(() => {
-        this._requestCallbacks.delete(requestId);
-        resolve(null);
-      }, timeoutMs) : null;
-
-      this._requestCallbacks.set(requestId, (data: any) => {
+      let settled = false;
+      let timeout: any = null;
+      let detachAbort: (() => void) | null = null;
+      const finish = (val: any) => {
+        if (settled) return;
+        settled = true;
         if (timeout !== null) clearTimeout(timeout);
-        resolve(data);
-      });
+        detachAbort?.();
+        this._requestCallbacks.delete(requestId);
+        resolve(val);
+      };
+
+      if (this._lifecycleScope) {
+        detachAbort = this._lifecycleScope.onAbort(() => finish(null));
+      }
+      if (timeoutMs > 0) {
+        timeout = setTimeout(() => finish(null), timeoutMs);
+      }
+
+      this._requestCallbacks.set(requestId, (data: any) => finish(data));
 
       this.sendToHost({ type, requestId, ...payload });
     });

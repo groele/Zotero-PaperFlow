@@ -25,6 +25,207 @@
     }
   };
 
+  // src/modules/ui-utils/lifecycle.ts
+  function createFallbackController() {
+    let aborted = false;
+    let reason;
+    const listeners = /* @__PURE__ */ new Set();
+    const signal = {
+      get aborted() {
+        return aborted;
+      },
+      get reason() {
+        return reason;
+      },
+      addEventListener(type, listener) {
+        if (type !== "abort" || typeof listener !== "function") return;
+        if (aborted) {
+          try {
+            listener({ type: "abort" });
+          } catch (_) {
+          }
+          return;
+        }
+        listeners.add(listener);
+      },
+      removeEventListener(type, listener) {
+        if (type !== "abort") return;
+        listeners.delete(listener);
+      }
+    };
+    return {
+      signal,
+      abort(nextReason) {
+        if (aborted) return;
+        aborted = true;
+        reason = nextReason;
+        const snapshot = Array.from(listeners);
+        listeners.clear();
+        for (const listener of snapshot) {
+          try {
+            listener({ type: "abort" });
+          } catch (_) {
+          }
+        }
+      }
+    };
+  }
+  function isNativeAbortSignal(signal) {
+    return typeof AbortSignal !== "undefined" && signal instanceof AbortSignal;
+  }
+  function createLifecycleScope(parentSignal) {
+    const controller = typeof AbortController !== "undefined" ? new AbortController() : createFallbackController();
+    const cleanups = /* @__PURE__ */ new Set();
+    let localAborted = false;
+    const runCleanups = () => {
+      const snapshot = Array.from(cleanups);
+      cleanups.clear();
+      for (const cleanup of snapshot) {
+        try {
+          cleanup();
+        } catch (_) {
+        }
+      }
+    };
+    const abort = (reason) => {
+      if (localAborted) return;
+      localAborted = true;
+      try {
+        controller.abort(reason);
+      } catch (_) {
+      }
+      runCleanups();
+    };
+    if (parentSignal) {
+      if (parentSignal.aborted) {
+        abort(parentSignal.reason);
+      } else if (typeof parentSignal.addEventListener === "function") {
+        const onParentAbort = () => abort(parentSignal.reason);
+        parentSignal.addEventListener("abort", onParentAbort, { once: true });
+        cleanups.add(() => {
+          try {
+            parentSignal.removeEventListener?.("abort", onParentAbort);
+          } catch (_) {
+          }
+        });
+      }
+    }
+    const scope = {
+      signal: controller.signal,
+      get aborted() {
+        return localAborted || Boolean(controller.signal?.aborted);
+      },
+      abort,
+      onAbort(fn) {
+        if (typeof fn !== "function") return () => {
+        };
+        if (scope.aborted) {
+          try {
+            fn();
+          } catch (_) {
+          }
+          return () => {
+          };
+        }
+        cleanups.add(fn);
+        return () => {
+          cleanups.delete(fn);
+        };
+      },
+      on(target, type, listener, options) {
+        if (!target || typeof target.addEventListener !== "function" || typeof listener !== "function" || scope.aborted) {
+          return () => {
+          };
+        }
+        const capture = typeof options === "boolean" ? options : Boolean(options?.capture);
+        const baseOpts = typeof options === "boolean" ? { capture: options } : options ? { ...options } : {};
+        const listenerOptions = isNativeAbortSignal(controller.signal) ? { ...baseOpts, signal: controller.signal } : typeof options === "boolean" ? options : options || void 0;
+        target.addEventListener(type, listener, listenerOptions);
+        const detach = () => {
+          cleanups.delete(detach);
+          if (typeof target.removeEventListener === "function") {
+            try {
+              target.removeEventListener(type, listener, capture);
+            } catch (_) {
+            }
+          }
+        };
+        cleanups.add(detach);
+        return detach;
+      },
+      setTimeout(fn, delay = 0) {
+        const st = globalThis.setTimeout;
+        const ct = globalThis.clearTimeout;
+        if (scope.aborted || typeof st !== "function") return 0;
+        let timerId = 0;
+        const cancel = () => {
+          cleanups.delete(cancel);
+          if (timerId && typeof ct === "function") {
+            ct(timerId);
+            timerId = 0;
+          }
+        };
+        cleanups.add(cancel);
+        timerId = st(() => {
+          cleanups.delete(cancel);
+          timerId = 0;
+          if (!scope.aborted) fn();
+        }, delay);
+        return timerId;
+      },
+      setInterval(fn, delay = 0) {
+        const si = globalThis.setInterval;
+        const ci = globalThis.clearInterval;
+        if (scope.aborted || typeof si !== "function") return 0;
+        let timerId = 0;
+        const cancel = () => {
+          cleanups.delete(cancel);
+          if (timerId && typeof ci === "function") {
+            ci(timerId);
+            timerId = 0;
+          }
+        };
+        cleanups.add(cancel);
+        timerId = si(() => {
+          if (!scope.aborted) fn();
+        }, delay);
+        return timerId;
+      },
+      raf(fn) {
+        const req = globalThis.requestAnimationFrame;
+        const can = globalThis.cancelAnimationFrame;
+        if (scope.aborted) return 0;
+        if (typeof req !== "function") {
+          return scope.setTimeout(() => fn(Date.now()), 0);
+        }
+        let rafId = 0;
+        const cancel = () => {
+          cleanups.delete(cancel);
+          if (rafId && typeof can === "function") {
+            can(rafId);
+            rafId = 0;
+          }
+        };
+        cleanups.add(cancel);
+        rafId = req((ts) => {
+          cleanups.delete(cancel);
+          rafId = 0;
+          if (!scope.aborted) fn(ts);
+        });
+        return rafId;
+      },
+      child() {
+        return createLifecycleScope(controller.signal);
+      }
+    };
+    return scope;
+  }
+  var init_lifecycle = __esm({
+    "src/modules/ui-utils/lifecycle.ts"() {
+      "use strict";
+    }
+  });
+
   // src/modules/review-matrix/checklist.ts
   function getSubmissionChecklistPreset(key) {
     return submissionComplianceChecklistPresets.find((preset) => preset.key === key) || null;
@@ -74,6 +275,9 @@
   function renderSubmissionChecklistEditor(sub, checklistKeys = getSubmissionChecklistKeys(sub)) {
     const checklistBox = document.getElementById("sub-edit-compliance-checklist-container");
     if (!checklistBox) return;
+    checklistEditorScope?.abort("re-render");
+    const scope = createLifecycleScope();
+    checklistEditorScope = scope;
     window.RFUI.setHTML(checklistBox, checklistKeys.map((key) => {
       const isDone = isSubmissionChecklistDone(sub, key);
       const label = getSubmissionChecklistLabel(key);
@@ -89,15 +293,18 @@
     checklistBox.querySelectorAll("[data-checklist-item]").forEach((item) => {
       const key = item.getAttribute("data-checklist-key");
       const checkbox = item.querySelector('input[type="checkbox"]');
-      checkbox?.addEventListener("change", (e) => {
+      scope.on(checkbox, "change", (e) => {
         item.classList.toggle("done", e.target.checked);
         setSubmissionChecklistDone(sub, key, e.target.checked);
       });
     });
   }
+  var checklistEditorScope;
   var init_checklist = __esm({
     "src/modules/review-matrix/checklist.ts"() {
       "use strict";
+      init_lifecycle();
+      checklistEditorScope = null;
     }
   });
 
@@ -206,28 +413,26 @@
   function renderSubmissionReviewMatrixEditor(sub, initialDraft = "") {
     const reviewBox = document.getElementById("sub-edit-review-matrix-container");
     if (!reviewBox) return;
+    matrixEditorScope?.abort("re-render");
+    const editorScope = createLifecycleScope();
+    matrixEditorScope = editorScope;
+    let rowsScope = editorScope.child();
+    let progressScope = editorScope.child();
     const requestMatrixAutoSave = (immediate = true) => {
       updateSubmissionRebuttalProgress(sub);
       document.getElementById("submission-entry-editor-panel")?.dispatchEvent(new CustomEvent("submission-autosave-request", {
         detail: { immediate }
       }));
     };
-    let rafProgressId = null;
     const scheduleLiveProgressRefresh = (targetTextarea) => {
       if (targetTextarea) autoResizeReviewTextarea(targetTextarea);
-      if (typeof requestAnimationFrame === "function") {
-        if (rafProgressId != null && typeof cancelAnimationFrame === "function") {
-          cancelAnimationFrame(rafProgressId);
-        }
-        rafProgressId = requestAnimationFrame(() => {
-          rafProgressId = null;
-          updateSubmissionRebuttalProgress(sub);
-        });
-      } else {
-        updateSubmissionRebuttalProgress(sub);
-      }
+      progressScope.abort("reschedule");
+      progressScope = editorScope.child();
+      progressScope.raf(() => updateSubmissionRebuttalProgress(sub));
     };
     const renderRows = (rows, flipRects, flashRowId) => {
+      rowsScope.abort("re-render-rows");
+      rowsScope = editorScope.child();
       sub.reviewMatrix = rows;
       updateSubmissionRebuttalProgress(sub);
       if (!rows.length) {
@@ -309,15 +514,15 @@
       </div>
     `;
       }).join(""));
-      reviewBox.querySelector("#review-matrix-filter-status")?.addEventListener("change", (e) => {
+      rowsScope.on(reviewBox.querySelector("#review-matrix-filter-status"), "change", (e) => {
         g2._reviewMatrixFilterState.status = e.target.value;
         applyReviewMatrixFilter(reviewBox);
       });
-      reviewBox.querySelector("#review-matrix-filter-reviewer")?.addEventListener("change", (e) => {
+      rowsScope.on(reviewBox.querySelector("#review-matrix-filter-reviewer"), "change", (e) => {
         g2._reviewMatrixFilterState.reviewer = e.target.value;
         applyReviewMatrixFilter(reviewBox);
       });
-      reviewBox.querySelector("#btn-collapse-addressed-reviews")?.addEventListener("click", () => {
+      rowsScope.on(reviewBox.querySelector("#btn-collapse-addressed-reviews"), "click", () => {
         g2._reviewMatrixFilterState.collapseAddressed = !g2._reviewMatrixFilterState.collapseAddressed;
         reviewBox.querySelectorAll?.("[data-review-row]").forEach((r) => {
           if (r.dataset) {
@@ -329,7 +534,7 @@
       });
       reviewBox.querySelectorAll("[data-review-row]").forEach((rowEl, idx) => {
         const statusSel = rowEl.querySelector(".sub-edit-review-status");
-        statusSel?.addEventListener("change", () => {
+        rowsScope.on(statusSel, "change", () => {
           const nextSt = statusSel.value;
           rowEl.setAttribute("data-status", nextSt);
           rowEl.className = `submission-edit-review-row status-${nextSt}${rowEl.classList?.contains("is-collapsed") ? " is-collapsed" : ""}`;
@@ -338,7 +543,7 @@
           applyReviewMatrixFilter(reviewBox);
         });
         const collapseRowBtn = rowEl.querySelector(".btn-toggle-review-collapse");
-        collapseRowBtn?.addEventListener("click", () => {
+        rowsScope.on(collapseRowBtn, "click", () => {
           const nextCollapsed = !rowEl.classList?.contains?.("is-collapsed");
           rowEl.classList?.toggle?.("is-collapsed", nextCollapsed);
           if (rowEl.dataset) {
@@ -353,10 +558,10 @@
         });
         rowEl.querySelectorAll?.(".sub-edit-review-comment, .sub-edit-review-response").forEach((ta) => {
           autoResizeReviewTextarea(ta);
-          ta.addEventListener?.("input", () => scheduleLiveProgressRefresh(ta));
+          rowsScope.on(ta, "input", () => scheduleLiveProgressRefresh(ta));
         });
         const moveUpBtn = rowEl.querySelector(".btn-move-review-up");
-        moveUpBtn?.addEventListener("click", () => {
+        rowsScope.on(moveUpBtn, "click", () => {
           const current = collectSubmissionReviewMatrixFromEditor();
           if (idx > 0) {
             const prevRects = window.RFUI.captureElementRects(reviewBox, "[data-review-row]", "data-review-id");
@@ -369,7 +574,7 @@
           }
         });
         const moveDownBtn = rowEl.querySelector(".btn-move-review-down");
-        moveDownBtn?.addEventListener("click", () => {
+        rowsScope.on(moveDownBtn, "click", () => {
           const current = collectSubmissionReviewMatrixFromEditor();
           if (idx < current.length - 1) {
             const prevRects = window.RFUI.captureElementRects(reviewBox, "[data-review-row]", "data-review-id");
@@ -382,7 +587,7 @@
           }
         });
         const copyQaBtn = rowEl.querySelector(".btn-copy-full-qa");
-        copyQaBtn?.addEventListener("click", () => {
+        rowsScope.on(copyQaBtn, "click", () => {
           const rev = rowEl.querySelector(".sub-edit-review-reviewer")?.value || "Reviewer";
           const cmt = rowEl.querySelector(".sub-edit-review-comment")?.value || "";
           const rsp = rowEl.querySelector(".sub-edit-review-response")?.value || "";
@@ -399,13 +604,13 @@ ${chg}` : ""}`;
           showGlobalToast(currentLanguage === "zh" ? "已复制完整审稿问答块！" : "Copied Q&A block to clipboard!", "success");
         });
         const copyBtn = rowEl.querySelector(".btn-copy-review-response");
-        copyBtn?.addEventListener("click", () => {
+        rowsScope.on(copyBtn, "click", () => {
           const val = rowEl.querySelector(".sub-edit-review-response")?.value || "";
           navigator.clipboard?.writeText(val);
           showGlobalToast(currentLanguage === "zh" ? "已复制回复内容！" : "Response copied to clipboard!", "success");
         });
         const deleteBtn = rowEl.querySelector(".btn-delete-review-row");
-        deleteBtn?.addEventListener("click", () => {
+        rowsScope.on(deleteBtn, "click", () => {
           const nextRows = collectSubmissionReviewMatrixFromEditor().filter((_, rowIndex) => rowIndex !== idx);
           renderRows(nextRows);
           requestMatrixAutoSave();
@@ -420,29 +625,23 @@ ${chg}` : ""}`;
       }
     };
     renderRows(getSubmissionReviewMatrixRows(sub, initialDraft));
-    const addButton = document.getElementById("btn-add-review-comment");
-    if (addButton) {
-      addButton.onclick = () => {
-        const existing = collectSubmissionReviewMatrixFromEditor();
-        const lastReviewer = existing.length > 0 ? existing[existing.length - 1].reviewer : "Reviewer #1";
-        renderRows([
-          ...existing,
-          { id: `rev_${Date.now()}`, reviewer: lastReviewer, status: "pending", comment: "", response: "", changes: "" }
-        ]);
-        const comments = reviewBox.querySelectorAll(".sub-edit-review-comment");
-        comments[comments.length - 1]?.focus?.();
-        requestMatrixAutoSave(false);
-      };
-    }
-    const batchImportButton = document.getElementById("btn-batch-import-reviews");
-    if (batchImportButton) {
-      batchImportButton.onclick = () => {
-        openBatchReviewImportModal(sub, reviewBox, () => {
-          renderRows(sub.reviewMatrix || []);
-          requestMatrixAutoSave(true);
-        });
-      };
-    }
+    editorScope.on(document.getElementById("btn-add-review-comment"), "click", () => {
+      const existing = collectSubmissionReviewMatrixFromEditor();
+      const lastReviewer = existing.length > 0 ? existing[existing.length - 1].reviewer : "Reviewer #1";
+      renderRows([
+        ...existing,
+        { id: `rev_${Date.now()}`, reviewer: lastReviewer, status: "pending", comment: "", response: "", changes: "" }
+      ]);
+      const comments = reviewBox.querySelectorAll(".sub-edit-review-comment");
+      comments[comments.length - 1]?.focus?.();
+      requestMatrixAutoSave(false);
+    });
+    editorScope.on(document.getElementById("btn-batch-import-reviews"), "click", () => {
+      openBatchReviewImportModal(sub, reviewBox, () => {
+        renderRows(sub.reviewMatrix || []);
+        requestMatrixAutoSave(true);
+      });
+    });
   }
   function renderSubmissionReviewPreview(sub, checklistKeys = getSubmissionChecklistKeys(sub)) {
     const previewBox = document.getElementById("submission-review-preview");
@@ -483,12 +682,14 @@ ${chg}` : ""}`;
     <div class="submission-review-preview-list">${reviewPreview}</div>
   `);
   }
-  var g2;
+  var matrixEditorScope, g2;
   var init_editor_and_filters = __esm({
     "src/modules/review-matrix/editor-and-filters.ts"() {
       "use strict";
       init_checklist();
       init_filter_and_progress();
+      init_lifecycle();
+      matrixEditorScope = null;
       g2 = typeof globalThis !== "undefined" ? globalThis : window;
     }
   });

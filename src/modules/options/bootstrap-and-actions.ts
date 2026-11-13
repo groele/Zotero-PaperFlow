@@ -6,6 +6,11 @@ import {
   openSubmissionForEditing,
   showGlobalToast
 } from './navigation-and-modal.js';
+import { createLifecycleScope, type LifecycleScope } from '../ui-utils/lifecycle.js';
+
+let actionScope: LifecycleScope | null = null;
+let pendingActionTimerScope: LifecycleScope | null = null;
+let bootstrapScope: LifecycleScope | null = null;
 
 declare var db: any;
 declare var currentLanguage: string;
@@ -26,7 +31,16 @@ declare function setupJournalPortalListeners(): void;
 declare function openManuscriptModal(man: any, prefill?: any): void;
 
 export function bindZoteroActionListeners(): void {
-  window.addEventListener('researchflow:action', (e: any) => {
+  actionScope?.abort('rebind');
+  const scope = createLifecycleScope();
+  actionScope = scope;
+  scope.on(window, 'unload', () => {
+    pendingActionTimerScope?.abort('unload');
+    bootstrapScope?.abort('unload');
+    scope.abort('unload');
+  }, { once: true });
+
+  scope.on(window, 'researchflow:action', (e: any) => {
     const detail = e.detail;
     if (!detail) return;
 
@@ -38,7 +52,9 @@ export function bindZoteroActionListeners(): void {
     if (detail.action === 'create_manuscript_from_item' && detail.item) {
       const navBtn = document.querySelector('.nav-item[data-view="view-manuscripts"]') as HTMLElement | null;
       if (navBtn) navBtn.click();
-      setTimeout(() => {
+      pendingActionTimerScope?.abort('superseded');
+      pendingActionTimerScope = scope.child();
+      pendingActionTimerScope.setTimeout(() => {
         if (typeof openManuscriptModal === 'function') {
           openManuscriptModal(null, {
             title: detail.item.title,
@@ -62,7 +78,9 @@ export function bindZoteroActionListeners(): void {
     } else if (detail.action === 'create_submission_from_item' && detail.item) {
       const navBtn = document.querySelector('.nav-item[data-view="view-submissions"]') as HTMLElement | null;
       if (navBtn) navBtn.click();
-      setTimeout(() => {
+      pendingActionTimerScope?.abort('superseded');
+      pendingActionTimerScope = scope.child();
+      pendingActionTimerScope.setTimeout(() => {
         const existingMan = (db?.manuscripts || []).find((m: any) =>
           (m.zoteroItemKey && m.zoteroItemKey === detail.item.key) ||
           (detail.item.doi && m.doi && m.doi.toLowerCase() === detail.item.doi.toLowerCase())
@@ -88,7 +106,7 @@ export function bindZoteroActionListeners(): void {
     }
   });
 
-  window.addEventListener('researchflow:data-updated', (e: any) => {
+  scope.on(window, 'researchflow:data-updated', (e: any) => {
     if (e.detail) {
       db = e.detail;
       const activeView = document.querySelector('.content-view.active')?.id || 'view-dashboard';
@@ -102,7 +120,7 @@ export function bindZoteroActionListeners(): void {
     }
   });
 
-  window.addEventListener('researchflow:prefs-updated', (e: any) => {
+  scope.on(window, 'researchflow:prefs-updated', (e: any) => {
     if (!e.detail) return;
     if (e.detail.language && (e.detail.language === 'zh' || e.detail.language === 'en')) {
       currentLanguage = e.detail.language;
@@ -125,6 +143,10 @@ export async function initializeWorkspace(): Promise<void> {
     return;
   }
 
+  bootstrapScope?.abort('reinit');
+  const scope = createLifecycleScope();
+  bootstrapScope = scope;
+
   db = await window.storage.loadAll();
   const normalizedStatuses = normalizeSubmissionStatuses(db);
   const cleanedPublicationLinks = clearUnacceptedPublicationLinks(db);
@@ -143,7 +165,7 @@ export async function initializeWorkspace(): Promise<void> {
       }
     };
     if (typeof darkScheme.addEventListener === 'function') {
-      darkScheme.addEventListener('change', handleSystemThemeChange);
+      scope.on(darkScheme, 'change', handleSystemThemeChange);
     }
   }
 
@@ -173,7 +195,7 @@ export async function initializeWorkspace(): Promise<void> {
   setupSubmissionSearch();
   setupJournalPortalListeners();
 
-  document.getElementById('btn-force-sync')?.addEventListener('click', async () => {
+  scope.on(document.getElementById('btn-force-sync'), 'click', async () => {
     const provider = (document.getElementById('route-db') as HTMLSelectElement | null)?.value
       || db?.settings?.syncProviders?.metadata?.provider
       || 'local';
@@ -189,6 +211,7 @@ export async function initializeWorkspace(): Promise<void> {
     btn.disabled = true;
 
     const result = await window.storage.syncNow();
+    if (scope.aborted) return;
     if (result?.success) {
       db = await window.storage.loadAll();
       renderDashboard();
@@ -201,7 +224,7 @@ export async function initializeWorkspace(): Promise<void> {
       btn.textContent = '❌ Sync Failed';
       showGlobalToast(result?.message || 'Cloud sync failed. Check your provider settings.', 'error');
     }
-    setTimeout(() => {
+    scope.setTimeout(() => {
       btn.replaceChildren(...origNodes);
       btn.disabled = false;
     }, 2000);

@@ -1,8 +1,9 @@
+import { acquireModalScope, type LifecycleScope } from '../ui-utils/lifecycle.js';
+
 declare const currentLanguage: string;
 declare const ZoteroBridge: any;
 declare function escapeHTML(str: any): string;
 declare function showGlobalToast(message: string, type?: string, duration?: number): void;
-declare function registerModalCleanup(fn: () => void): void;
 
 export interface ZoteroModalBindState {
   currentZoteroItemKey: string | null;
@@ -15,23 +16,31 @@ export interface ZoteroModalBindState {
   currentRelatedItems: any[];
 }
 
-let activeManuscriptDropdownOutsideClick: ((e: any) => void) | null = null;
-
-export function bindZoteroReadingAssetsDrawer(state: ZoteroModalBindState): void {
+export function bindZoteroReadingAssetsDrawer(state: ZoteroModalBindState, parentScope?: LifecycleScope): void {
   const w = window as any;
-  document.getElementById('btn-zotero-toggle-annos')?.addEventListener('click', async () => {
+  const modalScope = parentScope || acquireModalScope();
+  let drawerContentScope = modalScope.child();
+
+  modalScope.on(document.getElementById('btn-zotero-toggle-annos'), 'click', async () => {
     const panel = document.getElementById('man-zotero-annotations-panel');
     if (!panel || !state.currentZoteroItemKey || typeof ZoteroBridge === 'undefined') return;
     if (panel.style.display !== 'none') {
+      drawerContentScope.abort('drawer-collapsed');
       panel.style.display = 'none';
       return;
     }
+    drawerContentScope.abort('drawer-reload');
+    drawerContentScope = modalScope.child();
+    const contentScope = drawerContentScope;
+
     panel.style.display = 'flex';
     w.RFUI.setHTML(panel, '<div style="font-size:11px; color:#64748b; padding:8px; text-align:center;">⏳ 正在读取 Zotero 研读资产库 (PDF划线、独立笔记、分类标签)...</div>');
 
     const assets = typeof ZoteroBridge.getReadingAssets === 'function'
       ? await ZoteroBridge.getReadingAssets(state.currentZoteroItemKey, state.currentZoteroLibraryID)
       : { annotations: await ZoteroBridge.getAnnotations(state.currentZoteroItemKey, state.currentZoteroLibraryID), notes: [], collections: [], tags: [] };
+
+    if (contentScope.aborted || panel.style.display === 'none') return;
 
     const annos = assets.annotations || [];
     const notes = assets.notes || [];
@@ -50,7 +59,7 @@ export function bindZoteroReadingAssetsDrawer(state: ZoteroModalBindState): void
     `);
 
     panel.querySelectorAll('.zotero-drawer-tab').forEach((tabBtn: any) => {
-      tabBtn.addEventListener('click', (e: Event) => {
+      contentScope.on(tabBtn, 'click', (e: Event) => {
         e.preventDefault();
         panel.querySelectorAll('.zotero-drawer-tab').forEach((b) => b.classList.remove('active'));
         tabBtn.classList.add('active');
@@ -64,13 +73,13 @@ export function bindZoteroReadingAssetsDrawer(state: ZoteroModalBindState): void
       });
     });
 
-    populateZoteroAnnosTab(panel, annos, state);
-    populateZoteroNotesTab(panel, notes, state);
-    populateZoteroMetaTab(panel, collections, tags);
+    populateZoteroAnnosTab(panel, annos, state, contentScope);
+    populateZoteroNotesTab(panel, notes, state, contentScope);
+    populateZoteroMetaTab(panel, collections, tags, contentScope);
   });
 }
 
-function populateZoteroAnnosTab(panel: HTMLElement, annos: any[], state: ZoteroModalBindState): void {
+function populateZoteroAnnosTab(panel: HTMLElement, annos: any[], state: ZoteroModalBindState, contentScope: LifecycleScope): void {
   const w = window as any;
   const annosContainer = panel.querySelector('#zotero-tab-content-annos');
   if (!annosContainer) return;
@@ -85,7 +94,7 @@ function populateZoteroAnnosTab(panel: HTMLElement, annos: any[], state: ZoteroM
       <span>共检测到 <strong>${annos.length}</strong> 条 PDF 批注划线</span>
       <button type="button" class="btn-secondary" id="btn-batch-insert-annos" style="font-size:10px; padding:2px 8px; color:var(--text-accent, #e11d48); font-weight:600; cursor:pointer;">➕ 全部汇入研读草稿</button>
     `);
-    batchBar.querySelector('#btn-batch-insert-annos')?.addEventListener('click', () => {
+    contentScope.on(batchBar.querySelector('#btn-batch-insert-annos'), 'click', () => {
       const absBox = document.getElementById('man-abstract') as HTMLTextAreaElement | null;
       if (absBox) {
         const allQuotes = annos.filter((a) => a.text || a.comment).map((a) => `> "${a.text || a.comment}" (第 ${a.page} 页)`).join('\n\n');
@@ -111,14 +120,14 @@ function populateZoteroAnnosTab(panel: HTMLElement, annos: any[], state: ZoteroM
         <button type="button" class="btn-secondary btn-quote-jump" style="font-size:10px; padding:2px 6px;">📖 原文第 ${a.page} 页</button>
       </div>
     `);
-    itemEl.querySelector('.btn-quote-insert')?.addEventListener('click', () => {
+    contentScope.on(itemEl.querySelector('.btn-quote-insert'), 'click', () => {
       const absBox = document.getElementById('man-abstract') as HTMLTextAreaElement | null;
       if (absBox) {
         absBox.value = `${absBox.value}\n\n> "${a.text || a.comment}" (第 ${a.page} 页)`.trim();
         showGlobalToast('已将划线批注插入到研读草稿中', 'success');
       }
     });
-    itemEl.querySelector('.btn-quote-jump')?.addEventListener('click', () => {
+    contentScope.on(itemEl.querySelector('.btn-quote-jump'), 'click', () => {
       if (state.currentZoteroItemKey && typeof ZoteroBridge !== 'undefined') {
         ZoteroBridge.openPdf(state.currentZoteroItemKey, a.pageIndex + 1, state.currentZoteroLibraryID);
       }
@@ -127,7 +136,7 @@ function populateZoteroAnnosTab(panel: HTMLElement, annos: any[], state: ZoteroM
   });
 }
 
-function populateZoteroNotesTab(panel: HTMLElement, notes: any[], state: ZoteroModalBindState): void {
+function populateZoteroNotesTab(panel: HTMLElement, notes: any[], state: ZoteroModalBindState, contentScope: LifecycleScope): void {
   const w = window as any;
   const notesContainer = panel.querySelector('#zotero-tab-content-notes');
   if (!notesContainer) return;
@@ -149,21 +158,21 @@ function populateZoteroNotesTab(panel: HTMLElement, notes: any[], state: ZoteroM
         <button type="button" class="btn-secondary btn-locate-note" style="font-size:10px; padding:2px 6px;">🔗 定位笔记</button>
       </div>
     `);
-    noteEl.querySelector('.btn-insert-note')?.addEventListener('click', () => {
+    contentScope.on(noteEl.querySelector('.btn-insert-note'), 'click', () => {
       const absBox = document.getElementById('man-abstract') as HTMLTextAreaElement | null;
       if (absBox) {
         absBox.value = `${absBox.value}\n\n【Zotero 研读笔记摘记】\n${n.snippet || ''}`.trim();
         showGlobalToast('已将文献笔记插入到研读草稿中', 'success');
       }
     });
-    noteEl.querySelector('.btn-locate-note')?.addEventListener('click', () => {
+    contentScope.on(noteEl.querySelector('.btn-locate-note'), 'click', () => {
       if (typeof ZoteroBridge !== 'undefined') ZoteroBridge.selectItemInZotero(n.key, state.currentZoteroLibraryID);
     });
     notesContainer.appendChild(noteEl);
   });
 }
 
-function populateZoteroMetaTab(panel: HTMLElement, collections: any[], tags: string[]): void {
+function populateZoteroMetaTab(panel: HTMLElement, collections: any[], tags: string[], contentScope: LifecycleScope): void {
   const w = window as any;
   const metaContainer = panel.querySelector('#zotero-tab-content-meta');
   if (!metaContainer) return;
@@ -201,7 +210,7 @@ function populateZoteroMetaTab(panel: HTMLElement, collections: any[], tags: str
       tagsWrap.appendChild(tagPill);
     });
     tagSection.appendChild(tagsWrap);
-    tagSection.querySelector('#btn-extract-tags-to-notes')?.addEventListener('click', () => {
+    contentScope.on(tagSection.querySelector('#btn-extract-tags-to-notes'), 'click', () => {
       const absBox = document.getElementById('man-abstract') as HTMLTextAreaElement | null;
       if (absBox) {
         absBox.value = `${absBox.value}\n\n【主题关键词】：${tags.join(', ')}`.trim();
@@ -216,25 +225,32 @@ function populateZoteroMetaTab(panel: HTMLElement, collections: any[], tags: str
   }
 }
 
-export function bindZoteroLiveSearchDropdown(applyItemToForm: (item: any) => void): void {
+export function bindZoteroLiveSearchDropdown(applyItemToForm: (item: any) => void, parentScope?: LifecycleScope): void {
   const w = window as any;
   const searchInput = document.getElementById('ipt-zotero-live-search') as HTMLInputElement | null;
   const dropdown = document.getElementById('zotero-search-results-dropdown');
-  let searchTimer: any = null;
   if (!searchInput || !dropdown) return;
+  const modalScope = parentScope || acquireModalScope();
+  let searchTimerScope = modalScope.child();
+  let dropdownListScope = modalScope.child();
 
-  searchInput.addEventListener('input', (e: any) => {
+  modalScope.on(searchInput, 'input', (e: any) => {
     const query = e.target.value.trim();
-    clearTimeout(searchTimer);
+    searchTimerScope.abort('search-debounce');
+    searchTimerScope = modalScope.child();
+    const activeSearchScope = searchTimerScope;
     if (query.length < 2) {
       dropdown.style.display = 'none';
       w.RFUI.setHTML(dropdown, '');
       return;
     }
-    searchTimer = setTimeout(async () => {
+    activeSearchScope.setTimeout(async () => {
       w.RFUI.setHTML(dropdown, `<div class="zotero-search-empty">🔍 ${escapeHTML(currentLanguage === 'zh' ? '检索中...' : 'Searching...')}</div>`);
       dropdown.style.display = 'block';
       const results = typeof ZoteroBridge !== 'undefined' ? await ZoteroBridge.searchLibrary(query, 10) : [];
+      if (activeSearchScope.aborted) return;
+      dropdownListScope.abort('refresh-results');
+      dropdownListScope = modalScope.child();
       if (!results || results.length === 0) {
         w.RFUI.setHTML(dropdown, `<div class="zotero-search-empty">${escapeHTML(currentLanguage === 'zh' ? '未找到匹配的 Zotero 文献' : 'No matching Zotero items found')}</div>`);
         return;
@@ -247,7 +263,7 @@ export function bindZoteroLiveSearchDropdown(applyItemToForm: (item: any) => voi
           <div class="zotero-search-result-title">${escapeHTML(res.title || '无标题文献')}</div>
           <div class="zotero-search-result-meta">${escapeHTML(res.authors || '')} ${res.year ? `· ${escapeHTML(res.year)}` : ''} ${res.publication ? `· ${escapeHTML(res.publication)}` : ''}</div>
         `);
-        itemEl.addEventListener('click', () => {
+        dropdownListScope.on(itemEl, 'click', () => {
           applyItemToForm(res);
           dropdown.style.display = 'none';
           searchInput.value = '';
@@ -257,22 +273,9 @@ export function bindZoteroLiveSearchDropdown(applyItemToForm: (item: any) => voi
     }, 220);
   });
 
-  if (activeManuscriptDropdownOutsideClick) {
-    document.removeEventListener('click', activeManuscriptDropdownOutsideClick);
-    activeManuscriptDropdownOutsideClick = null;
-  }
-  activeManuscriptDropdownOutsideClick = (e: any) => {
+  modalScope.on(document, 'click', (e: any) => {
     if (!searchInput.contains?.(e.target) && !dropdown.contains?.(e.target)) {
       dropdown.style.display = 'none';
     }
-  };
-  document.addEventListener('click', activeManuscriptDropdownOutsideClick);
-  if (typeof registerModalCleanup === 'function') {
-    registerModalCleanup(() => {
-      if (activeManuscriptDropdownOutsideClick) {
-        document.removeEventListener('click', activeManuscriptDropdownOutsideClick);
-        activeManuscriptDropdownOutsideClick = null;
-      }
-    });
-  }
+  });
 }

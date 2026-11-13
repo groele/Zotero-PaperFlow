@@ -1,5 +1,9 @@
 import { persistManuscriptStatusChange, updateKanbanEmptyColumns } from './status-helpers.js';
 import { buildKanbanCard } from './card-builder.js';
+import { createLifecycleScope, type LifecycleScope } from '../ui-utils/lifecycle.js';
+
+let bannerScope: LifecycleScope | null = null;
+let kanbanCardsScope: LifecycleScope | null = null;
 
 declare const db: any;
 declare const currentLanguage: string;
@@ -21,6 +25,12 @@ function removeKanbanDropPlaceholders(): void {
 export function renderKanban(): void {
   const w = window as any;
   if (w.RFUI?.isViewDeferred?.('view-manuscripts')) return;
+
+  bannerScope?.abort('re-render');
+  bannerScope = null;
+  kanbanCardsScope?.abort('re-render');
+  const renderScope = createLifecycleScope();
+  kanbanCardsScope = renderScope;
 
   const columns = ['idea', 'drafting', 'submitted', 'accepted'];
   columns.forEach((col) => {
@@ -49,7 +59,8 @@ export function renderKanban(): void {
       </div>
       <button class="btn-secondary" id="btn-cancel-zotero-link" style="padding:4px 10px; font-size:12px;">取消关联</button>
     `);
-    document.getElementById('btn-cancel-zotero-link')?.addEventListener('click', () => {
+    bannerScope = renderScope.child();
+    bannerScope.on(document.getElementById('btn-cancel-zotero-link'), 'click', () => {
       w._pendingZoteroLinkItem = null;
       renderKanban();
     });
@@ -74,7 +85,7 @@ export function renderKanban(): void {
 
     mCount[col]++;
     const linkedSubmission = w.RFCore.getCurrentSubmission(db, m.id);
-    const card = buildKanbanCard(m, linkedSubmission, renderKanban, removeKanbanDropPlaceholders);
+    const card = buildKanbanCard(m, linkedSubmission, renderKanban, removeKanbanDropPlaceholders, renderScope.signal);
     document.getElementById(`cards-${col}`)?.appendChild(card);
   });
 

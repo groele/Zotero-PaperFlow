@@ -3,6 +3,7 @@
  * Encapsulates the literature item pane section registration,
  * pipeline status card rendering, citekey copy, and child note sync triggers.
  */
+import { createLifecycleScope, type LifecycleScope } from './ui-utils/lifecycle.js';
 
 function copyToClipboard(text: string): void {
   if (!text) return;
@@ -38,10 +39,20 @@ export function registerItemPaneSection(host: any): string | null {
           host.ensureLocalization?.(document);
         }
         const target = host.getLiteratureItem?.(item) || item;
-        const state = {
+        const paneScope = createLifecycleScope();
+        const state: {
+          itemKey: any;
+          refresh: any;
+          paneScope: LifecycleScope;
+          renderScope: LifecycleScope | null;
+          onDataChanged: () => void;
+        } = {
           itemKey: target?.key || null,
           refresh,
+          paneScope,
+          renderScope: null,
           onDataChanged: () => {
+            if (paneScope.aborted) return;
             Promise.resolve(refresh?.()).catch((err: any) => {
               if (typeof Zotero !== 'undefined') Zotero.logError?.('[PaperFlow] ItemPane refresh failed: ' + err);
             });
@@ -52,6 +63,8 @@ export function registerItemPaneSection(host: any): string | null {
       },
       onDestroy: ({ body }: any) => {
         const state = sectionStates.get(body);
+        state?.renderScope?.abort('pane-destroy');
+        state?.paneScope?.abort('pane-destroy');
         if (state?.onDataChanged) {
           host.unregisterDataListener?.(state.onDataChanged);
         }
@@ -65,6 +78,12 @@ export function registerItemPaneSection(host: any): string | null {
       },
       onRender: async ({ doc, body, item, setSectionSummary }: any) => {
         if (!body) return;
+        const state = sectionStates.get(body);
+        if (state?.paneScope?.aborted) return;
+        state?.renderScope?.abort('re-render');
+        const renderScope = createLifecycleScope(state?.paneScope?.signal);
+        if (state) state.renderScope = renderScope;
+
         const document = doc || body.ownerDocument;
         body.replaceChildren();
         const target = host.getLiteratureItem?.(item) || item;
@@ -72,6 +91,7 @@ export function registerItemPaneSection(host: any): string | null {
         const isReadOnly = Boolean(target.deleted || (typeof target.isEditable === 'function' && !target.isEditable()));
 
         const db = host._cachedData || await host.loadDatabase();
+        if (renderScope.aborted) return;
         const targetKey = target.key;
         const targetDoi = (typeof target.getField === 'function' ? target.getField('DOI') : '') || '';
 
@@ -140,7 +160,7 @@ export function registerItemPaneSection(host: any): string | null {
             btnView.style.cssText = 'font-size:11px; padding:3px 8px; border-radius:4px; border:1px solid #e11d48; background:transparent; color:#e11d48; cursor:pointer; font-weight:500;';
             btnView.textContent = '🔍 查看';
             btnView.title = '在 Zotero PaperFlow 工作台中打开该稿件';
-            btnView.addEventListener('click', () => {
+            renderScope.on(btnView, 'click', () => {
               host.triggerResearchFlowOpen?.(document.defaultView, {
                 view: 'view-manuscripts',
                 manuscriptId: m.id
@@ -159,12 +179,13 @@ export function registerItemPaneSection(host: any): string | null {
             } else {
               btnSyncNote.style.cursor = 'pointer';
               btnSyncNote.title = '将稿件进展与审稿矩阵同步为文献子笔记 (支持 Zotero 云端全平台多端同步)';
-              btnSyncNote.addEventListener('click', async () => {
+              renderScope.on(btnSyncNote, 'click', async () => {
                 btnSyncNote.textContent = '⏳ 同步中...';
                 const note = await host.syncManuscriptToChildNote?.(target, m);
+                if (renderScope.aborted) return;
                 if (note) {
                   btnSyncNote.textContent = '✅ 已同步';
-                  setTimeout(() => { btnSyncNote.textContent = '📝 同步笔记'; }, 2000);
+                  renderScope.setTimeout(() => { btnSyncNote.textContent = '📝 同步笔记'; }, 2000);
                 } else {
                   btnSyncNote.textContent = '❌ 失败';
                 }
@@ -178,7 +199,7 @@ export function registerItemPaneSection(host: any): string | null {
               btnPdf.style.cssText = 'font-size:11px; padding:3px 8px; border-radius:4px; border:1px solid #059669; background:transparent; color:#059669; cursor:pointer; font-weight:500;';
               btnPdf.textContent = '📖 PDF';
               btnPdf.title = '在 Zotero PDF 阅读器中打开';
-              btnPdf.addEventListener('click', () => {
+              renderScope.on(btnPdf, 'click', () => {
                 host.openPdfAttachment?.(target);
               });
               actionRow.appendChild(btnPdf);
@@ -191,10 +212,10 @@ export function registerItemPaneSection(host: any): string | null {
             citeChip.style.cssText = 'cursor:pointer; font-family:monospace; background:rgba(37,99,235,0.08); color:#2563eb; padding:1px 5px; border-radius:3px; font-weight:600;';
             citeChip.textContent = `[@${metaData?.citekey || ''}]`;
             citeChip.title = '点击复制 Citation Key';
-            citeChip.addEventListener('click', () => {
+            renderScope.on(citeChip, 'click', () => {
               copyToClipboard(`[@${metaData?.citekey || ''}]`);
               citeChip.textContent = '✅ 已复制';
-              setTimeout(() => { citeChip.textContent = `[@${metaData?.citekey || ''}]`; }, 1800);
+              renderScope.setTimeout(() => { citeChip.textContent = `[@${metaData?.citekey || ''}]`; }, 1800);
             });
 
             const annoInfo = document.createElement('span');
@@ -212,20 +233,20 @@ export function registerItemPaneSection(host: any): string | null {
             btnApa.style.cssText = 'font-size:11px; padding:3px 8px; border-radius:4px; border:1px solid var(--border-primary, #cbd5e1); background:var(--fill-secondary, rgba(127,127,127,0.08)); color:var(--text-secondary, #475569); cursor:pointer; font-weight:500;';
             btnApa.textContent = '📋 引用';
             btnApa.title = '复制标准引用 (APA)';
-            btnApa.addEventListener('click', () => {
+            renderScope.on(btnApa, 'click', () => {
               copyToClipboard(metaData?.citationApa || '');
               btnApa.textContent = '✅ 已复制';
-              setTimeout(() => { btnApa.textContent = '📋 引用'; }, 1800);
+              renderScope.setTimeout(() => { btnApa.textContent = '📋 引用'; }, 1800);
             });
 
             const btnBib = document.createElement('button');
             btnBib.style.cssText = 'font-size:11px; padding:3px 8px; border-radius:4px; border:1px solid var(--border-primary, #cbd5e1); background:var(--fill-secondary, rgba(127,127,127,0.08)); color:var(--text-secondary, #475569); cursor:pointer; font-weight:500;';
             btnBib.textContent = '📋 BibTeX';
             btnBib.title = '复制 BibTeX 引用条目';
-            btnBib.addEventListener('click', () => {
+            renderScope.on(btnBib, 'click', () => {
               copyToClipboard(metaData?.bibtex || '');
               btnBib.textContent = '✅ 已复制';
-              setTimeout(() => { btnBib.textContent = '📋 BibTeX'; }, 1800);
+              renderScope.setTimeout(() => { btnBib.textContent = '📋 BibTeX'; }, 1800);
             });
             actionRow.insertBefore(btnBib, actionRow.firstChild);
             actionRow.insertBefore(btnApa, actionRow.firstChild);
@@ -263,7 +284,7 @@ export function registerItemPaneSection(host: any): string | null {
             linkBtn.title = '条目处于只读库或回收站，不可关联稿件';
           } else {
             createBtn.style.cursor = 'pointer';
-            createBtn.addEventListener('click', () => {
+            renderScope.on(createBtn, 'click', () => {
               const serialized = host.serializeLiteratureItem?.(target);
               host.triggerResearchFlowOpen?.(document.defaultView, {
                 action: 'create_manuscript_from_item',
@@ -272,7 +293,7 @@ export function registerItemPaneSection(host: any): string | null {
             });
 
             linkBtn.style.cursor = 'pointer';
-            linkBtn.addEventListener('click', () => {
+            renderScope.on(linkBtn, 'click', () => {
               const serialized = host.serializeLiteratureItem?.(target);
               host.triggerResearchFlowOpen?.(document.defaultView, {
                 action: 'link_item_to_manuscript',
