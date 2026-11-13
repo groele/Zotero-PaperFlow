@@ -61,9 +61,9 @@ researchflow-pref-status-ready = 首选项已就绪。所有更改将实时生�
 # Preferences Module 1: Window & Workspace
 researchflow-pref-group-window-title = 界面交互与窗口唤起
 researchflow-pref-group-window-desc = 配置 Zotero PaperFlow 工作台默认打开形态、起始首屏、置顶策略以及多语言与外观主题偏好：
-researchflow-pref-btn-open-workspace = 📑 在 Zotero 内部主标签页打开工作台
-researchflow-pref-btn-open-subwindow = 🗗 打开 480×780 紧凑伴读子窗口 (边读文献边跟踪进展)
-researchflow-pref-btn-open-window = ⬚ 打开 1240×820 独立桌面全功能大窗口
+researchflow-pref-btn-open-workspace = 打开工作台
+researchflow-pref-btn-open-subwindow = 伴读子窗口 (480×780)
+researchflow-pref-btn-open-window = 独立大窗口 (1240×820)
 
 # Preferences Module 2: Host & Literature Integration
 researchflow-pref-group-integration-title = Zotero 宿主与文献库深度集成

@@ -61,9 +61,9 @@ researchflow-pref-status-ready = Preferences ready. All changes are saved and ap
 # Preferences Module 1: Window & Workspace
 researchflow-pref-group-window-title = Interface & Window Presentation
 researchflow-pref-group-window-desc = Configure PaperFlow default workspace mode, startup view, window pin behavior, and language/theme preferences:
-researchflow-pref-btn-open-workspace = 📑 Open Workspace in Zotero Main Tab
-researchflow-pref-btn-open-subwindow = 🗗 Open 480×780 Companion Subwindow (track progress while reading)
-researchflow-pref-btn-open-window = ⬚ Open 1240×820 Standalone Full Workspace Window
+researchflow-pref-btn-open-workspace = Open Workspace
+researchflow-pref-btn-open-subwindow = Companion Window (480×780)
+researchflow-pref-btn-open-window = Full Window (1240×820)
 
 # Preferences Module 2: Host & Literature Integration
 researchflow-pref-group-integration-title = Zotero Host & Library Integration

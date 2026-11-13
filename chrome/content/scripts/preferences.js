@@ -428,10 +428,30 @@
     init: initPreferencesWindow,
     initPreferencesWindow
   };
+  var initializedDocs = /* @__PURE__ */ new WeakSet();
+  function safeInitPreferencesWindow(win) {
+    const doc = win?.document;
+    if (!doc || initializedDocs.has(doc)) return;
+    if (!doc.getElementById("rf-pref-window")) return;
+    initializedDocs.add(doc);
+    initPreferencesWindow(win);
+  }
   if (typeof window !== "undefined") {
-    window.ResearchFlow_Preferences = ResearchFlow_Preferences;
+    window.ResearchFlow_Preferences = {
+      ...ResearchFlow_Preferences,
+      init: (win) => safeInitPreferencesWindow(win)
+    };
     window.initPreferencesWindow = initPreferencesWindow;
     window.DEFAULTS = DEFAULTS;
     window.FIELDS = FIELDS;
+    const doc = window.document;
+    if (doc) {
+      if (doc.getElementById("rf-pref-window")) {
+        safeInitPreferencesWindow(window);
+      } else if (doc.readyState === "loading") {
+        doc.addEventListener("DOMContentLoaded", () => safeInitPreferencesWindow(window), { once: true });
+      }
+      window.addEventListener("load", () => safeInitPreferencesWindow(window), { once: true });
+    }
   }
 })();

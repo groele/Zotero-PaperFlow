@@ -35,9 +35,32 @@ export {
   initPreferencesWindow
 };
 
+const initializedDocs = new WeakSet<Document>();
+
+function safeInitPreferencesWindow(win: Window): void {
+  const doc = win?.document;
+  if (!doc || initializedDocs.has(doc)) return;
+  if (!doc.getElementById('rf-pref-window')) return;
+  initializedDocs.add(doc);
+  initPreferencesWindow(win);
+}
+
 if (typeof window !== 'undefined') {
-  (window as any).ResearchFlow_Preferences = ResearchFlow_Preferences;
+  (window as any).ResearchFlow_Preferences = {
+    ...ResearchFlow_Preferences,
+    init: (win: Window) => safeInitPreferencesWindow(win),
+  };
   (window as any).initPreferencesWindow = initPreferencesWindow;
   (window as any).DEFAULTS = DEFAULTS;
   (window as any).FIELDS = FIELDS;
+
+  const doc = window.document;
+  if (doc) {
+    if (doc.getElementById('rf-pref-window')) {
+      safeInitPreferencesWindow(window);
+    } else if (doc.readyState === 'loading') {
+      doc.addEventListener('DOMContentLoaded', () => safeInitPreferencesWindow(window), { once: true });
+    }
+    window.addEventListener('load', () => safeInitPreferencesWindow(window), { once: true });
+  }
 }
