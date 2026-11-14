@@ -140,7 +140,7 @@ python tools/build-xpi.py --verify-only
 
 **开发来源声明：** 当前维护仓库的 README、清单和发布文档未声明 PaperFlow 基于某个第三方 Zotero 插件二次开发；它作为独立维护的 Zotero Flow 插件提供。该事实不授予任何额外代码或再分发权利。
 
-当前仓库没有独立 LICENSE 文件；本次不替作者新增授权。发布或再分发前，应由权利人明确许可范围。
+仓库现已提供 [LICENSE](LICENSE)（GNU AGPL v3 完整条款）；`package.json` 声明 `AGPL-3.0-or-later`。发布或再分发前，仍须核对实际著作权归属、第三方资产许可与对应源代码交付要求。
 
 本系列独立维护，并非 Zotero 官方产品。Zotero 及第三方名称、商标与材料归各自权利人所有。
 
