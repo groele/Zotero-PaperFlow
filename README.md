@@ -145,3 +145,6 @@ python tools/build-xpi.py --verify-only
 本系列独立维护，并非 Zotero 官方产品。Zotero 及第三方名称、商标与材料归各自权利人所有。
 
 [Release/tag policy](docs/release-tag-policy.md)
+
+
+**致谢 / Acknowledgements：** 详细的上游作者、第三方项目贡献及版权归属请参见 [ACKNOWLEDGEMENTS.md](ACKNOWLEDGEMENTS.md)。致谢不代替原许可证、版权行或发布包应包含的通知。
