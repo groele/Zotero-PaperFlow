@@ -138,9 +138,9 @@ Each add-on installs and updates separately. A shared brand does not imply a sha
 
 ## Origin and license
 
-**Development-origin notice:** The maintained repository’s README, manifest, and release documents do not identify a third-party Zotero add-on as PaperFlow’s derivative base; it is provided as an independently maintained Zotero Flow add-on. This fact grants no additional code or redistribution rights.
+**Original development and copyright:** Zotero PaperFlow is independently developed. The project rights holder states that they hold full copyright in the original source code, designs and documentation created for PaperFlow; this claim does not extend to Zotero, third-party libraries, outside datasets, trademarks or other third-party materials. See [COPYRIGHT.md](COPYRIGHT.md).
 
-The repository has no standalone LICENSE file. This update does not grant new rights on the author’s behalf; the rights holder should clarify licensing before redistribution.
+**License:** The copyright holder has chosen [AGPL-3.0-or-later](LICENSE) for PaperFlow's original code, consistent with `package.json`. Copyright ownership is distinct from the grant of an open-source license; AGPL does not transfer copyright ownership. See [THIRD_PARTY.md](THIRD_PARTY.md) for build dependencies and review notes.
 
 This series is independently maintained and is not an official Zotero product. Zotero and third-party names, trademarks, and materials belong to their respective rights holders.
 
