@@ -253,6 +253,7 @@ export const EN_CORE: Record<string, string> = {
   displayAcceptedCaption: 'Accepted manuscripts show the total time from submission to acceptance.',
   displayR1Label: 'R1 Comments → Today',
   displayR1Caption: 'R1 returned; the active window now starts from the first decision.',
+  displayLatestCaption: 'Latest event "{event}" recorded; the active window now starts from the latest event.',
   displayReviewLabel: 'Submission → Today',
   displayReviewCaption: 'In review; track the turnaround duration since submission.',
   milestoneExperimentStart: 'Experiments started',

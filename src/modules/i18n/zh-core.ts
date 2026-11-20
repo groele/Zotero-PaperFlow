@@ -253,6 +253,7 @@ export const ZH_CORE: Record<string, string> = {
   displayAcceptedCaption: '已接收手稿显示从投稿到接收的总时长。',
   displayR1Label: 'R1 审稿意见 → 今天',
   displayR1Caption: 'R1 意见已返回；活动窗口现在从第一次决定开始算起。',
+  displayLatestCaption: '最新事件「{event}」已记录；活动窗口现在从最新事件开始算起。',
   displayReviewLabel: '投稿 → 今天',
   displayReviewCaption: '审稿进行中；持续追踪投稿后的流转时长。',
   milestoneExperimentStart: '实验开始',

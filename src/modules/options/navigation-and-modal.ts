@@ -6,7 +6,7 @@ import { showGlobalToast, showAcceptanceCelebration } from './toast-and-celebrat
 
 export { showGlobalToast, showAcceptanceCelebration };
 
-export const RF_OPTIONS_RENDER_VERSION = '17.0.0';
+export const RF_OPTIONS_RENDER_VERSION = '17.0.1';
 export const UI_THEME_OPTIONS = new Set(['system', 'light', 'dark']);
 
 let modalScope: LifecycleScope | null = null;

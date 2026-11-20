@@ -296,3 +296,45 @@ test('overdue revision displays danger badge with overdue days', () => {
   assert.match(badgeSpan.textContent, /已逾期\s*3\s*天/);
   assert.match(badgeSpan.className, /badge-danger/);
 });
+
+test('analyzeSubmission active window tracks the latest event after R1 comments', () => {
+  const ctx = setupTestEnvironment();
+  const daysAgo = (n) => {
+    const d = new Date();
+    d.setDate(d.getDate() - n);
+    return `${String(d.getFullYear()).padStart(4, '0')}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  };
+
+  const sub = {
+    id: 'sub_r1_rev',
+    manuscriptId: 'man_r1_rev',
+    journal: 'Small',
+    status: 'under_review',
+    submissionDate: daysAgo(129),
+    firstDecisionDate: daysAgo(15),
+    timelineNodes: [
+      { id: 'n1', key: 'submit', name: 'Manuscript Submitted', type: 'submission', status: 'completed', completeDate: daysAgo(129) },
+      { id: 'n2', key: 'r1_comments', name: 'Review Comments R1', type: 'review', status: 'completed', completeDate: daysAgo(15) },
+      { id: 'n3', key: 'r1_revised', name: 'R1 Revision Submitted', type: 'revision', status: 'completed', completeDate: daysAgo(2) }
+    ]
+  };
+  ctx.db.submissions = [sub];
+  ctx.db.manuscripts = [{ id: 'man_r1_rev', title: 'Small Paper', status: 'under_review' }];
+
+  const analysis = ctx.analyzeSubmission(sub);
+  assert.equal(analysis.display.mode, 'latest-active');
+  assert.equal(analysis.display.value, 2);
+  assert.equal(analysis.latestToNow, 2);
+  assert.equal(analysis.r1ToNow, 15);
+  assert.equal(analysis.display.label, 'R1 修改稿已提交 → 今天');
+  assert.equal(analysis.display.milestones.length, 4);
+  assert.equal(analysis.display.color, '#f97316');
+
+  // R2 review comments after R1 revision switches color to review alert red
+  sub.timelineNodes.push({ id: 'n4', key: 'r2_comments', name: 'Review Comments R2', type: 'review', status: 'completed', completeDate: daysAgo(1) });
+  const r2Analysis = ctx.analyzeSubmission(sub);
+  assert.equal(r2Analysis.display.mode, 'latest-active');
+  assert.equal(r2Analysis.display.value, 1);
+  assert.equal(r2Analysis.display.color, '#dc2626');
+  assert.equal(r2Analysis.display.label, 'R2 审稿意见 → 今天');
+});

@@ -11,7 +11,7 @@ Manage manuscripts, submission rounds, and review responses.
 
 [简体中文](README.md) · [English](README.en.md)
 
-[![Release](https://img.shields.io/badge/version-17.0.0-245ac7?style=flat-square)](https://github.com/groele/Zotero-PaperFlow/releases/tag/v17.0.0) · [Download XPI](https://github.com/groele/Zotero-PaperFlow/releases/download/v17.0.0/zotero-paperflow-17.0.0.xpi) · [Report an issue](https://github.com/groele/Zotero-PaperFlow/issues)
+[![Release](https://img.shields.io/badge/version-17.0.1-245ac7?style=flat-square)](https://github.com/groele/Zotero-PaperFlow/releases/tag/v17.0.1) · [Download XPI](https://github.com/groele/Zotero-PaperFlow/releases/download/v17.0.1/zotero-paperflow-17.0.1.xpi) · [Report an issue](https://github.com/groele/Zotero-PaperFlow/issues)
 
 [Overview](#overview) · [Installation and updates](#installation) · [Quick start](#quick-start) · [Key features](#features) · [Settings](#settings) · [Data, sync, and services](#data) · [Compatibility and validation](#compatibility) · [Troubleshooting](#troubleshooting) · [Development and documentation](#development) · [The Flow series](#series) · [Origin and license](#license)
 

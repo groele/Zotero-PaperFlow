@@ -10,6 +10,7 @@ declare function normalizeDateString(dateStr: any): string;
 declare function todayString(): string;
 declare function getNodeDate(node: any): string;
 declare function getLatestTimelineNode(nodes: any[]): any;
+declare function getTimelineNodeDisplayName(node: any): string;
 declare function getDaysDiff(startDateStr: any, endDateStr: any): number | null;
 declare function formatShortDate(dateStr: any): string;
 declare function isDarkThemeActive(): boolean;
@@ -56,6 +57,22 @@ export function analyzeSubmission(sub: any): any {
   const expToSubmit = experimentDate && submitDate ? getDaysDiff(experimentDate, submitDate) : null;
   const submitToNow = submitDate && !accepted ? getDaysDiff(submitDate, todayString()) : null;
   const r1ToNow = r1Date && !accepted ? getDaysDiff(r1Date, todayString()) : null;
+  const latestKey = latest ? inferKey(latest) : '';
+  const latestDate = latest ? normalizeDateString(getNodeDate(latest)) : '';
+  const latestToNow = latestDate && !accepted ? getDaysDiff(latestDate, todayString()) : null;
+  const latestName = latest ? getTimelineNodeDisplayName(latest) : '';
+  const preSubmitKeys = new Set(['experiment_start', 'experiment_done', 'draft_done']);
+  const hasNewerLatestEvent = Boolean(
+    latestDate &&
+    !preSubmitKeys.has(latestKey) &&
+    (
+      r1Date
+        ? (latestDate > r1Date || (latestDate === r1Date && latestKey !== 'r1_comments' && latestKey !== 'submit'))
+        : submitDate
+          ? (latestDate > submitDate || (latestDate === submitDate && latestKey !== 'submit'))
+          : true
+    )
+  );
   const submitToAccept = submitDate && acceptDate ? getDaysDiff(submitDate, acceptDate) : null;
   const acceptToOnline = acceptDate && onlineDate ? getDaysDiff(acceptDate, onlineDate) : null;
 
@@ -89,6 +106,31 @@ export function analyzeSubmission(sub: any): any {
         { name: t('milestoneSubmission'), date: submitDate, color: '#f97316', emphasis: true, node: events.find((e: any) => inferKey(e) === 'submit') },
         { name: t('milestoneAcceptance'), date: acceptDate, color: '#16a34a', emphasis: true, node: events.find((e: any) => inferKey(e) === 'accept') },
       ],
+    };
+  } else if (hasNewerLatestEvent) {
+    const latestIsReview = latestKey === 'r1_comments' || latestKey === 'r2_comments' || latest?.type === 'review';
+    const latestColor = latestIsReview ? '#dc2626' : '#f97316';
+    const latestBg = latestIsReview ? '#fef2f2' : '#fff7ed';
+    const latestBorder = latestIsReview ? '#fecaca' : '#fed7aa';
+    const milestones: any[] = [];
+    if (submitDate) {
+      milestones.push({ name: t('milestoneSubmission'), date: submitDate, color: '#f97316', emphasis: false, node: submitNode });
+    }
+    if (r1Date && latestKey !== 'r1_comments') {
+      milestones.push({ name: t('milestoneR1Comments'), date: r1Date, color: '#dc2626', emphasis: false, node: events.find((e: any) => inferKey(e) === 'r1_comments') });
+    }
+    milestones.push({ name: latestName, date: latestDate, color: latestColor, emphasis: true, node: latest });
+    milestones.push({ name: t('milestoneToday'), date: todayString(), color: latestColor, emphasis: true, today: true });
+    display = {
+      mode: 'latest-active',
+      label: `${latestName} → ${t('milestoneToday')}`,
+      value: latestToNow,
+      color: latestColor,
+      bg: latestBg,
+      border: latestBorder,
+      caption: tf('displayLatestCaption', { event: latestName }),
+      pending: true,
+      milestones,
     };
   } else if (r1Date) {
     display = {
@@ -137,6 +179,9 @@ export function analyzeSubmission(sub: any): any {
     } else if (display.mode === 'under-review') {
       display.bg = 'rgba(249,115,22,0.08)';
       display.border = 'rgba(249,115,22,0.3)';
+    } else if (display.mode === 'latest-active') {
+      display.bg = display.color === '#dc2626' ? 'rgba(220,38,38,0.08)' : 'rgba(249,115,22,0.08)';
+      display.border = display.color === '#dc2626' ? 'rgba(220,38,38,0.3)' : 'rgba(249,115,22,0.3)';
     }
   }
 
@@ -156,5 +201,5 @@ export function analyzeSubmission(sub: any): any {
   if (explicitStatus === 'accepted' && acceptDate) stateNote = formatShortDate(acceptDate);
   if (explicitStatus === 'published' && onlineDate) stateNote = formatShortDate(onlineDate);
 
-  return { events, experimentStartDate, experimentDate, submitDate, submitDateSource, r1Date, acceptDate, onlineDate, latest, accepted, expToSubmit, submitToNow, r1ToNow, submitToAccept, acceptToOnline, display, stateLabel, stateColor, stateNote };
+  return { events, experimentStartDate, experimentDate, submitDate, submitDateSource, r1Date, acceptDate, onlineDate, latest, latestDate, latestToNow, accepted, expToSubmit, submitToNow, r1ToNow, submitToAccept, acceptToOnline, display, stateLabel, stateColor, stateNote };
 }

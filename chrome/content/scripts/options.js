@@ -6,7 +6,7 @@
  * Target runtime: Gecko 153+ / Firefox 140+ (minify: false for Error Console audit)
  * ----------------------------------------------------------------------------------
  */
-const RF_OPTIONS_RENDER_VERSION = '17.0.0';
+const RF_OPTIONS_RENDER_VERSION = '17.0.1';
 "use strict";
 (() => {
   var __getOwnPropNames = Object.getOwnPropertyNames;
@@ -576,7 +576,7 @@ const RF_OPTIONS_RENDER_VERSION = '17.0.0';
       "use strict";
       init_lifecycle();
       init_toast_and_celebration();
-      RF_OPTIONS_RENDER_VERSION = "17.0.0";
+      RF_OPTIONS_RENDER_VERSION = "17.0.1";
       UI_THEME_OPTIONS = /* @__PURE__ */ new Set(["system", "light", "dark"]);
       modalScope = null;
       focusEditTimerScope = null;
